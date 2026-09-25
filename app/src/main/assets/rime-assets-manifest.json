@@ -1,0 +1,137 @@
+{
+  "metadata": {
+    "rime_version": "1.17.0",
+    "table_format": "Rime::Table/4.0",
+    "dict_data_version": 2026091301,
+    "upstream_repository": "https://github.com/amzxyz/rime-wanxiang",
+    "upstream_commit": "1b66a704d0ddb3dfcac10d92bbf384b9209621ab",
+    "upstream_license": "CC-BY-4.0",
+    "dictionary_source_sha256": "930161d6712941b6975f2006545f7980e23a141e3d713102aed5d9ae18672de9"
+  },
+  "ownership": {
+    "preserved_user_files": [
+      "user.yaml",
+      "installation.yaml",
+      "custom_phrase.txt"
+    ],
+    "runtime_derived_patterns": [
+      "*.userdb",
+      "*.userdb.kct"
+    ],
+    "system_assets_count": 28
+  },
+  "system_assets": {
+    "BUILD_REPORT.json": {
+      "bytes": 7222,
+      "sha256": "1f3c78d555492cb7336e49d49cedec2bf9205f3c0bb0e34dda57c88231ee952f"
+    },
+    "NOTICE.txt": {
+      "bytes": 728,
+      "sha256": "c3ea0c92aa12b03baed1c9b454f87bf51288c426111d6b2b51a37758f9ac1196"
+    },
+    "PROJECT_WORDS_LICENSE": {
+      "bytes": 2193,
+      "sha256": "ff900b163a9eb7b43df35e8072e1c77eac9fee2f94e2671178db61db84517789"
+    },
+    "SOURCE_HEADERS.txt": {
+      "bytes": 631,
+      "sha256": "c7eec48ba5ce751eb831a2ce81d22c1c400c643da0ecfc03ef99b16cc97daa3e"
+    },
+    "UPSTREAM_LICENSE": {
+      "bytes": 18656,
+      "sha256": "9e5f1b3c610b9c2da5c313bf81d577a7d1acec686bdb0384edefa6df0f90cd94"
+    },
+    "build/default.yaml": {
+      "bytes": 196,
+      "sha256": "9b3aa9b91f1fbc211e6fcb1852aec81680b16ba579e2218cfec3056d6864ecb1"
+    },
+    "build/double_pinyin_flypy.prism.bin": {
+      "bytes": 14672,
+      "sha256": "51ef93879f0e317656ab5c71163ed1a27d8d4f5eb3ba24fb9436c173428d99ba"
+    },
+    "build/double_pinyin_flypy.schema.yaml": {
+      "bytes": 3107,
+      "sha256": "12c5f194a8fa91d9b8bf369c090716275418a0b3d3e24141a502b390d9d8bfba"
+    },
+    "build/english.prism.bin": {
+      "bytes": 3384008,
+      "sha256": "70cb8f87b91fa479c9f4e981111ede7b4fda6083cf10868b4c43982e65bfb0d0"
+    },
+    "build/english.schema.yaml": {
+      "bytes": 854,
+      "sha256": "acead7d2c38123588f730b2385132cf4b787f4711c750181c53b00cda046c5f0"
+    },
+    "build/english.table.bin": {
+      "bytes": 680940,
+      "sha256": "4b9a48113812e205e5779b8b5584aaa2991e8f634513ab0c30671e623c11ca80"
+    },
+    "build/pinyin.prism.bin": {
+      "bytes": 38024,
+      "sha256": "51f9b290ff0d40b57fd0d679776dade85854b2dba5a939e3abcbd1c03e1467a8"
+    },
+    "build/pinyin.reverse.bin": {
+      "bytes": 263804,
+      "sha256": "1f71783deac6e61b960946b3b9c65d1930c219de9c2a59927752a5de07ad08b2"
+    },
+    "build/pinyin.schema.yaml": {
+      "bytes": 1943,
+      "sha256": "8bde1f29ebe3cc510b3278b3d2385d39827326eb10d8dd8aeb67f7cd95b5597e"
+    },
+    "build/pinyin.table.bin": {
+      "bytes": 49776480,
+      "sha256": "0b6764958ac3180a6c188f3c5016a5c9085e596b51581c355655533929919ff2"
+    },
+    "build/t9_pinyin.prism.bin": {
+      "bytes": 20848,
+      "sha256": "02e32e1b4863f0f97f9febe8bbf4f1f774fcbdb7f93e43c0062f48fd08c97092"
+    },
+    "build/t9_pinyin.schema.yaml": {
+      "bytes": 2005,
+      "sha256": "da32938ea7626bbe17e845047cb56381599c8a5ffca574bf6771df04cb2805e9"
+    },
+    "default.yaml": {
+      "bytes": 196,
+      "sha256": "9b3aa9b91f1fbc211e6fcb1852aec81680b16ba579e2218cfec3056d6864ecb1"
+    },
+    "double_pinyin_flypy.schema.yaml": {
+      "bytes": 2802,
+      "sha256": "f11d4ba562bee2399104613ec67c102e0e71ae6ece2ca6a6b28910469c198fe2"
+    },
+    "english.schema.yaml": {
+      "bytes": 854,
+      "sha256": "acead7d2c38123588f730b2385132cf4b787f4711c750181c53b00cda046c5f0"
+    },
+    "opencc/STCharacters.ocd2": {
+      "bytes": 34539,
+      "sha256": "c8bf4c624bad2523621b6432859b79b5bc26652c2b76662ee3437821f882399f"
+    },
+    "opencc/STPhrases.ocd2": {
+      "bytes": 927237,
+      "sha256": "50e6f258e001d2cd28519091a8aea2787bff586132e794d23f300c0a059c9911"
+    },
+    "opencc/emoji.json": {
+      "bytes": 355,
+      "sha256": "fd5dcc12b6d6661028595b92d569ed3b04cc136d1c3352d2a5be96b88348d370"
+    },
+    "opencc/emoji.ocd2": {
+      "bytes": 138750,
+      "sha256": "6bab402815c984ed4a5badea4b95db03a7a6f656d61088bd77f524e1561d2cbb"
+    },
+    "opencc/others.ocd2": {
+      "bytes": 63093,
+      "sha256": "7f867095dc40b667aa6080954a92f52488f96d7c8ac88febaa3da458663fa6ac"
+    },
+    "opencc/s2t.json": {
+      "bytes": 406,
+      "sha256": "710bb970e406d9c0a3dd33c609248686cf1c5578d064b7b7fc89e70fbb9ea75d"
+    },
+    "pinyin.schema.yaml": {
+      "bytes": 1953,
+      "sha256": "b0ba6d92dfd249a92ab82b50e7b3045e9a12583581d653610003fffee4a5b188"
+    },
+    "t9_pinyin.schema.yaml": {
+      "bytes": 1902,
+      "sha256": "1ef0e9ac9ab97b5a1164eba49c1bfd3b56175442811505cb9f78beaf64bfdead"
+    }
+  }
+}

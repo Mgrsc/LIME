@@ -1,0 +1,592 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.core.widget.NestedScrollView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:overScrollMode="never">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:paddingTop="8dp"
+        android:paddingBottom="36dp">
+
+        <!-- Hero status card -->
+        <LinearLayout
+            android:id="@+id/ll_hero_card"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:background="@drawable/bg_settings_card"
+            android:clipToOutline="true"
+            android:foreground="?android:attr/selectableItemBackground"
+            android:padding="16dp">
+
+            <ImageView
+                android:id="@+id/iv_hero_logo"
+                android:layout_width="52dp"
+                android:layout_height="52dp"
+                android:src="@drawable/ic_lime_launcher"
+                android:contentDescription="@string/app_name" />
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical"
+                android:layout_marginStart="14dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/app_name"
+                    android:textColor="@color/settings_primary_text"
+                    android:textSize="17sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/tv_hero_status"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="5dp"
+                    android:background="@drawable/bg_status_badge"
+                    android:backgroundTint="@color/settings_badge_active_bg"
+                    android:paddingStart="8dp"
+                    android:paddingEnd="8dp"
+                    android:paddingTop="2.5dp"
+                    android:paddingBottom="2.5dp"
+                    android:text="@string/settings_status_enabled"
+                    android:textColor="@color/settings_badge_active_text"
+                    android:textSize="11.5sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/btn_hero_setup"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:background="@drawable/bg_status_badge"
+                android:backgroundTint="@color/settings_accent_color"
+                android:paddingStart="14dp"
+                android:paddingEnd="14dp"
+                android:paddingTop="6dp"
+                android:paddingBottom="6dp"
+                android:text="@string/enable_ime"
+                android:textColor="@android:color/white"
+                android:textSize="12.5sp"
+                android:textStyle="bold"
+                android:visibility="gone" />
+        </LinearLayout>
+
+        <!-- Group 1: Input and AI Engine -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:layout_marginBottom="8dp"
+            android:layout_marginStart="4dp"
+            android:text="@string/settings_group_input_ai"
+            android:textColor="@color/settings_group_title"
+            android:textSize="13sp"
+            android:textStyle="bold" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="@drawable/bg_settings_card"
+            android:clipToOutline="true">
+
+            <LinearLayout
+                android:id="@+id/item_input_settings"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:minHeight="58dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp"
+                android:paddingTop="11dp"
+                android:paddingBottom="11dp"
+                android:foreground="?android:attr/selectableItemBackground">
+
+                <FrameLayout
+                    android:layout_width="36dp"
+                    android:layout_height="36dp"
+                    android:background="@drawable/bg_icon_badge"
+                    android:backgroundTint="@color/icon_badge_input_bg">
+                    <ImageView
+                        android:importantForAccessibility="no"
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:layout_gravity="center"
+                        android:src="@drawable/ic_menu_language"
+                        app:tint="@color/icon_badge_input_tint" />
+                </FrameLayout>
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:layout_marginStart="14dp">
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/setting_ime_input"
+                        android:textColor="@color/settings_primary_text"
+                        android:textSize="15.5sp"
+                        android:textStyle="bold" />
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:text="@string/ime_settings_input_desc"
+                        android:textColor="@color/settings_secondary_text"
+                        android:singleLine="true"
+                        android:ellipsize="end"
+                        android:textSize="12sp" />
+                </LinearLayout>
+
+                <ImageView
+                    android:importantForAccessibility="no"
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:src="@drawable/ic_chevron_right_24"
+                    app:tint="@color/settings_secondary_text" />
+            </LinearLayout>
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="0.6dp"
+                android:layout_marginStart="66dp"
+                android:layout_marginEnd="16dp"
+                android:background="@color/settings_divider_color" />
+
+            <LinearLayout
+                android:id="@+id/item_voice_settings"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:minHeight="58dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp"
+                android:paddingTop="11dp"
+                android:paddingBottom="11dp"
+                android:foreground="?android:attr/selectableItemBackground">
+
+                <FrameLayout
+                    android:layout_width="36dp"
+                    android:layout_height="36dp"
+                    android:background="@drawable/bg_icon_badge"
+                    android:backgroundTint="@color/icon_badge_voice_bg">
+                    <ImageView
+                        android:importantForAccessibility="no"
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:layout_gravity="center"
+                        android:src="@drawable/ic_mic_24"
+                        app:tint="@color/icon_badge_voice_tint" />
+                </FrameLayout>
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:layout_marginStart="14dp">
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/ime_settings_voice"
+                        android:textColor="@color/settings_primary_text"
+                        android:textSize="15.5sp"
+                        android:textStyle="bold" />
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:text="@string/ime_settings_voice_desc"
+                        android:textColor="@color/settings_secondary_text"
+                        android:singleLine="true"
+                        android:ellipsize="end"
+                        android:textSize="12sp" />
+                </LinearLayout>
+
+                <ImageView
+                    android:importantForAccessibility="no"
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:src="@drawable/ic_chevron_right_24"
+                    app:tint="@color/settings_secondary_text" />
+            </LinearLayout>
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="0.6dp"
+                android:layout_marginStart="66dp"
+                android:layout_marginEnd="16dp"
+                android:background="@color/settings_divider_color" />
+
+            <LinearLayout
+                android:id="@+id/item_handwriting_settings"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:minHeight="58dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp"
+                android:paddingTop="11dp"
+                android:paddingBottom="11dp"
+                android:foreground="?android:attr/selectableItemBackground">
+
+                <FrameLayout
+                    android:layout_width="36dp"
+                    android:layout_height="36dp"
+                    android:background="@drawable/bg_icon_badge"
+                    android:backgroundTint="@color/icon_badge_handwrite_bg">
+                    <ImageView
+                        android:importantForAccessibility="no"
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:layout_gravity="center"
+                        android:src="@drawable/ic_menu_handwriting"
+                        app:tint="@color/icon_badge_handwrite_tint" />
+                </FrameLayout>
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:layout_marginStart="14dp">
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/ime_settings_handwriting"
+                        android:textColor="@color/settings_primary_text"
+                        android:textSize="15.5sp"
+                        android:textStyle="bold" />
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:text="@string/ime_settings_handwriting_desc"
+                        android:textColor="@color/settings_secondary_text"
+                        android:singleLine="true"
+                        android:ellipsize="end"
+                        android:textSize="12sp" />
+                </LinearLayout>
+
+                <ImageView
+                    android:importantForAccessibility="no"
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:src="@drawable/ic_chevron_right_24"
+                    app:tint="@color/settings_secondary_text" />
+            </LinearLayout>
+
+        </LinearLayout>
+
+        <!-- Group 2: Interface and Keyboards -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:layout_marginBottom="8dp"
+            android:layout_marginStart="4dp"
+            android:text="@string/settings_group_ui_keyboard"
+            android:textColor="@color/settings_group_title"
+            android:textSize="13sp"
+            android:textStyle="bold" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="@drawable/bg_settings_card"
+            android:clipToOutline="true">
+
+            <LinearLayout
+                android:id="@+id/item_theme_settings"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:minHeight="58dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp"
+                android:paddingTop="11dp"
+                android:paddingBottom="11dp"
+                android:foreground="?android:attr/selectableItemBackground">
+
+                <FrameLayout
+                    android:layout_width="36dp"
+                    android:layout_height="36dp"
+                    android:background="@drawable/bg_icon_badge"
+                    android:backgroundTint="@color/icon_badge_theme_bg">
+                    <ImageView
+                        android:importantForAccessibility="no"
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:layout_gravity="center"
+                        android:src="@drawable/ic_menu_theme"
+                        app:tint="@color/icon_badge_theme_tint" />
+                </FrameLayout>
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:layout_marginStart="14dp">
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/theme_and_appearance"
+                        android:textColor="@color/settings_primary_text"
+                        android:textSize="15.5sp"
+                        android:textStyle="bold" />
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:text="@string/ime_settings_theme_desc"
+                        android:textColor="@color/settings_secondary_text"
+                        android:singleLine="true"
+                        android:ellipsize="end"
+                        android:textSize="12sp" />
+                </LinearLayout>
+
+                <ImageView
+                    android:importantForAccessibility="no"
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:src="@drawable/ic_chevron_right_24"
+                    app:tint="@color/settings_secondary_text" />
+            </LinearLayout>
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="0.6dp"
+                android:layout_marginStart="66dp"
+                android:layout_marginEnd="16dp"
+                android:background="@color/settings_divider_color" />
+
+            <LinearLayout
+                android:id="@+id/item_clipboard_settings"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:minHeight="58dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp"
+                android:paddingTop="11dp"
+                android:paddingBottom="11dp"
+                android:foreground="?android:attr/selectableItemBackground">
+
+                <FrameLayout
+                    android:layout_width="36dp"
+                    android:layout_height="36dp"
+                    android:background="@drawable/bg_icon_badge"
+                    android:backgroundTint="@color/icon_badge_clipboard_bg">
+                    <ImageView
+                        android:importantForAccessibility="no"
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:layout_gravity="center"
+                        android:src="@drawable/ic_menu_clipboard"
+                        app:tint="@color/icon_badge_clipboard_tint" />
+                </FrameLayout>
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:layout_marginStart="14dp">
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/clipboard"
+                        android:textColor="@color/settings_primary_text"
+                        android:textSize="15.5sp"
+                        android:textStyle="bold" />
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:text="@string/ime_settings_clipboard_desc"
+                        android:textColor="@color/settings_secondary_text"
+                        android:singleLine="true"
+                        android:ellipsize="end"
+                        android:textSize="12sp" />
+                </LinearLayout>
+
+                <ImageView
+                    android:importantForAccessibility="no"
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:src="@drawable/ic_chevron_right_24"
+                    app:tint="@color/settings_secondary_text" />
+            </LinearLayout>
+
+        </LinearLayout>
+
+        <!-- Group 3: System and Support -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:layout_marginBottom="8dp"
+            android:layout_marginStart="4dp"
+            android:text="@string/settings_group_system_support"
+            android:textColor="@color/settings_group_title"
+            android:textSize="13sp"
+            android:textStyle="bold" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="@drawable/bg_settings_card"
+            android:clipToOutline="true">
+
+            <LinearLayout
+                android:id="@+id/item_data_settings"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:minHeight="58dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp"
+                android:paddingTop="11dp"
+                android:paddingBottom="11dp"
+                android:foreground="?android:attr/selectableItemBackground">
+
+                <FrameLayout
+                    android:layout_width="36dp"
+                    android:layout_height="36dp"
+                    android:background="@drawable/bg_icon_badge"
+                    android:backgroundTint="@color/icon_badge_data_bg">
+                    <ImageView
+                        android:importantForAccessibility="no"
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:layout_gravity="center"
+                        android:src="@drawable/ic_settings_data"
+                        app:tint="@color/icon_badge_data_tint" />
+                </FrameLayout>
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:layout_marginStart="14dp">
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/data_management"
+                        android:textColor="@color/settings_primary_text"
+                        android:textSize="15.5sp"
+                        android:textStyle="bold" />
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:text="@string/ime_settings_data_desc"
+                        android:textColor="@color/settings_secondary_text"
+                        android:singleLine="true"
+                        android:ellipsize="end"
+                        android:textSize="12sp" />
+                </LinearLayout>
+
+                <ImageView
+                    android:importantForAccessibility="no"
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:src="@drawable/ic_chevron_right_24"
+                    app:tint="@color/settings_secondary_text" />
+            </LinearLayout>
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="0.6dp"
+                android:layout_marginStart="66dp"
+                android:layout_marginEnd="16dp"
+                android:background="@color/settings_divider_color" />
+
+            <LinearLayout
+                android:id="@+id/item_about_settings"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:minHeight="58dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp"
+                android:paddingTop="11dp"
+                android:paddingBottom="11dp"
+                android:foreground="?android:attr/selectableItemBackground">
+
+                <FrameLayout
+                    android:layout_width="36dp"
+                    android:layout_height="36dp"
+                    android:background="@drawable/bg_icon_badge"
+                    android:backgroundTint="@color/icon_badge_about_bg">
+                    <ImageView
+                        android:importantForAccessibility="no"
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:layout_gravity="center"
+                        android:src="@drawable/ic_settings_about"
+                        app:tint="@color/icon_badge_about_tint" />
+                </FrameLayout>
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:layout_marginStart="14dp">
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/about_app"
+                        android:textColor="@color/settings_primary_text"
+                        android:textSize="15.5sp"
+                        android:textStyle="bold" />
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:text="@string/ime_settings_about_desc"
+                        android:textColor="@color/settings_secondary_text"
+                        android:singleLine="true"
+                        android:ellipsize="end"
+                        android:textSize="12sp" />
+                </LinearLayout>
+
+                <ImageView
+                    android:importantForAccessibility="no"
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:src="@drawable/ic_chevron_right_24"
+                    app:tint="@color/settings_secondary_text" />
+            </LinearLayout>
+
+        </LinearLayout>
+
+    </LinearLayout>
+
+</androidx.core.widget.NestedScrollView>

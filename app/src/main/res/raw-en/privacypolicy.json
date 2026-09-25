@@ -1,0 +1,24 @@
+[
+  {
+    "name": "",
+    "description": "Welcome to LIME (Liuqing Input Method Engine). LIME is a 100% on-device, open-source input method. It does not require account registration or login.\n\nLIME strictly adheres to the principle of least privilege and treats user privacy as our top priority. To ensure proper keyboard operation, LIME requires the following system permissions and capabilities:"
+  }, {
+  "name": "1. Clipboard",
+  "description": "Android enables clipboard access for active input methods by default, which is used to provide quick paste, clipboard history, and pin features. All clipboard history is stored exclusively in an on-device SQLite database and is never transmitted off-device."
+}, {
+  "name": "2. Offline Speech & Microphone Permission",
+  "description": "Microphone permission is requested only when voice input is actively triggered, used for the on-device Sherpa-ONNX recognition engine. Audio data and recognized text are processed ephemerally in device memory and never uploaded."
+}, {
+  "name": "3. Local Storage Access",
+  "description": "Used only when you explicitly import/export local dictionary backup archives (.zip) or select custom keyboard wallpapers. The app does not scan or access any other personal files."
+}, {
+  "name": "4. Device Motion & Orientation",
+  "description": "Retrieves screen orientation status to adaptively adjust keyboard height and layout proportions during portrait/landscape transitions."
+}, {
+  "name": "5. Audio Volume & Haptic Control",
+  "description": "Used to control keystroke sound effects and linear motor haptic feedback vibration."
+}, {
+  "name": "On-Device Inference & Privacy Commitments",
+  "description": "All text input, frequency learning, speech recognition, and handwriting recognition run 100% locally on-device. LIME never uploads keystrokes, dictionaries, audio, handwriting, or recognized text to any cloud servers.\n\nOnly when you explicitly confirm downloading offline AI models (SenseVoice speech or PP-OCRv6 handwriting) and required shared runtime libraries, the app accesses public trusted endpoints (Offline model sources: ModelScope, HF-Mirror, HuggingFace, GitHub Releases, ghproxy; Runtime sources: GitHub Releases, ghproxy) over HTTPS to download fixed-version artifacts verified with SHA-256 integrity hashes. Once downloaded, all inference runs 100% offline on-device.\n\nClipboard history and user dictionaries are saved solely on your device and can be exported as backups by the user; voice recordings are processed ephemerally and are not saved as audio files.\n\nThis project is licensed under open-source licenses: core input engine librime under BSD-3-Clause; speech engine Sherpa-ONNX under Apache-2.0, SenseVoice model under FunASR Model License; handwriting engine PaddleOCR PP-OCRv6 under Apache-2.0, ONNX Runtime under MIT; Wanxiang Pinyin dictionary under CC BY 4.0."
+}
+]

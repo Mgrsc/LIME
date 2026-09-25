@@ -1,0 +1,34 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="192dp"
+    android:height="192dp"
+    android:viewportWidth="512"
+    android:viewportHeight="512">
+    <!-- 1. Squircle background -->
+    <path
+        android:pathData="M 112,0 H 400 A 112,112 0 0,1 512,112 V 400 A 112,112 0 0,1 400,512 H 112 A 112,112 0 0,1 0,400 V 112 A 112,112 0 0,1 112,0 Z"
+        android:fillColor="#133629" />
+
+    <!-- 2. Centered glyph and cursor -->
+    <group
+        android:pivotX="252"
+        android:pivotY="243"
+        android:scaleX="0.88"
+        android:scaleY="0.88"
+        android:translateX="4"
+        android:translateY="13">
+        <!-- Upper stem -->
+        <path
+            android:pathData="M178,128 L178,128 A22,22 0 0,1 200,150 L200,202 A22,22 0 0,1 178,224 L178,224 A22,22 0 0,1 156,202 L156,150 A22,22 0 0,1 178,128 Z"
+            android:fillColor="#FFFFFF" />
+
+        <!-- Lower stem and baseline -->
+        <path
+            android:pathData="M156,260 A22,22 0 0,1 200,260 L200,314 L326,314 A22,22 0 0,1 326,358 L178,358 A22,22 0 0,1 156,336 Z"
+            android:fillColor="#FFFFFF" />
+
+        <!-- 3. Caret cursor -->
+        <path
+            android:pathData="M262,168 L262,168 A18,18 0 0,1 280,186 L280,260 A18,18 0 0,1 262,278 L262,278 A18,18 0 0,1 244,260 L244,186 A18,18 0 0,1 262,168 Z"
+            android:fillColor="#34D399" />
+    </group>
+</vector>

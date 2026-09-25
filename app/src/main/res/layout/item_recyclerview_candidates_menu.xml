@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:foregroundGravity="center">
+
+    <ImageView
+        android:importantForAccessibility="no"
+        android:id="@+id/candidates_menu_item"
+        android:theme="@style/Theme.AppTheme"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"/>
+
+    <ImageView
+        android:importantForAccessibility="no"
+        android:id="@+id/candidates_menu_item_badge"
+        android:layout_width="14dp"
+        android:layout_height="14dp"
+        android:layout_gravity="top|end"
+        android:layout_marginTop="2dp"
+        android:layout_marginEnd="0dp"
+        android:src="@drawable/ic_menu_minus"
+        android:visibility="gone"/>
+</FrameLayout>

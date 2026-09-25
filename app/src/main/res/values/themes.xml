@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.AppTheme" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="android:windowBackground">@color/settings_window_background</item>
+        <item name="android:colorBackground">@color/settings_window_background</item>
+        <item name="colorPrimary">@color/settings_accent_color</item>
+        <item name="colorPrimaryVariant">@color/settings_accent_color</item>
+        <item name="colorSecondary">@color/settings_accent_color</item>
+        <item name="colorSecondaryVariant">@color/settings_accent_color</item>
+        <item name="colorSurface">@color/settings_card_background</item>
+        <item name="colorOnSurface">@color/settings_primary_text</item>
+        <item name="colorOnPrimary">@color/settings_on_accent_color</item>
+        <item name="colorAccent">@color/settings_accent_color</item>
+        <item name="android:textColorPrimary">@color/settings_primary_text</item>
+        <item name="android:textColorSecondary">@color/settings_secondary_text</item>
+        <item name="android:statusBarColor">@color/settings_window_background</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:navigationBarColor">@color/settings_window_background</item>
+        <item name="android:windowLightNavigationBar">true</item>
+        <item name="alertDialogTheme">@style/ModernAlertDialogTheme</item>
+        <item name="materialAlertDialogTheme">@style/ModernAlertDialogTheme</item>
+        <item name="bottomSheetDialogTheme">@style/ModernBottomSheetDialogTheme</item>
+    </style>
+
+    <style name="ModernBottomSheetDialogTheme" parent="Theme.MaterialComponents.DayNight.BottomSheetDialog">
+        <item name="android:windowIsFloating">false</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:colorBackground">@android:color/transparent</item>
+        <item name="bottomSheetStyle">@style/ModernBottomSheetStyle</item>
+    </style>
+
+    <style name="ModernBottomSheetStyle" parent="Widget.MaterialComponents.BottomSheet.Modal">
+        <item name="android:background">@android:color/transparent</item>
+        <item name="backgroundTint">@android:color/transparent</item>
+    </style>
+
+    <style name="ModernAlertDialogTheme" parent="ThemeOverlay.MaterialComponents.MaterialAlertDialog">
+        <item name="shapeAppearanceOverlay">@style/ModernDialogShape</item>
+        <item name="colorSurface">@color/settings_card_background</item>
+        <item name="colorOnSurface">@color/settings_primary_text</item>
+        <item name="colorPrimary">@color/settings_accent_color</item>
+        <item name="colorAccent">@color/settings_accent_color</item>
+        <item name="android:textColorPrimary">@color/settings_primary_text</item>
+        <item name="android:textColorSecondary">@color/settings_secondary_text</item>
+        <item name="buttonBarPositiveButtonStyle">@style/ModernDialogButton</item>
+        <item name="buttonBarNegativeButtonStyle">@style/ModernDialogButton</item>
+        <item name="buttonBarNeutralButtonStyle">@style/ModernDialogButton</item>
+        <item name="materialAlertDialogTitleTextStyle">@style/ModernDialogTitleText</item>
+        <item name="materialAlertDialogBodyTextStyle">@style/ModernDialogBodyText</item>
+    </style>
+
+    <style name="ModernDialogShape" parent="ShapeAppearance.MaterialComponents.MediumComponent">
+        <item name="cornerSize">24dp</item>
+    </style>
+
+    <style name="ModernDialogTitleText" parent="MaterialAlertDialog.MaterialComponents.Title.Text">
+        <item name="android:textColor">@color/settings_primary_text</item>
+        <item name="android:textSize">19sp</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+
+    <style name="ModernDialogBodyText" parent="MaterialAlertDialog.MaterialComponents.Body.Text">
+        <item name="android:textColor">@color/settings_secondary_text</item>
+        <item name="android:textSize">14sp</item>
+        <item name="android:lineSpacingMultiplier">1.2</item>
+    </style>
+
+    <style name="ModernDialogButton" parent="Widget.MaterialComponents.Button.TextButton.Dialog">
+        <item name="android:textColor">@color/settings_accent_color</item>
+        <item name="android:textSize">14sp</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+
+    <style name="SettingsToolbarTitle" parent="TextAppearance.Widget.AppCompat.Toolbar.Title">
+        <item name="android:textSize">18sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:textColor">@color/settings_primary_text</item>
+    </style>
+
+    <style name="Theme.CropImageActivity" parent="Theme.MaterialComponents.DayNight">
+        <item name="android:statusBarColor">@color/crop_surface</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:navigationBarColor">@color/crop_background</item>
+        <item name="android:windowLightNavigationBar">false</item>
+        <item name="android:windowBackground">@color/crop_background</item>
+        <item name="android:colorBackground">@color/crop_background</item>
+        <item name="colorSurface">@color/crop_surface</item>
+        <item name="colorOnSurface">#FFFFFF</item>
+        <item name="colorPrimary">@color/crop_surface</item>
+        <item name="colorOnPrimary">#FFFFFF</item>
+        <item name="colorAccent">@color/settings_accent_color</item>
+        <item name="actionBarStyle">@style/ModernCropActionBar</item>
+    </style>
+
+    <style name="ModernCropActionBar" parent="Widget.MaterialComponents.ActionBar.Solid">
+        <item name="background">@color/crop_surface</item>
+        <item name="elevation">0dp</item>
+        <item name="titleTextStyle">@style/ModernCropActionBarTitle</item>
+    </style>
+
+    <style name="ModernCropActionBarTitle" parent="TextAppearance.MaterialComponents.Headline6">
+        <item name="android:textColor">#FFFFFF</item>
+        <item name="android:textSize">18sp</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+</resources>

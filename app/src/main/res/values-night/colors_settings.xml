@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Settings Canvas & Cards (Dark) -->
+    <color name="settings_window_background">#111315</color>
+    <color name="settings_card_background">#1C1F24</color>
+    <color name="settings_card_stroke">#2D3239</color>
+    <color name="settings_divider_color">#262A30</color>
+    <color name="settings_primary_text">#F1F5F9</color>
+    <color name="settings_secondary_text">#94A3B8</color>
+    <color name="settings_accent_color">#60A5FA</color>
+    <color name="settings_ripple_color">#2660A5FA</color>
+
+    <!-- Status Badges (Dark) -->
+    <color name="settings_badge_active_bg">#14532D</color>
+    <color name="settings_badge_active_text">#4ADE80</color>
+    <color name="settings_badge_warn_bg">#78350F</color>
+    <color name="settings_badge_warn_text">#FBBF24</color>
+
+    <!-- Group Titles -->
+    <color name="settings_group_title">#94A3B8</color>
+
+    <!-- Icon Badges (Dark Mode Subtle Unified Palette) -->
+    <color name="icon_badge_input_bg">#1E293B</color>
+    <color name="icon_badge_input_tint">#60A5FA</color>
+
+    <color name="icon_badge_voice_bg">#1E293B</color>
+    <color name="icon_badge_voice_tint">#22D3EE</color>
+
+    <color name="icon_badge_handwrite_bg">#1E293B</color>
+    <color name="icon_badge_handwrite_tint">#FB923C</color>
+
+    <color name="icon_badge_theme_bg">#1E293B</color>
+    <color name="icon_badge_theme_tint">#FB7185</color>
+
+
+    <color name="icon_badge_clipboard_bg">#1E293B</color>
+    <color name="icon_badge_clipboard_tint">#34D399</color>
+
+    <color name="icon_badge_data_bg">#1E293B</color>
+    <color name="icon_badge_data_tint">#94A3B8</color>
+
+    <color name="icon_badge_about_bg">#1E293B</color>
+    <color name="icon_badge_about_tint">#94A3B8</color>
+
+    <!-- Search Box (Dark) -->
+    <color name="settings_search_bg">#262A30</color>
+    <color name="settings_search_stroke">#374151</color>
+
+    <!-- Chip & Commits Badge (Dark) -->
+    <color name="settings_chip_badge_bg">#1E293B</color>
+    <color name="settings_chip_badge_stroke">#3B82F6</color>
+    <color name="settings_on_accent_color">#0F172A</color>
+</resources>

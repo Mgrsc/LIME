@@ -1,0 +1,4 @@
+# phrase	code	weight	provenance	review_date	license
+# Independently composed project vocabulary; weight is a conservative reachability baseline.
+离线语音识别	li xian yu yin shi bie	1	project-maintainer	2026-09-13	BSD-3-Clause
+离线手写识别	li xian shou xie shi bie	1	project-maintainer	2026-09-13	BSD-3-Clause
