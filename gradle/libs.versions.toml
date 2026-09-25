@@ -27,7 +27,7 @@ fragment               = "1.9.0"
 navigation             = "2.9.6"
 flexbox                = "3.0.0"
 
-onnxruntime            = "1.29.0"
+onnxruntime            = "1.30.0"
 # sherpa-onnx         = "1.13.7" (vendored in app/libs)
 
 cropper                = "4.7.0"
