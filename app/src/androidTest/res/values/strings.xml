@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Placeholder resources for the androidTest APK.
+    Root cause: `buildTypes.debug` defines `resValue("string", "app_name", "@string/ime_app_name_debug")`
+    and `resValue("drawable", "app_icon", "@mipmap/ic_launcher")`, which Gradle AGP propagates to the
+    androidTest variant. Because the instrumentation test APK does not merge resources from the main
+    app source set, AAPT2 resource linking fails unless these symbols are satisfied locally.
+-->
+<resources>
+    <string name="ime_app_name_debug">LIME Test</string>
+    <item name="ic_launcher" type="mipmap">@android:drawable/sym_def_app_icon</item>
+</resources>
+

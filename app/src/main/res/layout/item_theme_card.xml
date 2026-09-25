@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="96dp"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:gravity="center_horizontal"
+    android:layout_marginEnd="10dp"
+    android:layout_marginBottom="4dp">
+
+    <FrameLayout
+        android:id="@+id/theme_card_container"
+        android:layout_width="96dp"
+        android:layout_height="62dp"
+        android:background="@drawable/bg_settings_card"
+        android:clipToOutline="true"
+        android:foreground="?android:attr/selectableItemBackground">
+
+        <ImageView
+            android:id="@+id/iv_theme_bg"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:scaleType="centerCrop"
+            android:contentDescription="@null" />
+
+        <View
+            android:id="@+id/view_top_bar"
+            android:layout_width="match_parent"
+            android:layout_height="8dp"
+            android:layout_gravity="top"
+            android:background="#33888888" />
+
+        <View
+            android:id="@+id/view_spacebar"
+            android:layout_width="44dp"
+            android:layout_height="8dp"
+            android:layout_gravity="bottom|center_horizontal"
+            android:layout_marginBottom="6dp"
+            android:background="@drawable/bg_status_badge" />
+
+        <View
+            android:id="@+id/view_accent_key"
+            android:layout_width="12dp"
+            android:layout_height="8dp"
+            android:layout_gravity="bottom|end"
+            android:layout_marginEnd="8dp"
+            android:layout_marginBottom="6dp"
+            android:background="@drawable/bg_status_badge" />
+
+        <FrameLayout
+            android:id="@+id/fl_checked_badge"
+            android:layout_width="20dp"
+            android:layout_height="20dp"
+            android:layout_gravity="top|end"
+            android:layout_marginTop="4dp"
+            android:layout_marginEnd="4dp"
+            android:background="@drawable/bg_icon_badge"
+            android:backgroundTint="@color/settings_accent_color"
+            android:visibility="gone">
+
+            <ImageView
+                android:layout_width="12dp"
+                android:layout_height="12dp"
+                android:layout_gravity="center"
+                android:src="@drawable/ic_menu_done"
+                app:tint="@color/settings_on_accent_color"
+                android:contentDescription="@null" />
+        </FrameLayout>
+    </FrameLayout>
+
+    <TextView
+        android:id="@+id/tv_theme_name"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:gravity="center"
+        android:singleLine="true"
+        android:ellipsize="end"
+        android:textColor="@color/settings_primary_text"
+        android:textSize="12sp" />
+
+</LinearLayout>

@@ -1,0 +1,105 @@
+{
+  "frost": {
+    "repository": "https://github.com/gaboolic/rime-frost",
+    "commit": "1f23deea97ee16d529c0a3b2fbc37a2b74f0f491",
+    "license": "GPL-3.0",
+    "note": "Retained strictly as historical offline regression baseline; NOT bundled or distributed in production APK.",
+    "files": [
+      {
+        "path": "cn_dicts/8105.dict.yaml",
+        "cache": "frost-cn_dicts__8105.dict.yaml",
+        "sha256": "5a6bb545d07140406208728aeed70706e84279daeee132f10b069cd6387a042a"
+      },
+      {
+        "path": "cn_dicts/base.dict.yaml",
+        "cache": "frost-cn_dicts__base.dict.yaml",
+        "sha256": "9067f23b4505e57f5e380b154e22fb2fbbf2111ab0611f8bc6e8b82efa90b891"
+      },
+      {
+        "path": "cn_dicts/ext.dict.yaml",
+        "cache": "frost-cn_dicts__ext.dict.yaml",
+        "sha256": "44b78e4feb8a3b302298844061626aa4e2194901b8ed4ee6acec84261b6aa90d"
+      },
+      {
+        "path": "LICENSE",
+        "cache": "frost-LICENSE",
+        "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+      }
+    ],
+    "attribution": "gaboolic, iDvel and contributors",
+    "license_url": "https://www.gnu.org/licenses/gpl-3.0.html"
+  },
+  "wanxiang": {
+    "repository": "https://github.com/amzxyz/rime-wanxiang",
+    "commit": "1b66a704d0ddb3dfcac10d92bbf384b9209621ab",
+    "license": "CC-BY-4.0",
+    "files": [
+      {
+        "path": "dicts/zi.dict.yaml",
+        "cache": "wanxiang-dicts__zi.dict.yaml",
+        "sha256": "d82df598a2c71d8ada12aaef0a2bb007c887dad01d165c30ac057ac92bfbc838"
+      },
+      {
+        "path": "dicts/jichu.dict.yaml",
+        "cache": "wanxiang-dicts__jichu.dict.yaml",
+        "sha256": "4b22bcb5b48219866cbd67e7bc0818571c3e8601c53d9ba5e8088ecc2b95b4f7",
+        "excluded_rows": [
+          "符石\tfú shí\t-1",
+          "福氏\tfú shì\t-1",
+          "兼施\tjiān shī\t-1",
+          "渐逝\tjiàn shì\t-1",
+          "尉氏\twèi shì\t-1",
+          "误击\twù jī\t-1",
+          "无稽\twú jī\t-1",
+          "舞妓\twǔ jì\t-1",
+          "屋基\twū jī\t-1",
+          "乌氏\twū shì\t-1",
+          "舞室\twǔ shì\t-1",
+          "雾视\twù shì\t-1",
+          "谕示\tyù shì\t-1",
+          "你的画\tnǐ de huà\t-1",
+          "省行政\tshěng xíng zhèng",
+          "它采用\ttā cǎi yòng\t-1",
+          "我是忍\twǒ shì rěn\t-1",
+          "我是下\twǒ shì xià\t-1",
+          "我要补\twǒ yào bǔ\t-1",
+          "想心事\txiǎng xīn shì\t-1",
+          "这样喔\tzhè yàng ō\t-1",
+          "短须𱇮\tduǎn xū 𱇮\t52",
+          "峨眉𫚪\té méi 𫚪\t52",
+          "副铗𧈢\tfù jiá 𧈢\t52",
+          "寡鳞𫚪\tguǎ lín 𫚪\t52",
+          "铗𧈢科\tjiá 𧈢 kē\t52",
+          "𩾌鿶鱼\tkāng 鿶 yú\t52",
+          "伟铗𧈢\twěi jiá 𧈢\t52",
+          "细尾𱇮\txì wěi 𱇮\t52",
+          "斜方𫚪\txié fāng 𫚪\t52",
+          "越南𫚪\tyuè nán 𫚪\t52",
+          "𫚪亚科\t𫚪 yà kē\t52",
+          "副铗𧈢科\tfù jiá 𧈢 kē\t52",
+          "广西副𫚪\tguǎng xī fù 𫚪\t52",
+          "巨无齿𱇮\tjù wú chǐ 𱇮\t52",
+          "𩾌鿶白鱼\tkāng 鿶 bái yú\t52"
+        ],
+        "exclusion_reason": "Reviewed quarantine: source rows incompatible with explicit nonnegative weights and pinyin-only codes; retain exact matches until reviewed upstream changes."
+      },
+      {
+        "path": "dicts/lianxiang.dict.yaml",
+        "cache": "wanxiang-dicts__lianxiang.dict.yaml",
+        "sha256": "ed82f125e4850d82a6978af29fc2c688caf458bb0f6d5c212878b68ede2c3a0e",
+        "excluded_rows": [
+          "把玩了一阵\tbǎ wán le yí zhèn",
+          "西汉前少帝\txī hàn qián shǎo dì"
+        ],
+        "exclusion_reason": "Reviewed quarantine: two rows lack explicit weights required by the project; no inferred weights."
+      },
+      {
+        "path": "LICENSE",
+        "cache": "wanxiang-LICENSE",
+        "sha256": "9e5f1b3c610b9c2da5c313bf81d577a7d1acec686bdb0384edefa6df0f90cd94"
+      }
+    ],
+    "attribution": "amzxyz and contributors (RIME-LMDG / rime-wanxiang)",
+    "license_url": "https://creativecommons.org/licenses/by/4.0/"
+  }
+}

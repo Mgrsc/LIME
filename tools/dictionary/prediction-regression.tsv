@@ -1,0 +1,25 @@
+id	split	category	context	rejected	note	accepted	allow_empty
+predict_01	dev	place	三亚	二手|其他	已知怪例，不要求无上下文的地名必须有联想	酒店|旅游	false
+predict_02	dev	place	上海	二手	证券等专名组合不因领域偏置一律判错	证券|浦东|大众|公交|国际|车展	false
+predict_03	dev	digital	手机	看新闻	已知风格不适合作为默认短词补全的候选	号码|信息|铃声|维修	false
+predict_04	dev	daily	你好	不好	检查内置 fallback 与真实资源的关系	朋友|世界	false
+predict_05	dev	daily	今天		记录候选供人工标注，不假定唯一合理答案	晚上|早上|我们|下午	false
+predict_06	dev	daily	谢谢		记录候选供人工标注	你们|大家|楼主|你的|分享|各位	false
+predict_07	dev	daily	晚上		记录候选供人工标注	睡觉	false
+predict_08	dev	digital	输入法		记录候选供人工标注	下载|皮肤|平台|设置|软件	false
+predict_09	dev	sentence	我们今天		检查字符后缀回退		true
+predict_10	dev	sentence	我想去三亚	二手	检查回退是否传播已知怪例		true
+predict_11	dev	empty	甲乙丙丁戊己		合成空结果上下文，不来自用户历史		true
+predict_12	dev	edge	嗯嗯		检查口语短词		true
+predict_13	holdout	place	北京		保留评估样例，不编写逐项映射补丁	奥运|大学|时间|海淀|奥运会|朝阳	false
+predict_14	holdout	place	成都	二手|表格|其他|宠物	保留评估样例	商报|晚报|双流|日报	false
+predict_15	holdout	daily	明天		保留评估样例	就要|就是|开始	false
+predict_16	holdout	daily	周末		保留评估样例	兼职|愉快	false
+predict_17	holdout	daily	吃饭		保留评估样例	的时候|睡觉	false
+predict_18	holdout	digital	电脑		保留评估样例	维修|培训|配件|网络|回收|信息	false
+predict_19	holdout	digital	微信		保留评估样例		true
+predict_20	holdout	technical	人工智能		保留评估样例	技术|研究	false
+predict_21	holdout	slang	打工人		保留评估样例		true
+predict_22	holdout	sentence	我们明天		保留的后缀回退样例		true
+predict_23	holdout	sentence	这是我的电脑		保留的整句提交样例		true
+predict_24	holdout	empty	庚辛壬癸甲乙		合成空结果上下文		true

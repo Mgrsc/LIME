@@ -1,0 +1,8 @@
+数据来源：https://github.com/amzxyz/rime-wanxiang
+提交：1b66a704d0ddb3dfcac10d92bbf384b9209621ab
+署名：amzxyz and contributors (RIME-LMDG / rime-wanxiang)
+许可链接：https://creativecommons.org/licenses/by/4.0/
+上游许可：CC-BY-4.0，见 UPSTREAM_LICENSE。原始声明保留在锁定源文件中。
+源文件头部声明副本见 SOURCE_HEADERS.txt。
+本项目修改：去声调（保留 ü→v）、同键取最大权重、补充独立整理词条及习惯码，限定嗯嗯混合习惯码及呃呃呃同码领先权重，详情见 BUILD_REPORT。
+本应用拼音基础数据采用上述许可；本项目原创增量采用 BSD-3-Clause。本声明不改变应用代码及其他第三方资源的许可。

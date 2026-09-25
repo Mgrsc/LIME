@@ -1,0 +1,13 @@
+# Rime default settings
+# encoding: utf-8
+
+config_version: "0.40"
+
+schema_list:
+  - schema: pinyin
+  - schema: t9_pinyin
+  - schema: double_pinyin_flypy
+  - schema: english
+
+menu:
+  page_size: 15

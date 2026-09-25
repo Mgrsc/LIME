@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fitsSystemWindows="true">
+
+    <EditText
+        android:id="@+id/host_field"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top"
+        android:layout_marginTop="80dp"
+        android:hint="@string/host_field_hint"
+        android:importantForAutofill="no"
+        android:inputType="text|textNoSuggestions"
+        android:singleLine="true">
+        <requestFocus />
+    </EditText>
+
+</FrameLayout>

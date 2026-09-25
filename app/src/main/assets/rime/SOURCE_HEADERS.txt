@@ -1,0 +1,28 @@
+dicts/zi.dict.yaml
+# Rime dictionary
+# encoding: utf-8
+#https://github.com/amzxyz/RIME-LMDG
+---
+name: zi
+version: "LTS"
+sort: by_weight
+
+dicts/jichu.dict.yaml
+# encoding utf-8
+# ------基础词库-------
+---
+name: jichu
+version: "LTS"
+sort: by_weight
+
+dicts/lianxiang.dict.yaml
+# rime dictionary
+# encoding: utf-8
+#https://github.com/amzxyz/RIME-LMDG
+# ------- 联想词库5字及以上长词-------
+# 3+2/2+3/2+2+2类型的且都来自jichu首选的都加入了模型
+# 这里减负词库，加速检索能力，因此这里留的这些看起来有些杂，但是却很重要！
+---
+name: lianxiang
+version: "LTS"
+sort: by_weight

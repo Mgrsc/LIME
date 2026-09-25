@@ -1,0 +1,94 @@
+# Rime schema
+# encoding: utf-8
+
+schema:
+  schema_id: pinyin
+  name: 全拼
+  version: "1.0"
+  author:
+    - Bitfennec & RIME Developers
+  description: |
+    LIME 拼音全键输入方案
+
+switches:
+  - name: ascii_mode
+    reset: 0
+    states: [ 中文, 西文 ]
+  - name: emoji
+    reset: 1
+    states: [ 🈚, 🈶 ]
+  - name: traditionalization
+    reset: 0
+    states: [ 简, 繁 ]
+
+engine:
+  processors:
+    - ascii_composer
+    - recognizer
+    - key_binder
+    - speller
+    - punctuator
+    - selector
+    - navigator
+    - express_editor
+  segmentors:
+    - ascii_segmentor
+    - matcher
+    - abc_segmentor
+    - punct_segmentor
+    - fallback_segmentor
+  translators:
+    - punct_translator
+    - script_translator
+  filters:
+    - simplifier@traditionalize
+    - simplifier@emoji
+    - uniquifier
+
+traditionalize:
+  option_name: traditionalization
+  opencc_config: s2t.json
+
+emoji:
+  option_name: emoji
+  opencc_config: emoji.json
+
+speller:
+  alphabet: zyxwvutsrqponmlkjihgfedcba
+  delimiter: " '"
+  algebra:
+    - erase/^xx$/
+    - erase/^m$/
+    - erase/^n$/
+    - abbrev/^([a-z]).+$/$1/
+    - abbrev/^([zcs]h).+$/$1/
+    - derive/^([nl])ve$/$1ue/
+    - derive/^([jqxy])u/$1v/
+    - derive/un$/uen/
+    - derive/ui$/uei/
+    - derive/iu$/iou/
+    - derive/([aeiou])ng$/$1gn/
+    - derive/([dtngkhrzcs])o(u|ng)$/$1o/
+    - derive/ong$/on/
+    - derive/ao$/oa/
+    - derive/([iu])a(o|ng?)$/a$1$2/
+
+    # Common phonetic alternatives keep canonical dictionary codes and carry
+    # Rime's fuzzy spelling penalty. Initials require a following vowel so
+    # abbreviation keys are not expanded again.
+    - fuzz/^([zcs])h([aeiou].*)$/$1$2/
+    - fuzz/^([zcs])([aeiou].*)$/$1h$2/
+    - fuzz/eng$/en/
+    - fuzz/en$/eng/
+    - fuzz/ang$/an/
+    - fuzz/an$/ang/
+    - fuzz/ing$/in/
+    - fuzz/in$/ing/
+
+translator:
+  dictionary: pinyin
+  prism: pinyin
+  enable_completion: true
+  spelling_hints: 9
+  preedit_format:
+    - xform/([nljqxy])v/$1ü/

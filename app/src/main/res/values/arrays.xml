@@ -1,0 +1,11 @@
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!-- Reply Preference -->
+    <attr name="useSimpleSummaryProvider" format="boolean" tools:ignore="PrivateResource" />
+    <declare-styleable name="DialogSeekBarPreference">
+        <attr name="min" format="integer" />
+        <attr name="max" format="integer" />
+        <attr name="step" format="integer" />
+        <attr name="unit" format="string" />
+        <attr name="useSimpleSummaryProvider" />
+    </declare-styleable>
+</resources>

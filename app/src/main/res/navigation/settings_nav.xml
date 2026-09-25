@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    app:startDestination="@id/settingsFragment">
+
+    <fragment
+        android:id="@+id/settingsFragment"
+        android:name="org.bitfennec.lime.ui.fragment.ImeSettingsFragment"
+        android:label="@string/settings_title">
+        <action
+            android:id="@+id/action_settingsFragment_to_inputSettingsFragment"
+            app:destination="@id/inputSettingsFragment" />
+        <action
+            android:id="@+id/action_settingsFragment_to_handwritingSettingsFragment"
+            app:destination="@id/handwritingSettingsFragment" />
+        <action
+            android:id="@+id/action_settingsFragment_to_voiceSettingsFragment"
+            app:destination="@id/voiceSettingsFragment" />
+        <action
+            android:id="@+id/action_settingsFragment_to_themeSettingsFragment"
+            app:destination="@id/themeFragment" />
+        <action
+            android:id="@+id/action_settingsFragment_to_clipboardSettingsFragment"
+            app:destination="@id/clipboardSettingsFragment" />
+        <action
+            android:id="@+id/action_settingsFragment_to_aboutFragment"
+            app:destination="@id/aboutFragment" />
+        <action
+            android:id="@+id/action_settingsFragment_to_sidebarSymbolFragment"
+            app:destination="@id/sidebarSymbolFragment" />
+        <action
+            android:id="@+id/action_settingsFragment_to_otherSettingsFragment"
+            app:destination="@id/otherSettingsFragment" />
+        <action
+            android:id="@+id/action_settingsFragment_to_setupActivity"
+            app:destination="@id/setupActivity" />
+        <action
+            android:id="@+id/action_settingsFragment_to_privacyPolicyFragment"
+            app:destination="@id/privacyPolicyFragment" />
+    </fragment>
+    <fragment
+        android:id="@+id/sidebarSymbolFragment"
+        android:name="org.bitfennec.lime.ui.fragment.SidebarSymbolFragment"
+        android:label="@string/input_sidebar_symbols" />
+    <fragment
+        android:id="@+id/inputSettingsFragment"
+        android:name="org.bitfennec.lime.ui.fragment.InputSettingsFragment"
+        android:label="@string/setting_ime_input">
+        <action
+            android:id="@+id/action_inputSettingsFragment_to_sidebarSymbolFragment"
+            app:destination="@id/sidebarSymbolFragment" />
+    </fragment>
+    <fragment
+        android:id="@+id/handwritingSettingsFragment"
+        android:name="org.bitfennec.lime.ui.fragment.HandwritingSettingsFragment"
+        android:label="@string/ime_settings_handwriting" />
+    <fragment
+        android:id="@+id/voiceSettingsFragment"
+        android:name="org.bitfennec.lime.ui.fragment.VoiceSettingsFragment"
+        android:label="@string/ime_settings_voice" />
+    <fragment
+        android:id="@+id/themeFragment"
+        android:name="org.bitfennec.lime.ui.fragment.ThemeFragment"
+        android:label="@string/theme_and_appearance" />
+    <fragment
+        android:id="@+id/clipboardSettingsFragment"
+        android:name="org.bitfennec.lime.ui.fragment.ClipboardSettingsFragment"
+        android:label="@string/clipboard" />
+    <fragment
+        android:id="@+id/aboutFragment"
+        android:name="org.bitfennec.lime.ui.fragment.AboutFragment"
+        android:label="@string/about_app" >
+        <action
+            android:id="@+id/action_aboutFragment_to_privacyPolicyFragment"
+            app:destination="@id/privacyPolicyFragment" />
+    </fragment>
+    <fragment
+        android:id="@+id/privacyPolicyFragment"
+        android:name="org.bitfennec.lime.ui.fragment.PrivacyPolicyFragment"
+        android:label="@string/privacy_policy" />
+    <fragment
+        android:id="@+id/otherSettingsFragment"
+        android:name="org.bitfennec.lime.ui.fragment.OtherSettingsFragment"
+        android:label="@string/data_management" />
+    <activity
+        android:id="@+id/setupActivity"
+        android:name="org.bitfennec.lime.ui.setup.SetupActivity"
+        android:label="@string/enable_ime"/>
+</navigation>

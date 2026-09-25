@@ -1,0 +1,24 @@
+[
+  {
+    "name": "",
+    "description": "欢迎使用 LIME 留青输入法 (Liuqing Input Method Engine)。留青输入法为完全本地运行的开源输入法软件，不提供账号注册功能，无需登录即可直接使用。\n\n留青输入法严格遵循最小、必要的原则，视用户隐私安全为首要生命线。为确保键盘各项交互功能正常运行，留青输入法需使用以下系统权限与能力："
+  }, {
+  "name": "1. 剪贴板 (Clipboard)",
+  "description": "Android 系统在输入法类型软件启用后默认开启剪贴板权限，用于在键盘上提供快捷粘贴、历史板以及置顶功能。所有剪贴板历史数据均存储在设备本地 SQLite 数据库中，绝不上报。"
+}, {
+  "name": "2. 离线语音与录音权限 (Microphone)",
+  "description": "仅在用户主动触发语音输入时申请录音权限，用于本地 Sherpa-ONNX 语音识别模型。语音数据与识别文本仅在设备内存中短暂处理，即用即弃，绝不上传。"
+}, {
+  "name": "3. 本地存储访问 (Storage / External Files)",
+  "description": "仅在用户主动导入/导出本地词库备份归档 (.zip) 或选择自定义键盘壁纸时使用，不扫描或访问任何其他个人隐私文件。"
+}, {
+  "name": "4. 设备运动与方向",
+  "description": "获取设备屏幕方向状态，以实现横竖屏切换时自适应调整键盘高度与布局比例。"
+}, {
+  "name": "5. 媒体音量与振动控制",
+  "description": "用于键盘按键击键音效与线性马达触感振动反馈调节。"
+}, {
+  "name": "本地推理、模型下载与零信息收集承诺",
+  "description": "留青输入法的所有文本输入、词频自学习、语音识别与手写识别均在设备本地离线运行，本应用绝不上传用户任何按键、词库、音频、笔迹或识别文本至任何云端服务器。\n\n仅当用户主动确认下载离线 AI 模型（SenseVoice 语音或 PP-OCRv6 手写）及依赖的共享运行库时，应用才会通过 HTTPS 从公开可信镜像源（离线模型源：ModelScope、HF-Mirror、HuggingFace、GitHub Releases、ghproxy；共享运行库源：GitHub Releases、ghproxy）下载固定版本的公开工件，并严格校验 SHA-256 完整性哈希。下载完成后，所有模型推理与输入功能 100% 在端侧离线运行。\n\n剪贴板历史和用户词库仅保存在设备本地，可由用户主动导出备份；语音录音即用即弃，本应用不保存录音音频文件。\n\n本项目遵循开源许可证开放源代码；核心输入底座 librime 使用 BSD-3-Clause；语音引擎 Sherpa-ONNX 使用 Apache-2.0，SenseVoice 模型遵循 FunASR Model License；手写引擎 PaddleOCR PP-OCRv6 遵循 Apache-2.0，推理运行时 ONNX Runtime 遵循 MIT License；万象拼音词库遵循 CC BY 4.0。"
+}
+]

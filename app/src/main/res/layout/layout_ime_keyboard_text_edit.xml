@@ -1,0 +1,223 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/ll_text_edit_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:baselineAligned="false"
+    android:paddingStart="4dp"
+    android:paddingEnd="4dp"
+    android:paddingTop="3dp"
+    android:paddingBottom="3dp"
+    tools:ignore="NestedWeights">
+
+    <!-- Row 1: Pos 1 (Home), Pos 2 (Up), Pos 3 (End), Pos 4 (Select All) -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="horizontal"
+        android:baselineAligned="false">
+
+        <androidx.appcompat.widget.AppCompatTextView
+            android:id="@+id/btn_edit_home"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:layout_margin="3dp"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center"
+            android:includeFontPadding="false"
+            app:drawableTopCompat="@drawable/ic_edit_line_start"
+            android:drawablePadding="2dp"
+            android:text="@string/text_edit_home"
+            android:textSize="11sp" />
+
+        <androidx.appcompat.widget.AppCompatTextView
+            android:id="@+id/btn_edit_up"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:layout_margin="3dp"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center"
+            android:includeFontPadding="false"
+            app:drawableTopCompat="@drawable/ic_edit_arrow_up"
+            android:drawablePadding="2dp"
+            android:text="@string/text_edit_up"
+            android:textSize="11sp" />
+
+        <androidx.appcompat.widget.AppCompatTextView
+            android:id="@+id/btn_edit_end"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:layout_margin="3dp"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center"
+            android:includeFontPadding="false"
+            app:drawableTopCompat="@drawable/ic_edit_line_end"
+            android:drawablePadding="2dp"
+            android:text="@string/text_edit_end"
+            android:textSize="11sp" />
+
+        <androidx.appcompat.widget.AppCompatTextView
+            android:id="@+id/btn_edit_select_all"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:layout_margin="3dp"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center"
+            android:includeFontPadding="false"
+            app:drawableTopCompat="@drawable/ic_edit_select_all"
+            android:drawablePadding="2dp"
+            android:text="@string/text_edit_select_all"
+            android:textSize="11sp" />
+    </LinearLayout>
+
+    <!-- Row 2: Pos 5 (Left), Pos 6 (Space), Pos 7 (Right), Pos 8 (Paste) -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="horizontal"
+        android:baselineAligned="false">
+
+        <androidx.appcompat.widget.AppCompatTextView
+            android:id="@+id/btn_edit_left"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:layout_margin="3dp"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center"
+            android:includeFontPadding="false"
+            app:drawableTopCompat="@drawable/ic_edit_arrow_left"
+            android:drawablePadding="2dp"
+            android:text="@string/text_edit_left"
+            android:textSize="11sp" />
+
+        <androidx.appcompat.widget.AppCompatTextView
+            android:id="@+id/btn_edit_space"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:layout_margin="3dp"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center"
+            android:includeFontPadding="false"
+            app:drawableTopCompat="@drawable/ic_edit_space"
+            android:drawablePadding="2dp"
+            android:text="@string/text_edit_space"
+            android:textSize="11sp" />
+
+        <androidx.appcompat.widget.AppCompatTextView
+            android:id="@+id/btn_edit_right"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:layout_margin="3dp"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center"
+            android:includeFontPadding="false"
+            app:drawableTopCompat="@drawable/ic_edit_arrow_right"
+            android:drawablePadding="2dp"
+            android:text="@string/text_edit_right"
+            android:textSize="11sp" />
+
+        <androidx.appcompat.widget.AppCompatTextView
+            android:id="@+id/btn_edit_paste"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:layout_margin="3dp"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center"
+            android:includeFontPadding="false"
+            app:drawableTopCompat="@drawable/ic_edit_paste"
+            android:drawablePadding="2dp"
+            android:text="@string/text_edit_paste"
+            android:textSize="11sp" />
+    </LinearLayout>
+
+    <!-- Row 3: Pos 9 (Copy), Pos 10 (Down), Pos 11 (Delete), Pos 12 (Back) -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="horizontal"
+        android:baselineAligned="false">
+
+        <androidx.appcompat.widget.AppCompatTextView
+            android:id="@+id/btn_edit_copy"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:layout_margin="3dp"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center"
+            android:includeFontPadding="false"
+            app:drawableTopCompat="@drawable/ic_edit_copy"
+            android:drawablePadding="2dp"
+            android:text="@string/text_edit_copy"
+            android:textSize="11sp" />
+
+        <androidx.appcompat.widget.AppCompatTextView
+            android:id="@+id/btn_edit_down"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:layout_margin="3dp"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center"
+            android:includeFontPadding="false"
+            app:drawableTopCompat="@drawable/ic_edit_arrow_down"
+            android:drawablePadding="2dp"
+            android:text="@string/text_edit_down"
+            android:textSize="11sp" />
+
+        <androidx.appcompat.widget.AppCompatTextView
+            android:id="@+id/btn_edit_delete"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:layout_margin="3dp"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center"
+            android:includeFontPadding="false"
+            app:drawableTopCompat="@drawable/ic_menu_delete"
+            android:drawablePadding="2dp"
+            android:text="@string/text_edit_delete"
+            android:textSize="11sp" />
+
+        <androidx.appcompat.widget.AppCompatTextView
+            android:id="@+id/btn_edit_back"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:layout_margin="3dp"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center"
+            android:includeFontPadding="false"
+            app:drawableTopCompat="@drawable/ic_edit_back_keyboard"
+            android:drawablePadding="2dp"
+            android:text="@string/text_edit_return"
+            android:textSize="11sp" />
+    </LinearLayout>
+
+</LinearLayout>

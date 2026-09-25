@@ -1,0 +1,32 @@
+name: 💡 Feature Request / Proposal
+description: Suggest a new feature, input ergonomic enhancement, or architectural idea
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for helping improve LIME! Please provide as much context and design consideration as possible.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or Pain Point
+      description: Is your feature request related to a problem or limitation? Please describe clearly.
+      placeholder: "I'm always frustrated when..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed Solution / Ergonomics
+      description: Describe the solution or user experience you would like to see.
+      placeholder: "LIME should..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: Describe any alternative solutions or features you've considered.

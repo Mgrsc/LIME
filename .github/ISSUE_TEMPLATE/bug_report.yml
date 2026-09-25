@@ -1,0 +1,94 @@
+name: 🐛 Bug Report
+description: Report a reproducible bug or defect in LIME
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for reporting an issue! Please ensure you are testing on the latest version of LIME.
+        For security-sensitive vulnerabilities (e.g. data leaks), please follow our [Security Policy](https://github.com/Mgrsc/LIME/blob/main/SECURITY.md) instead of creating a public issue.
+
+  - type: input
+    id: device
+    attributes:
+      label: Device Model & Manufacturer
+      description: e.g., Xiaomi Redmi K40, vivo iQOO Neo 10, Google Pixel 9
+      placeholder: e.g., Xiaomi Redmi K40
+    validations:
+      required: true
+
+  - type: dropdown
+    id: android_version
+    attributes:
+      label: Android OS Version
+      description: What Android version is running on your device?
+      options:
+        - "Android 16"
+        - "Android 15"
+        - "Android 14"
+        - "Android 13"
+        - "Android 12"
+        - "Other / Custom ROM"
+    validations:
+      required: true
+
+  - type: input
+    id: app_version
+    attributes:
+      label: LIME App Version / Commit
+      description: Found in LIME Settings -> About (e.g. 0.9.0 or commit hash)
+      placeholder: e.g., 0.9.0
+    validations:
+      required: true
+
+  - type: dropdown
+    id: keyboard_schema
+    attributes:
+      label: Active Input Schema
+      description: Which keyboard layout/schema was active when the bug occurred?
+      options:
+        - "Pinyin QWERTY (26键全拼)"
+        - "T9 Pinyin (九键拼音)"
+        - "Double Pinyin (小鹤双拼)"
+        - "English (英文键盘)"
+        - "Handwriting (离线手写)"
+        - "Voice Input (离线语音)"
+        - "Other / Multiple"
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug Description
+      description: A clear and concise description of what the problem is.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction_steps
+    attributes:
+      label: Steps to Reproduce
+      description: Exact steps to reproduce the issue.
+      placeholder: |
+        1. Open any text field in app '...'
+        2. Type '...'
+        3. Switch keyboard to '...'
+        4. Observe unexpected behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected_behavior
+    attributes:
+      label: Expected Behavior
+      description: What did you expect to happen instead?
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant Logs or Stack Trace
+      description: Paste crash stack trace or export log output from Settings -> About -> Export Crash Logs. Remove personal text, clipboard contents, account details, and tokens before posting.
+      render: text

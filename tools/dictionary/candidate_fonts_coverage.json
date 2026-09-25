@@ -1,0 +1,21 @@
+{
+  "dictionaries": {
+    "pinyin.dict.yaml": "4ad9d86b83bf81b4e2c9962316df5d2c83652d4d1fa3f0ed9ec6e21d77b6d913",
+    "pinyin.simplified.dict.yaml": "6c628403791576d7cd761ee5c641e23af2c0d866c4496335d37f61cebc53c39e"
+  },
+  "supplementary_han_count": 15337,
+  "fonts": {
+    "lime_candidate_fallback.ttf": {
+      "source_sha256": "829543436cdf7b4c6730e2af5806fa406f8ddf0d4b656e0cd49c58d4db1c8d3c",
+      "sha256": "e9b763f8961f8ba66c5895465dd5dab055ff401097961316405cf3aa088d7aec",
+      "characters": 15329,
+      "bytes": 8062992
+    },
+    "lime_candidate_extra.ttf": {
+      "source_sha256": "d8bb747b3fdccd84a60bd0aa56bb90937270d0bd15f1101cd8f2a5a3709dd0a3",
+      "sha256": "1e5adb3cd5a8445fda6fffa1033972439322dfdf343b89fc2238e9d3346a37bb",
+      "characters": 8,
+      "bytes": 28756
+    }
+  }
+}

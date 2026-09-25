@@ -1,0 +1,33 @@
+id	category	phrase	code
+daily_01	daily	你好	ni hao
+daily_02	daily	谢谢	xie xie
+daily_03	daily	没关系	mei guan xi
+daily_04	daily	不好意思	bu hao yi si
+daily_05	daily	今天晚上	jin tian wan shang
+daily_06	daily	吃饭	chi fan
+place_01	place	三亚	san ya
+place_02	place	上海	shang hai
+place_03	place	成都	cheng du
+place_04	place	重庆	chong qing
+place_05	place	乌鲁木齐	wu lu mu qi
+digital_01	digital	手机	shou ji
+digital_02	digital	输入法	shu ru fa
+digital_03	digital	剪贴板	jian tie ban
+digital_04	digital	二维码	er wei ma
+digital_05	digital	离线识别	li xian shi bie
+slang_01	slang	内卷	nei juan
+slang_02	slang	躺平	tang ping
+slang_03	slang	打工人	da gong ren
+slang_04	slang	性价比	xing jia bi
+technical_01	technical	人工智能	ren gong zhi neng
+technical_02	technical	机器学习	ji qi xue xi
+technical_03	technical	数据库	shu ju ku
+technical_04	technical	容器化	rong qi hua
+reading_01	reading	音乐	yin yue
+reading_02	reading	银行	yin hang
+reading_03	reading	女	nv
+reading_04	reading	怒	nu
+edge_01	edge	嗯	en
+edge_02	edge	嗯	eng
+edge_03	edge	嗯嗯	en en
+edge_04	edge	嗯啊	en a

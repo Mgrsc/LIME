@@ -1,0 +1,174 @@
+{
+  "source": {
+    "repository": "https://github.com/amzxyz/rime-wanxiang",
+    "commit": "1b66a704d0ddb3dfcac10d92bbf384b9209621ab",
+    "license": "CC-BY-4.0",
+    "files": [
+      {
+        "path": "dicts/zi.dict.yaml",
+        "cache": "wanxiang-dicts__zi.dict.yaml",
+        "sha256": "d82df598a2c71d8ada12aaef0a2bb007c887dad01d165c30ac057ac92bfbc838"
+      },
+      {
+        "path": "dicts/jichu.dict.yaml",
+        "cache": "wanxiang-dicts__jichu.dict.yaml",
+        "sha256": "4b22bcb5b48219866cbd67e7bc0818571c3e8601c53d9ba5e8088ecc2b95b4f7",
+        "excluded_rows": [
+          "符石\tfú shí\t-1",
+          "福氏\tfú shì\t-1",
+          "兼施\tjiān shī\t-1",
+          "渐逝\tjiàn shì\t-1",
+          "尉氏\twèi shì\t-1",
+          "误击\twù jī\t-1",
+          "无稽\twú jī\t-1",
+          "舞妓\twǔ jì\t-1",
+          "屋基\twū jī\t-1",
+          "乌氏\twū shì\t-1",
+          "舞室\twǔ shì\t-1",
+          "雾视\twù shì\t-1",
+          "谕示\tyù shì\t-1",
+          "你的画\tnǐ de huà\t-1",
+          "省行政\tshěng xíng zhèng",
+          "它采用\ttā cǎi yòng\t-1",
+          "我是忍\twǒ shì rěn\t-1",
+          "我是下\twǒ shì xià\t-1",
+          "我要补\twǒ yào bǔ\t-1",
+          "想心事\txiǎng xīn shì\t-1",
+          "这样喔\tzhè yàng ō\t-1",
+          "短须𱇮\tduǎn xū 𱇮\t52",
+          "峨眉𫚪\té méi 𫚪\t52",
+          "副铗𧈢\tfù jiá 𧈢\t52",
+          "寡鳞𫚪\tguǎ lín 𫚪\t52",
+          "铗𧈢科\tjiá 𧈢 kē\t52",
+          "𩾌鿶鱼\tkāng 鿶 yú\t52",
+          "伟铗𧈢\twěi jiá 𧈢\t52",
+          "细尾𱇮\txì wěi 𱇮\t52",
+          "斜方𫚪\txié fāng 𫚪\t52",
+          "越南𫚪\tyuè nán 𫚪\t52",
+          "𫚪亚科\t𫚪 yà kē\t52",
+          "副铗𧈢科\tfù jiá 𧈢 kē\t52",
+          "广西副𫚪\tguǎng xī fù 𫚪\t52",
+          "巨无齿𱇮\tjù wú chǐ 𱇮\t52",
+          "𩾌鿶白鱼\tkāng 鿶 bái yú\t52"
+        ],
+        "exclusion_reason": "Reviewed quarantine: source rows incompatible with explicit nonnegative weights and pinyin-only codes; retain exact matches until reviewed upstream changes."
+      },
+      {
+        "path": "dicts/lianxiang.dict.yaml",
+        "cache": "wanxiang-dicts__lianxiang.dict.yaml",
+        "sha256": "ed82f125e4850d82a6978af29fc2c688caf458bb0f6d5c212878b68ede2c3a0e",
+        "excluded_rows": [
+          "把玩了一阵\tbǎ wán le yí zhèn",
+          "西汉前少帝\txī hàn qián shǎo dì"
+        ],
+        "exclusion_reason": "Reviewed quarantine: two rows lack explicit weights required by the project; no inferred weights."
+      },
+      {
+        "path": "LICENSE",
+        "cache": "wanxiang-LICENSE",
+        "sha256": "9e5f1b3c610b9c2da5c313bf81d577a7d1acec686bdb0384edefa6df0f90cd94"
+      }
+    ],
+    "attribution": "amzxyz and contributors (RIME-LMDG / rime-wanxiang)",
+    "license_url": "https://creativecommons.org/licenses/by/4.0/"
+  },
+  "normalized_duplicates": 2213,
+  "additions": {
+    "modern.tsv": {
+      "added": 2,
+      "sha256": "acd478e177c32261ad3c457bef97cf8b0154fcc47920fb6e02bdf23765bac237"
+    }
+  },
+  "aliases": {
+    "generated_entries": 170,
+    "added_entries": 172,
+    "updated_entries": 1
+  },
+  "phrase_overrides": [
+    {
+      "text": "嗯嗯",
+      "code": "en en",
+      "weight": 1400
+    },
+    {
+      "text": "嗯嗯",
+      "code": "en eng",
+      "weight": 1400
+    },
+    {
+      "text": "嗯嗯",
+      "code": "eng en",
+      "weight": 1400
+    },
+    {
+      "text": "嗯嗯",
+      "code": "eng eng",
+      "weight": 1400
+    },
+    {
+      "text": "呃呃呃",
+      "code": "e e e",
+      "weight": 753
+    }
+  ],
+  "alias_sha256": "bd755cade1a57f57f69f46b05d1c8056be71b32a343cea85df27165a6bf157be",
+  "builder_sha256": "0c3f93b9bab2fe326251a3dd91811ea362a02cd55764a7bff4e23fbbbe506be2",
+  "alias_builder_sha256": "5d52ad76b1cfc8144e2e53dc33f9d9f3e199e7f31169a6309c6ba4f4e307160e",
+  "output_sha256": "930161d6712941b6975f2006545f7980e23a141e3d713102aed5d9ae18672de9",
+  "status": "bundled; fresh-install profile",
+  "runtime_inputs": {
+    "build/default.yaml": "9b3aa9b91f1fbc211e6fcb1852aec81680b16ba579e2218cfec3056d6864ecb1",
+    "build/english.prism.bin": "70cb8f87b91fa479c9f4e981111ede7b4fda6083cf10868b4c43982e65bfb0d0",
+    "build/english.schema.yaml": "acead7d2c38123588f730b2385132cf4b787f4711c750181c53b00cda046c5f0",
+    "build/english.table.bin": "4b9a48113812e205e5779b8b5584aaa2991e8f634513ab0c30671e623c11ca80",
+    "default.yaml": "9b3aa9b91f1fbc211e6fcb1852aec81680b16ba579e2218cfec3056d6864ecb1",
+    "double_pinyin_flypy.schema.yaml": "f11d4ba562bee2399104613ec67c102e0e71ae6ece2ca6a6b28910469c198fe2",
+    "english.schema.yaml": "acead7d2c38123588f730b2385132cf4b787f4711c750181c53b00cda046c5f0",
+    "installation.yaml": "13bf9cc48688b05769c74dad6d3b9bce80442eacbc5d7d7d9ba7d75566b0adda",
+    "opencc/STCharacters.ocd2": "c8bf4c624bad2523621b6432859b79b5bc26652c2b76662ee3437821f882399f",
+    "opencc/STPhrases.ocd2": "50e6f258e001d2cd28519091a8aea2787bff586132e794d23f300c0a059c9911",
+    "opencc/emoji.json": "fd5dcc12b6d6661028595b92d569ed3b04cc136d1c3352d2a5be96b88348d370",
+    "opencc/emoji.ocd2": "6bab402815c984ed4a5badea4b95db03a7a6f656d61088bd77f524e1561d2cbb",
+    "opencc/others.ocd2": "7f867095dc40b667aa6080954a92f52488f96d7c8ac88febaa3da458663fa6ac",
+    "opencc/s2t.json": "710bb970e406d9c0a3dd33c609248686cf1c5578d064b7b7fc89e70fbb9ea75d",
+    "pinyin.dict.yaml": "930161d6712941b6975f2006545f7980e23a141e3d713102aed5d9ae18672de9",
+    "pinyin.schema.yaml": "b0ba6d92dfd249a92ab82b50e7b3045e9a12583581d653610003fffee4a5b188",
+    "t9_pinyin.schema.yaml": "1ef0e9ac9ab97b5a1164eba49c1bfd3b56175442811505cb9f78beaf64bfdead",
+    "user.yaml": "c88f1036cdf3b8cbdf8f6470d25eefde7b27fc61fecea1a4857fdd28191b0c19"
+  },
+  "deployer_sha256": "949dd2bc051b75468645e31814287b5becba7a648c0a370e4ebde951b5454bed",
+  "compiler_sha256": "3900f6fbed435e328d9c43b5088d1cafcc493372c767a5fc1f0e7e809435321c",
+  "host_libraries": {
+    "librime.so.1.17.0": "9dce5ddb74c8129d9da7e73674651d500a2679b6189fefe73618c10665f14f04"
+  },
+  "compiled_outputs": {
+    "double_pinyin_flypy.prism.bin": {
+      "sha256": "51ef93879f0e317656ab5c71163ed1a27d8d4f5eb3ba24fb9436c173428d99ba",
+      "bytes": 14672
+    },
+    "english.prism.bin": {
+      "sha256": "70cb8f87b91fa479c9f4e981111ede7b4fda6083cf10868b4c43982e65bfb0d0",
+      "bytes": 3384008
+    },
+    "english.table.bin": {
+      "sha256": "4b9a48113812e205e5779b8b5584aaa2991e8f634513ab0c30671e623c11ca80",
+      "bytes": 680940
+    },
+    "pinyin.prism.bin": {
+      "sha256": "51f9b290ff0d40b57fd0d679776dade85854b2dba5a939e3abcbd1c03e1467a8",
+      "bytes": 38024
+    },
+    "pinyin.reverse.bin": {
+      "sha256": "1f71783deac6e61b960946b3b9c65d1930c219de9c2a59927752a5de07ad08b2",
+      "bytes": 263804
+    },
+    "pinyin.table.bin": {
+      "sha256": "0b6764958ac3180a6c188f3c5016a5c9085e596b51581c355655533929919ff2",
+      "bytes": 49776480
+    },
+    "t9_pinyin.prism.bin": {
+      "sha256": "02e32e1b4863f0f97f9febe8bbf4f1f774fcbdb7f93e43c0062f48fd08c97092",
+      "bytes": 20848
+    }
+  }
+}

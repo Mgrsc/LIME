@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Settings Canvas & Cards -->
+    <color name="settings_window_background">#F6F8FA</color>
+    <color name="settings_card_background">#FFFFFF</color>
+    <color name="settings_card_stroke">#E8EEF5</color>
+    <color name="settings_divider_color">#EEF2F6</color>
+    <color name="settings_primary_text">#1E293B</color>
+    <color name="settings_secondary_text">#5F6F85</color>
+    <color name="settings_accent_color">#2563EB</color>
+    <color name="settings_ripple_color">#1A2563EB</color>
+
+    <!-- Status Badges -->
+    <color name="settings_badge_active_bg">#DCFCE7</color>
+    <color name="settings_badge_active_text">#15803D</color>
+    <color name="settings_badge_warn_bg">#FEF3C7</color>
+    <color name="settings_badge_warn_text">#B45309</color>
+
+    <!-- Group Titles -->
+    <color name="settings_group_title">#5F6F85</color>
+
+    <!-- Icon Badges (Unified Modern Subtle Neutral Palette) -->
+    <color name="icon_badge_input_bg">#F1F5F9</color>
+    <color name="icon_badge_input_tint">#3B82F6</color>
+
+    <color name="icon_badge_voice_bg">#F1F5F9</color>
+    <color name="icon_badge_voice_tint">#06B6D4</color>
+
+    <color name="icon_badge_handwrite_bg">#F1F5F9</color>
+    <color name="icon_badge_handwrite_tint">#F97316</color>
+
+    <color name="icon_badge_theme_bg">#F1F5F9</color>
+    <color name="icon_badge_theme_tint">#F43F5E</color>
+
+    <color name="icon_badge_clipboard_bg">#F1F5F9</color>
+    <color name="icon_badge_clipboard_tint">#10B981</color>
+
+    <color name="icon_badge_data_bg">#F1F5F9</color>
+    <color name="icon_badge_data_tint">#5F6F85</color>
+
+    <color name="icon_badge_about_bg">#F1F5F9</color>
+    <color name="icon_badge_about_tint">#5F6F85</color>
+
+    <!-- Search Box -->
+    <color name="settings_search_bg">#F1F5F9</color>
+    <color name="settings_search_stroke">#E2E8F0</color>
+
+    <!-- Chip & Commits Badge -->
+    <color name="settings_chip_badge_bg">#EFF6FF</color>
+    <color name="settings_chip_badge_stroke">#DBEAFE</color>
+    <color name="settings_on_accent_color">#FFFFFF</color>
+</resources>

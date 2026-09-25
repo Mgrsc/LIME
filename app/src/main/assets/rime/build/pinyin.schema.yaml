@@ -1,0 +1,91 @@
+__build_info:
+  rime_version: 1.17.0
+  timestamps:
+    default: 1790311194
+    default.custom: 0
+    pinyin.custom: 0
+    pinyin.schema: 1790311194
+emoji:
+  opencc_config: emoji.json
+  option_name: emoji
+engine:
+  filters:
+    - "simplifier@traditionalize"
+    - "simplifier@emoji"
+    - uniquifier
+  processors:
+    - ascii_composer
+    - recognizer
+    - key_binder
+    - speller
+    - punctuator
+    - selector
+    - navigator
+    - express_editor
+  segmentors:
+    - ascii_segmentor
+    - matcher
+    - abc_segmentor
+    - punct_segmentor
+    - fallback_segmentor
+  translators:
+    - punct_translator
+    - script_translator
+menu:
+  page_size: 15
+schema:
+  author:
+    - "Bitfennec & RIME Developers"
+  description: |
+    LIME 拼音全键输入方案
+
+  name: "全拼"
+  schema_id: pinyin
+  version: 1.0
+speller:
+  algebra:
+    - "erase/^xx$/"
+    - "erase/^m$/"
+    - "erase/^n$/"
+    - "abbrev/^([a-z]).+$/$1/"
+    - "abbrev/^([zcs]h).+$/$1/"
+    - "derive/^([nl])ve$/$1ue/"
+    - "derive/^([jqxy])u/$1v/"
+    - "derive/un$/uen/"
+    - "derive/ui$/uei/"
+    - "derive/iu$/iou/"
+    - "derive/([aeiou])ng$/$1gn/"
+    - "derive/([dtngkhrzcs])o(u|ng)$/$1o/"
+    - "derive/ong$/on/"
+    - "derive/ao$/oa/"
+    - "derive/([iu])a(o|ng?)$/a$1$2/"
+    - "fuzz/^([zcs])h([aeiou].*)$/$1$2/"
+    - "fuzz/^([zcs])([aeiou].*)$/$1h$2/"
+    - "fuzz/eng$/en/"
+    - "fuzz/en$/eng/"
+    - "fuzz/ang$/an/"
+    - "fuzz/an$/ang/"
+    - "fuzz/ing$/in/"
+    - "fuzz/in$/ing/"
+  alphabet: zyxwvutsrqponmlkjihgfedcba
+  delimiter: " '"
+switches:
+  - name: ascii_mode
+    reset: 0
+    states: ["中文", "西文"]
+  - name: emoji
+    reset: 1
+    states: ["🈚", "🈶"]
+  - name: traditionalization
+    reset: 0
+    states: ["简", "繁"]
+traditionalize:
+  opencc_config: s2t.json
+  option_name: traditionalization
+translator:
+  dictionary: pinyin
+  enable_completion: true
+  preedit_format:
+    - "xform/([nljqxy])v/$1ü/"
+  prism: pinyin
+  spelling_hints: 9

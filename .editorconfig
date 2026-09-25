@@ -1,0 +1,38 @@
+# EditorConfig configuration for LIME
+# Documentation: https://editorconfig.org
+
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 4
+
+[*.{kt,kts}]
+indent_size = 4
+max_line_length = 140
+
+[*.{xml,json,yaml,yml}]
+indent_size = 2
+
+[*.{md,markdown}]
+trim_trailing_whitespace = false
+indent_size = 2
+
+[*.{c,cpp,cc,h,hh,cmake}]
+indent_size = 4
+
+[*.py]
+indent_size = 4
+
+[*.{sh,bash}]
+indent_size = 4
+
+[Makefile]
+indent_style = tab
+
+[app/src/release/generated/**]
+insert_final_newline = false
