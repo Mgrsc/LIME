@@ -100,6 +100,51 @@ class InputView(context: Context, val service: ImeService) : RelativeLayout(cont
     private var mHeightAdjustBar: HeightAdjustBar? = null
     private var imeLayoutSnapshot = ImeLayoutSnapshot.Empty
     private val geomGeneration = AtomicLong(0L)
+    private var rawSystemBottom = 0
+    private var rawSystemTop = 0
+    private var rawSystemLeft = 0
+    private var rawSystemRight = 0
+
+    private data class FloatingPaddingBounds(
+        val minRight: Int,
+        val maxRight: Int,
+        val minBottom: Int,
+        val maxBottom: Int
+    )
+
+    private fun calculateFloatingPaddingBounds(
+        parentW: Int,
+        parentH: Int,
+        skbWidth: Int,
+        skbHeight: Int
+    ): FloatingPaddingBounds {
+        val comfortMargin = DevicesUtils.dip2px(8)
+        val minBottom = rawSystemBottom + comfortMargin
+        val minTop = rawSystemTop + comfortMargin
+        val maxBottom = (parentH - skbHeight - minTop).coerceAtLeast(minBottom)
+
+        val minRight = rawSystemRight + comfortMargin
+        val minLeft = rawSystemLeft + comfortMargin
+        val maxRight = (parentW - skbWidth - minLeft).coerceAtLeast(minRight)
+
+        return FloatingPaddingBounds(minRight, maxRight, minBottom, maxBottom)
+    }
+
+    private fun clampFloatingPadding(parentW: Int, parentH: Int) {
+        val env = ImeEnvironment
+        val currentSkbH = if (mSkbRoot.height > 0) mSkbRoot.height else env.skbAreaHeight
+        val currentSkbW = if (mSkbRoot.width > 0) mSkbRoot.width else env.skbWidth
+        val bounds = calculateFloatingPaddingBounds(parentW, parentH, currentSkbW, currentSkbH)
+
+        val clampedBottom = bottomPadding.coerceIn(bounds.minBottom, bounds.maxBottom)
+        val clampedRight = rightPadding.coerceIn(bounds.minRight, bounds.maxRight)
+        if (bottomPadding != clampedBottom) {
+            bottomPadding = clampedBottom
+        }
+        if (rightPadding != clampedRight) {
+            rightPadding = clampedRight
+        }
+    }
 
     init {
         initNavbarBackground(service)
@@ -162,6 +207,8 @@ class InputView(context: Context, val service: ImeService) : RelativeLayout(cont
         }
         addView(mHeightAdjustBar, heightBarLp)
 
+        initView(context)
+
         service.collectWhenStarted(DecodingInfo.candidatesFlow) { cands ->
             mSkbCandidatesBarView.showCandidates(skipUnchanged = true)
             if (cands.isEmpty()) {
@@ -176,12 +223,14 @@ class InputView(context: Context, val service: ImeService) : RelativeLayout(cont
         service.collectWhenStarted(EnginePipeline.stateFlow) {
             mSkbCandidatesBarView.showCandidates(skipUnchanged = true)
         }
-        initView(context)
     }
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
         super.onSizeChanged(w, h, oldw, oldh)
         if (w != oldw || h != oldh) {
+            if (ImeEnvironment.keyboardModeFloat && w > 0 && h > 0) {
+                clampFloatingPadding(w, h)
+            }
             updateImeLayoutSnapshot(forceNewId = oldw > 0 || oldh > 0)
         }
     }
@@ -219,20 +268,18 @@ class InputView(context: Context, val service: ImeService) : RelativeLayout(cont
             mBottomPaddingKey = if (isLand) internal.keyboardBottomPaddingLandscapeFloat else internal.keyboardBottomPaddingFloat
             mRightPaddingKey = if (isLand) internal.keyboardRightPaddingLandscapeFloat else internal.keyboardRightPaddingFloat
 
-            val minPadding = DevicesUtils.dip2px(8)
             val parentW = if (width > 0) width else env.screenWidth
             val parentH = if (height > 0) height else env.screenHeight
-            val maxRight = (parentW - env.skbWidth - minPadding).coerceAtLeast(minPadding)
-            val maxBottom = (parentH - env.skbAreaHeight - minPadding).coerceAtLeast(minPadding)
+            val bounds = calculateFloatingPaddingBounds(parentW, parentH, env.skbWidth, env.skbAreaHeight)
 
             val savedRight = mRightPaddingKey.getValue()
             val initialRight = if (savedRight < 0) {
-                ((parentW - env.skbWidth) / 2).coerceIn(minPadding, maxRight)
+                ((parentW - env.skbWidth) / 2).coerceIn(bounds.minRight, bounds.maxRight)
             } else {
-                savedRight.coerceIn(minPadding, maxRight)
+                savedRight.coerceIn(bounds.minRight, bounds.maxRight)
             }
             rightPadding = initialRight
-            bottomPadding = mBottomPaddingKey.getValue().coerceIn(minPadding, maxBottom)
+            bottomPadding = mBottomPaddingKey.getValue().coerceIn(bounds.minBottom, bounds.maxBottom)
             mSkbRoot.bottomPadding = 0
 
             val activeTheme = ThemeManager.activeTheme
@@ -254,8 +301,9 @@ class InputView(context: Context, val service: ImeService) : RelativeLayout(cont
             }
             val mIvKeyboardMove = View(context).apply {
                 background = pillDrawable
-                isClickable = true
-                isEnabled = true
+                isClickable = false
+                isFocusable = false
+                importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_NO
                 val pillWidth = DevicesUtils.dip2px(56)
                 val pillHeight = DevicesUtils.dip2px(5)
                 layoutParams = LinearLayout.LayoutParams(pillWidth, pillHeight).apply {
@@ -309,13 +357,11 @@ class InputView(context: Context, val service: ImeService) : RelativeLayout(cont
                 val parentH = if (height > 0) height else env.screenHeight
                 mSkbRootHeight = if (mSkbRoot.height > 0) mSkbRoot.height else env.skbAreaHeight
                 mSkbRootWidth = if (mSkbRoot.width > 0) mSkbRoot.width else env.skbWidth
-                val minPadding = DevicesUtils.dip2px(8)
-                val maxRight = (parentW - mSkbRootWidth - minPadding).coerceAtLeast(minPadding)
-                val maxBottom = (parentH - mSkbRootHeight - minPadding).coerceAtLeast(minPadding)
+                val bounds = calculateFloatingPaddingBounds(parentW, parentH, mSkbRootWidth, mSkbRootHeight)
 
                 val savedRight = mRightPaddingKey.getValue()
-                rightPaddingValue = if (savedRight < 0) ((parentW - mSkbRootWidth) / 2).coerceIn(minPadding, maxRight) else savedRight.coerceIn(minPadding, maxRight)
-                bottomPaddingValue = mBottomPaddingKey.getValue().coerceIn(minPadding, maxBottom)
+                rightPaddingValue = if (savedRight < 0) ((parentW - mSkbRootWidth) / 2).coerceIn(bounds.minRight, bounds.maxRight) else savedRight.coerceIn(bounds.minRight, bounds.maxRight)
+                bottomPaddingValue = mBottomPaddingKey.getValue().coerceIn(bounds.minBottom, bounds.maxBottom)
                 initialTouchX = event.rawX
                 initialTouchY = event.rawY
                 return true
@@ -326,17 +372,15 @@ class InputView(context: Context, val service: ImeService) : RelativeLayout(cont
                 val env = ImeEnvironment
                 val parentW = if (width > 0) width else env.screenWidth
                 val parentH = if (height > 0) height else env.screenHeight
-                val minPadding = DevicesUtils.dip2px(8)
-                val maxRight = (parentW - mSkbRootWidth - minPadding).coerceAtLeast(minPadding)
-                val maxBottom = (parentH - mSkbRootHeight - minPadding).coerceAtLeast(minPadding)
+                val bounds = calculateFloatingPaddingBounds(parentW, parentH, mSkbRootWidth, mSkbRootHeight)
 
                 if (dx.absoluteValue > 3) {
-                    rightPaddingValue = (rightPaddingValue - dx.toInt()).coerceIn(minPadding, maxRight)
+                    rightPaddingValue = (rightPaddingValue - dx.toInt()).coerceIn(bounds.minRight, bounds.maxRight)
                     initialTouchX = event.rawX
                     rightPadding = rightPaddingValue
                 }
                 if (dy.absoluteValue > 3) {
-                    bottomPaddingValue = (bottomPaddingValue - dy.toInt()).coerceIn(minPadding, maxBottom)
+                    bottomPaddingValue = (bottomPaddingValue - dy.toInt()).coerceIn(bounds.minBottom, bounds.maxBottom)
                     initialTouchY = event.rawY
                     bottomPadding = bottomPaddingValue
                 }
@@ -1397,13 +1441,21 @@ class InputView(context: Context, val service: ImeService) : RelativeLayout(cont
 
         ViewCompat.setOnApplyWindowInsetsListener(this) { _, insets ->
             val env = ImeEnvironment
-            val navBarsBottom = insets.getInsets(WindowInsetsCompat.Type.navigationBars()).bottom
-            val mandatoryGesturesBottom = insets.getInsets(WindowInsetsCompat.Type.mandatorySystemGestures()).bottom
-            val tappableBottom = insets.getInsets(WindowInsetsCompat.Type.tappableElement()).bottom
+            val navBars = insets.getInsets(WindowInsetsCompat.Type.navigationBars())
+            val mandatoryGestures = insets.getInsets(WindowInsetsCompat.Type.mandatorySystemGestures())
+            val tappable = insets.getInsets(WindowInsetsCompat.Type.tappableElement())
+            val systemGestures = insets.getInsets(WindowInsetsCompat.Type.systemGestures())
+            val statusBars = insets.getInsets(WindowInsetsCompat.Type.statusBars())
+            val cutout = insets.displayCutout
+
+            rawSystemBottom = maxOf(navBars.bottom, mandatoryGestures.bottom, tappable.bottom)
+            rawSystemTop = maxOf(statusBars.top, cutout?.safeInsetTop ?: 0)
+            rawSystemLeft = maxOf(navBars.left, systemGestures.left, mandatoryGestures.left, tappable.left, cutout?.safeInsetLeft ?: 0)
+            rawSystemRight = maxOf(navBars.right, systemGestures.right, mandatoryGestures.right, tappable.right, cutout?.safeInsetRight ?: 0)
 
             // Adaptive navigation bar insets across ROMs:
             // Computes max of gesture/navigation insets; falls back to 8dp comfort padding if zero.
-            val systemBottom = maxOf(navBarsBottom, mandatoryGesturesBottom, tappableBottom)
+            val systemBottom = rawSystemBottom
             val effectiveBottom = if (!env.keyboardModeFloat && !env.isLandscape) {
                 if (systemBottom > 0) {
                     systemBottom
@@ -1431,6 +1483,9 @@ class InputView(context: Context, val service: ImeService) : RelativeLayout(cont
                     addRule(RelativeLayout.CENTER_HORIZONTAL)
                 }
                 mSkbRoot.bottomPadding = 0
+                val parentW = if (width > 0) width else env.screenWidth
+                val parentH = if (height > 0) height else env.screenHeight
+                clampFloatingPadding(parentW, parentH)
             }
             updateNavbarTheme()
             insets

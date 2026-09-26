@@ -310,6 +310,14 @@ class ImeService : InputMethodService(), LifecycleOwner {
         return mCandidateView
     }
 
+    override fun getCandidatesHiddenVisibility(): Int {
+        return if (isHardwareKeyboard) {
+            super.getCandidatesHiddenVisibility()
+        } else {
+            View.GONE
+        }
+    }
+
     override fun onBindInput() {
         super.onBindInput()
         DecodingInfo.reset(invalidateSession = false, resetEngine = false)

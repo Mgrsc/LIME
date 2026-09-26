@@ -7,9 +7,11 @@ import android.graphics.drawable.GradientDrawable
 import android.view.Gravity
 import android.view.View
 import android.widget.Button
+import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ProgressBar
+import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.core.graphics.toColorInt
@@ -58,12 +60,12 @@ class VoiceDownloadContainer(
             gravity = Gravity.CENTER_HORIZONTAL
         }
 
-        // 2. Navigation bar (Height 40dp)
+        // 2. Navigation bar (Height 36dp)
         val headerLayout = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             val padH = dp(12)
-            val padV = dp(6)
+            val padV = dp(4)
             setPadding(padH, padV, padH, padV)
             setBackgroundColor("#15000000".toColorInt())
         }
@@ -73,8 +75,8 @@ class VoiceDownloadContainer(
             setImageResource(R.drawable.ic_arrow_back_24)
             contentDescription = context.getString(R.string.voice_btn_cancel)
             setColorFilter(textColor)
-            val size = dp(30)
-            val pad = dp(5)
+            val size = dp(28)
+            val pad = dp(4)
             setPadding(pad, pad, pad, pad)
             val backBg = GradientDrawable().apply {
                 shape = GradientDrawable.OVAL
@@ -85,22 +87,22 @@ class VoiceDownloadContainer(
                 KeyboardManager.instance.switchKeyboard()
             }
         }
-        headerLayout.addView(ivBack, LinearLayout.LayoutParams(dp(30), dp(30)))
+        headerLayout.addView(ivBack, LinearLayout.LayoutParams(dp(28), dp(28)))
 
         // Title
         val tvTitle = TextView(context).apply {
             text = context.getString(R.string.ime_settings_voice)
-            textSize = 15f
+            textSize = 14.5f
             setTextColor(textColor)
             paint.isFakeBoldText = true
-            setPadding(dp(10), 0, 0, 0)
+            setPadding(dp(8), 0, 0, 0)
         }
         headerLayout.addView(tvTitle, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
 
         // Right badge
         val tvBadge = TextView(context).apply {
             text = context.getString(R.string.voice_download_container_badge)
-            textSize = 11f
+            textSize = 10.5f
             setTextColor(accentColor)
             val badgeBg = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
@@ -110,7 +112,7 @@ class VoiceDownloadContainer(
             }
             background = badgeBg
             val padH = dp(8)
-            val padV = dp(3)
+            val padV = dp(2.5f)
             setPadding(padH, padV, padH, padV)
         }
         headerLayout.addView(tvBadge)
@@ -144,7 +146,7 @@ class VoiceDownloadContainer(
             contentDescription = null
             setColorFilter(Color.WHITE)
             val size = dp(36)
-            val pad = dp(8)
+            val pad = dp(7)
             setPadding(pad, pad, pad, pad)
             val micBg = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
@@ -185,8 +187,7 @@ class VoiceDownloadContainer(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
             ).apply {
-                topMargin = dp(8)
-                bottomMargin = dp(8)
+                topMargin = dp(6)
             }
             layoutParams = lp
         }
@@ -203,7 +204,7 @@ class VoiceDownloadContainer(
                 setTextColor("#B0BEC5".toColorInt())
                 val tagBg = GradientDrawable().apply {
                     shape = GradientDrawable.RECTANGLE
-                    cornerRadius = dp(6).toFloat()
+                    cornerRadius = dp(5).toFloat()
                     setColor("#15FFFFFF".toColorInt())
                 }
                 background = tagBg
@@ -212,11 +213,23 @@ class VoiceDownloadContainer(
                 setPadding(padH, padV, padH, padV)
             }
             val tagLp = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
-                rightMargin = dp(6)
+                rightMargin = dp(5)
             }
             tagsLayout.addView(tvTag, tagLp)
         }
         cardLayout.addView(tagsLayout)
+
+        // Dynamic flexible spacer: absorbs remaining vertical space when height is plentiful,
+        // shrinks automatically when downloading or when space is limited.
+        val flexibleSpacer = View(context).apply {
+            minimumHeight = dp(6)
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                0,
+                1f
+            )
+        }
+        cardLayout.addView(flexibleSpacer)
 
         // Progress bar
         progressBar = ProgressBar(context, null, android.R.attr.progressBarStyleHorizontal).apply {
@@ -227,7 +240,7 @@ class VoiceDownloadContainer(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 dp(4.5f)
             ).apply {
-                bottomMargin = dp(5)
+                bottomMargin = dp(4)
             }
             layoutParams = lp
         }
@@ -241,7 +254,7 @@ class VoiceDownloadContainer(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
             ).apply {
-                bottomMargin = dp(8)
+                bottomMargin = dp(6)
             }
             layoutParams = lp
         }
@@ -267,7 +280,7 @@ class VoiceDownloadContainer(
         // Download action button
         val btnDrawable = GradientDrawable().apply {
             shape = GradientDrawable.RECTANGLE
-            cornerRadius = dp(18).toFloat()
+            cornerRadius = dp(19).toFloat()
             setColor(accentColor)
         }
 
@@ -278,9 +291,13 @@ class VoiceDownloadContainer(
             paint.isFakeBoldText = true
             background = btnDrawable
             gravity = Gravity.CENTER
+            minHeight = 0
+            minimumHeight = 0
+            includeFontPadding = false
+            setPadding(dp(12), 0, dp(12), 0)
             val lp = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                dp(36)
+                dp(38)
             )
             layoutParams = lp
             setOnClickListener {
@@ -293,16 +310,26 @@ class VoiceDownloadContainer(
         }
         cardLayout.addView(btnDownload)
 
-        // Add card to main layout with margins
-        val cardLp = LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT,
-            LinearLayout.LayoutParams.WRAP_CONTENT
+        val scrollView = ScrollView(context).apply {
+            isFillViewport = true
+            overScrollMode = View.OVER_SCROLL_NEVER
+            isHorizontalScrollBarEnabled = false
+            isVerticalScrollBarEnabled = false
+        }
+        val cardLp = FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.MATCH_PARENT,
+            FrameLayout.LayoutParams.WRAP_CONTENT
         ).apply {
             val marginH = dp(14)
-            val marginV = dp(8)
+            val marginV = dp(6)
             setMargins(marginH, marginV, marginH, marginV)
         }
-        rootLayout.addView(cardLayout, cardLp)
+        scrollView.addView(cardLayout, cardLp)
+
+        rootLayout.addView(
+            scrollView,
+            LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f)
+        )
 
         addView(rootLayout, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
     }

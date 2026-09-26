@@ -49,13 +49,13 @@ class CandidateView(context: Context, private val service: ImeService) : Relativ
         mSkbRoot = LayoutInflater.from(context).inflate(R.layout.candidate_container, this, false) as RelativeLayout
         addView(mSkbRoot)
         mSkbCandidatesBarView = mSkbRoot.findViewById(R.id.candidates_bar)
+        initView()
         service.collectWhenStarted(DecodingInfo.candidatesFlow) {
             mSkbCandidatesBarView.showCandidates(skipUnchanged = true)
         }
         service.collectWhenStarted(EnginePipeline.stateFlow) {
             mSkbCandidatesBarView.showCandidates(skipUnchanged = true)
         }
-        initView()
     }
 
     private fun initDisplayCutout(service: ImeService) {

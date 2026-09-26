@@ -146,7 +146,7 @@
     <string name="voice_permission_dialog_go_to_settings">Go to Settings</string>
     <string name="voice_download_container_badge">SenseVoice · On-device</string>
     <string name="voice_download_container_model_title">SenseVoice-Small On-Device Model</string>
-    <string name="voice_download_container_model_sub">Size: ~239 MB (~275 MB on first install) · User-confirmed download · On-device inference</string>
+    <string name="voice_download_container_model_sub" formatted="false">User-confirmed download · 100% on-device inference</string>
     <string name="voice_download_container_tag_multilang">Mandarin/Cantonese/English</string>
     <string name="voice_download_container_tag_punctuation">Auto Punctuation</string>
     <string name="voice_download_container_tag_offline">Fully Offline Inference</string>

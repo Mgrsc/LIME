@@ -159,7 +159,7 @@
     <string name="voice_permission_dialog_go_to_settings">前往设置</string>
     <string name="voice_download_container_badge">SenseVoice · 本地推理</string>
     <string name="voice_download_container_model_title">SenseVoice-Small 端侧模型</string>
-    <string name="voice_download_container_model_sub">大小：约 239 MB (首次含依赖约 275 MB) · 用户确认下载 · 本地推理</string>
+    <string name="voice_download_container_model_sub" formatted="false">用户确认下载 · 100% 本地离线推理</string>
     <string name="voice_download_container_tag_multilang">普通话/粤语/英语</string>
     <string name="voice_download_container_tag_punctuation">智能自动标点</string>
     <string name="voice_download_container_tag_offline">完全离线推理</string>

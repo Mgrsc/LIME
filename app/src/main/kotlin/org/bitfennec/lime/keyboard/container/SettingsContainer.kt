@@ -144,12 +144,22 @@ class SettingsContainer(context: Context, inputView: InputView) : BaseContainer(
         }
 
         // 3. Menu grid
-        mRVMenuLayout = RecyclerView(context).apply {
+        mRVMenuLayout = object : RecyclerView(context) {
+            override fun onMeasure(widthSpec: Int, heightSpec: Int) {
+                val availableWidth = (MeasureSpec.getSize(widthSpec) - paddingLeft - paddingRight).coerceAtLeast(0)
+                val minItemWidth = (dp(72) * resources.configuration.fontScale.coerceAtLeast(1f)).toInt()
+                val maxColumns = if (ImeEnvironment.keyboardModeFloat) 4 else 8
+                val columns = (availableWidth / minItemWidth).coerceIn(1, maxColumns)
+                (layoutManager as? CustomGridLayoutManager)?.let { grid ->
+                    if (grid.spanCount != columns) grid.spanCount = columns
+                }
+                super.onMeasure(widthSpec, heightSpec)
+            }
+        }.apply {
             setHasFixedSize(true)
             setItemAnimator(null)
-            val isLandscape = ImeEnvironment.isLandscape
-            val count = if (isLandscape) 8 else 5
-            layoutManager = CustomGridLayoutManager(context, count)
+            layoutManager = CustomGridLayoutManager(context, 1)
+            setPadding(dp(4), dp(4), dp(4), dp(4))
             layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
         }
         mContentContainer?.addView(mRVMenuLayout)
@@ -166,11 +176,6 @@ class SettingsContainer(context: Context, inputView: InputView) : BaseContainer(
         mRVMenuLayout?.visibility = VISIBLE
         mFeedbackLayout?.visibility = GONE
         mModeSelectLayout?.visibility = GONE
-
-        val isLandscape = ImeEnvironment.isLandscape
-        val count = if (isLandscape) 8 else 5
-        mRVMenuLayout?.layoutManager = CustomGridLayoutManager(context, count)
-        mRVMenuLayout?.setPadding(dp(4), dp(4), dp(4), dp(4))
 
         funItems.clear()
         adapter = MenuAdapter(context, funItems)
@@ -652,11 +657,6 @@ class SettingsContainer(context: Context, inputView: InputView) : BaseContainer(
         mRVMenuLayout?.visibility = VISIBLE
         mFeedbackLayout?.visibility = GONE
         mModeSelectLayout?.visibility = GONE
-
-        val isLandscape = ImeEnvironment.isLandscape
-        val count = if (isLandscape) 8 else 5
-        mRVMenuLayout?.layoutManager = CustomGridLayoutManager(context, count)
-        mRVMenuLayout?.setPadding(dp(4), dp(4), dp(4), dp(4))
 
         if (enable) {
             funItems.clear()
