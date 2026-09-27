@@ -82,7 +82,7 @@
             android:textSize="11sp" />
     </LinearLayout>
 
-    <!-- Row 2: Pos 5 (Left), Pos 6 (Space), Pos 7 (Right), Pos 8 (Paste) -->
+    <!-- Row 2: Pos 5 (Left), Pos 6 (Space), Pos 7 (Right), Pos 8 (Copy) -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
@@ -136,30 +136,6 @@
             android:textSize="11sp" />
 
         <androidx.appcompat.widget.AppCompatTextView
-            android:id="@+id/btn_edit_paste"
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:layout_weight="1"
-            android:layout_margin="3dp"
-            android:clickable="true"
-            android:focusable="true"
-            android:gravity="center"
-            android:includeFontPadding="false"
-            app:drawableTopCompat="@drawable/ic_edit_paste"
-            android:drawablePadding="2dp"
-            android:text="@string/text_edit_paste"
-            android:textSize="11sp" />
-    </LinearLayout>
-
-    <!-- Row 3: Pos 9 (Copy), Pos 10 (Down), Pos 11 (Delete), Pos 12 (Back) -->
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1"
-        android:orientation="horizontal"
-        android:baselineAligned="false">
-
-        <androidx.appcompat.widget.AppCompatTextView
             android:id="@+id/btn_edit_copy"
             android:layout_width="0dp"
             android:layout_height="match_parent"
@@ -172,6 +148,30 @@
             app:drawableTopCompat="@drawable/ic_edit_copy"
             android:drawablePadding="2dp"
             android:text="@string/text_edit_copy"
+            android:textSize="11sp" />
+    </LinearLayout>
+
+    <!-- Row 3: Pos 9 (Back), Pos 10 (Down), Pos 11 (Delete), Pos 12 (Paste) -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="horizontal"
+        android:baselineAligned="false">
+
+        <androidx.appcompat.widget.AppCompatTextView
+            android:id="@+id/btn_edit_back"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:layout_margin="3dp"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center"
+            android:includeFontPadding="false"
+            app:drawableTopCompat="@drawable/ic_edit_back_keyboard"
+            android:drawablePadding="2dp"
+            android:text="@string/text_edit_return"
             android:textSize="11sp" />
 
         <androidx.appcompat.widget.AppCompatTextView
@@ -205,7 +205,7 @@
             android:textSize="11sp" />
 
         <androidx.appcompat.widget.AppCompatTextView
-            android:id="@+id/btn_edit_back"
+            android:id="@+id/btn_edit_paste"
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
@@ -214,9 +214,9 @@
             android:focusable="true"
             android:gravity="center"
             android:includeFontPadding="false"
-            app:drawableTopCompat="@drawable/ic_edit_back_keyboard"
+            app:drawableTopCompat="@drawable/ic_edit_paste"
             android:drawablePadding="2dp"
-            android:text="@string/text_edit_return"
+            android:text="@string/text_edit_paste"
             android:textSize="11sp" />
     </LinearLayout>
 

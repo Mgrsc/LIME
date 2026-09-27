@@ -30,8 +30,8 @@ import org.bitfennec.lime.utils.dp
  * Text editing keyboard container.
  * 3x4 ergonomic layout:
  * - Row 1: Home (1), Up (2), End (3), SelectAll/Cut (4)
- * - Row 2: Left (5), Space (6), Right (7), Paste (8)
- * - Row 3: Copy (9), Down (10), Delete (11), Return (12)
+ * - Row 2: Left (5), Space (6), Right (7), Copy (8)
+ * - Row 3: Return (9), Down (10), Delete (11), Paste (12)
  */
 @SuppressLint("ViewConstructor")
 class TextEditContainer(context: Context, inputView: InputView) : BaseContainer(context, inputView) {
@@ -47,12 +47,12 @@ class TextEditContainer(context: Context, inputView: InputView) : BaseContainer(
     private val btnLeft: TextView
     private val btnSpace: TextView
     private val btnRight: TextView
-    private val btnPaste: TextView
-
     private val btnCopy: TextView
+
+    private val btnBack: TextView
     private val btnDown: TextView
     private val btnDelete: TextView
-    private val btnBack: TextView
+    private val btnPaste: TextView
 
     private var hasTextSelected = false
     private val mHandler = Handler(Looper.getMainLooper())
@@ -72,18 +72,18 @@ class TextEditContainer(context: Context, inputView: InputView) : BaseContainer(
         btnLeft = mRootView.findViewById(R.id.btn_edit_left)
         btnSpace = mRootView.findViewById(R.id.btn_edit_space)
         btnRight = mRootView.findViewById(R.id.btn_edit_right)
-        btnPaste = mRootView.findViewById(R.id.btn_edit_paste)
+        btnCopy = mRootView.findViewById(R.id.btn_edit_copy)
 
         // Bind Row 3
-        btnCopy = mRootView.findViewById(R.id.btn_edit_copy)
+        btnBack = mRootView.findViewById(R.id.btn_edit_back)
         btnDown = mRootView.findViewById(R.id.btn_edit_down)
         btnDelete = mRootView.findViewById(R.id.btn_edit_delete)
-        btnBack = mRootView.findViewById(R.id.btn_edit_back)
+        btnPaste = mRootView.findViewById(R.id.btn_edit_paste)
 
         val allButtons = listOf(
             btnHome, btnUp, btnEnd, btnSelectAllOrCut,
-            btnLeft, btnSpace, btnRight, btnPaste,
-            btnCopy, btnDown, btnDelete, btnBack
+            btnLeft, btnSpace, btnRight, btnCopy,
+            btnBack, btnDown, btnDelete, btnPaste
         )
         val iconSize = dp(22)
         allButtons.forEach { button ->
