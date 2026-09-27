@@ -173,6 +173,7 @@ open class BaseKeyboardView(context: Context?) : View(context) {
                 context = PointerPipeline.DownContext(
                     selectionEnd = selectionEnd,
                     textBeforeCursorLength = textBeforeCursorLength,
+                    canSelectForDeletion = mService?.hasUncommittedComposing() == false,
                     longPressTimeoutMs = AppPrefs.getInstance().keyboardSetting.longPressTimeout.getValue().toLong(),
                 ),
             )

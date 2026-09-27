@@ -1801,7 +1801,7 @@ class InputView(context: Context, val service: ImeService) : RelativeLayout(cont
         return service.getTextBeforeCursor(length)
     }
 
-    private fun hasUncommittedComposing(): Boolean {
+    internal fun hasUncommittedComposing(): Boolean {
         return (!DecodingInfo.isCandidatesEmpty && !DecodingInfo.isAssociate) ||
                 !DecodingInfo.isEngineFinish ||
                 DecodingInfo.composingStrForDisplay.isNotEmpty()

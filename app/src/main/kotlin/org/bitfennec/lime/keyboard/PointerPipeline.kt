@@ -24,6 +24,8 @@ class PointerPipeline {
         val selectionEnd: Int,
         val textBeforeCursorLength: Int,
         val longPressTimeoutMs: Long,
+        // Composing text has no editor selection to preview for this gesture.
+        val canSelectForDeletion: Boolean = true,
     )
 
     data class MoveContext(
@@ -66,9 +68,10 @@ class PointerPipeline {
         var deleteSwipeStep: Int = 0,
         var deleteInitialCursor: Int = 0,
         var deleteInitialTextLength: Int = 0,
+        var canSelectForDeletion: Boolean = true,
     ) {
         val effectiveDeleteCursor: Int
-            get() = if (deleteInitialCursor > 0) deleteInitialCursor else deleteInitialTextLength
+            get() = (if (deleteInitialCursor > 0) deleteInitialCursor else deleteInitialTextLength).coerceAtLeast(0)
     }
 
     private val pointers = mutableMapOf<Int, PointerState>()
@@ -116,6 +119,7 @@ class PointerPipeline {
         if (key?.code == KeyEvent.KEYCODE_DEL) {
             state.deleteInitialCursor = context.selectionEnd
             state.deleteInitialTextLength = context.textBeforeCursorLength
+            state.canSelectForDeletion = context.canSelectForDeletion
         }
         pointers[pointerId] = state
         if (key == null) return emptyList()
@@ -171,10 +175,8 @@ class PointerPipeline {
         if (state.currentKey?.code == KeyEvent.KEYCODE_DEL) {
             when (state.activeDeleteAction) {
                 DeleteGestureAction.SWIPE_SELECT -> {
-                    commands += if (state.deleteSwipeStep > 0) {
-                        PointerCommand.DeleteCommit(state.deleteSwipeStep, state.effectiveDeleteCursor)
-                    } else {
-                        PointerCommand.DeleteCancel(state.effectiveDeleteCursor)
+                    if (state.deleteSwipeStep > 0) {
+                        commands += PointerCommand.DeleteCommit(state.deleteSwipeStep, state.effectiveDeleteCursor)
                     }
                     state.abortKey = true
                 }
@@ -666,12 +668,8 @@ class PointerPipeline {
             }
             commands += PointerCommand.DismissPopup
         } else {
-            val maxChars = effectiveCursor
-            val targetStep = if (maxChars > 0) {
-                ((slideDist / moveContext.deleteStepPx).toInt() + 1).coerceAtMost(maxChars)
-            } else {
-                ((slideDist / moveContext.deleteStepPx).toInt() + 1)
-            }
+            val maxChars = if (state.canSelectForDeletion) effectiveCursor else 0
+            val targetStep = ((slideDist / moveContext.deleteStepPx).toInt() + 1).coerceIn(0, maxChars)
             if (targetStep != state.deleteSwipeStep) {
                 val shouldVibrate = targetStep > state.deleteSwipeStep
                 state.deleteSwipeStep = targetStep

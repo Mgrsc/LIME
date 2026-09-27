@@ -63,6 +63,7 @@ class DeleteKeyGestureController(
                 execute(pipeline.onDown(deleteKey, event.x, event.y, id, PointerPipeline.DownContext(
                     selectionEnd = inputView.getSelectionEnd(),
                     textBeforeCursorLength = inputView.getTextBeforeCursor(1000).length,
+                    canSelectForDeletion = !inputView.hasUncommittedComposing(),
                     longPressTimeoutMs = 400L,
                 )))
             }
