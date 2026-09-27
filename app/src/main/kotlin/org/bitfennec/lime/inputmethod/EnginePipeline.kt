@@ -89,6 +89,7 @@ sealed interface EngineEvent {
         val composingText: String,
         val sequence: Long,
         override val traceSequence: Long = 0L,
+        val spaceHandled: Boolean = false,
     ) : EngineEvent
 
     data class CompositionCleared(
@@ -126,7 +127,7 @@ sealed interface SessionUpdate {
 sealed interface EngineAction {
     data class NormalKey(val event: KeyEvent, val gen: Long = 0L) : EngineAction
     data class DeleteKey(val gen: Long = 0L) : EngineAction
-    data class SpaceKey(val gen: Long = 0L) : EngineAction
+    data class SpaceKey(val gen: Long = 0L, val insertSpace: Boolean = true) : EngineAction
     data class EnterKey(val gen: Long = 0L) : EngineAction
     data class MoveCompositionCursor(val targetIndex: Int, val gen: Long = 0L) : EngineAction
     data class StepCompositionCursor(val direction: Int, val gen: Long = 0L) : EngineAction
@@ -614,7 +615,7 @@ object EnginePipeline {
                 }
                 is EngineAction.SpaceKey -> {
                     cancelPendingPredictTasks()
-                    processSpaceKey(sessionId, action.gen)
+                    processSpaceKey(sessionId, action.gen, action.insertSpace)
                 }
                 is EngineAction.EnterKey -> {
                     cancelPendingPredictTasks()
@@ -937,10 +938,11 @@ object EnginePipeline {
 
     private fun isSymbolPanel(): Boolean = KeyboardManager.instance.currentContainer is SymbolContainer
 
-    private suspend fun processSpaceKey(sessionId: Long, gen: Long) {
+    private suspend fun processSpaceKey(sessionId: Long, gen: Long, insertSpace: Boolean) {
         val state = _stateFlow.value
         if (!RimeEngine.isFinish() && !state.isAssociate) {
             val hasCandidates = RimeEngine.showCandidates.isNotEmpty()
+            val appendSpace = RimeEngine.isEnglishSchema() && insertSpace && !InputModeSwitcher.isEmailOrUri
             val composition = if (RimeEngine.isEnglishSchema()) {
                 RimeEngine.rawCompositionText()
             } else if (hasCandidates) {
@@ -952,7 +954,11 @@ object EnginePipeline {
             if (RimeEngine.isEnglishSchema() || !hasCandidates || RimeEngine.isFinish()) {
                 RimeEngine.reset()
             }
-            emitRimeSnapshot(sessionId, composition)
+            emitRimeSnapshot(
+                sessionId,
+                if (appendSpace) composition + " " else composition,
+                spaceHandled = appendSpace,
+            )
             publishCurrentState(sessionId, gen = gen)
             if (composition.isNotEmpty()) {
                 val shouldPredict = canPredict() && hasCandidates
@@ -972,7 +978,7 @@ object EnginePipeline {
                 emitEvent(EngineEvent.CommitText(sessionId, commit))
             }
         } else {
-            emitEvent(EngineEvent.SendKeyEvent(sessionId, KeyEvent.KEYCODE_SPACE))
+            emitEvent(EngineEvent.SendKeyEvent(sessionId, if (insertSpace) KeyEvent.KEYCODE_SPACE else KeyEvent.KEYCODE_DPAD_CENTER))
         }
     }
 
@@ -1079,6 +1085,7 @@ object EnginePipeline {
         committedText: String?,
         traceSequence: Long = activeTraceSequence,
         composingText: String = RimeEngine.editorCompositionText(),
+        spaceHandled: Boolean = false,
     ) {
         val hideEditorComposition = activePolicy.flags.isPassword && activePolicy.sessionId == sessionId
         emitEvent(EngineEvent.ApplyRimeSnapshot(
@@ -1087,6 +1094,7 @@ object EnginePipeline {
             composingText = if (hideEditorComposition) "" else composingText,
             sequence = activeActionSequence,
             traceSequence = traceSequence,
+            spaceHandled = spaceHandled,
         ))
     }
 

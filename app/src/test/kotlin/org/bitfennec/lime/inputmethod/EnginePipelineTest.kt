@@ -61,6 +61,16 @@ class EnginePipelineTest {
         assertEquals("你", snapshotEvent.committedText)
         assertEquals("hao", snapshotEvent.composingText)
         assertEquals(7L, snapshotEvent.sequence)
+        assertFalse(snapshotEvent.spaceHandled)
+
+        val snapshotWithSpaceHandled = EngineEvent.ApplyRimeSnapshot(0L, "hello ", "", 8L, spaceHandled = true)
+        assertTrue(snapshotWithSpaceHandled.spaceHandled)
+
+        val defaultSpaceKey = EngineAction.SpaceKey(1L)
+        assertTrue(defaultSpaceKey.insertSpace)
+
+        val dpadCenterSpaceKey = EngineAction.SpaceKey(1L, insertSpace = false)
+        assertFalse(dpadCenterSpaceKey.insertSpace)
 
         val keyEvent = EngineEvent.SendKeyEvent(0L, 66)
         assertEquals(66, keyEvent.keyCode)

@@ -179,4 +179,29 @@ class EnginePipelineConcurrencyTest {
 
         assertEquals(sid, EnginePipeline.currentSessionId)
     }
+
+    @Test
+    fun testIdleSpaceKeyDistinguishesSpaceAndDpadCenter() = runBlocking {
+        EnginePipeline.beginSession()
+        val sid = EnginePipeline.currentSessionId
+        val updates = mutableListOf<SessionUpdate>()
+        val job = launch {
+            EnginePipeline.updates.collect { updates.add(it) }
+        }
+        kotlinx.coroutines.yield()
+
+        EnginePipeline.send(EngineAction.SpaceKey(insertSpace = true))
+        EnginePipeline.send(EngineAction.SpaceKey(insertSpace = false))
+
+        delay(100)
+        job.cancel()
+
+        val keyEvents = updates
+            .filterIsInstance<SessionUpdate.Event>()
+            .map(SessionUpdate.Event::event)
+            .filterIsInstance<EngineEvent.SendKeyEvent>()
+        assertEquals(2, keyEvents.size)
+        assertEquals(android.view.KeyEvent.KEYCODE_SPACE, keyEvents[0].keyCode)
+        assertEquals(android.view.KeyEvent.KEYCODE_DPAD_CENTER, keyEvents[1].keyCode)
+    }
 }

@@ -1115,7 +1115,7 @@ class ImeService : InputMethodService(), LifecycleOwner {
         rimeComposingText = composingText
         rimeComposingGeneration = event.sequence
 
-        if (committedText != null && InputModeSwitcher.isEnglish && !InputModeSwitcher.isEmailOrUri && getInstance().input.abcSpaceAuto.getValue()) {
+        if (committedText != null && !event.spaceHandled && InputModeSwitcher.isEnglish && !InputModeSwitcher.isEmailOrUri && getInstance().input.abcSpaceAuto.getValue()) {
             commitText(" ")
         }
     }

@@ -1109,7 +1109,10 @@ class InputView(context: Context, val service: ImeService) : RelativeLayout(cont
                 } else if (DecodingInfo.hasExternalCandidateSource) {
                     chooseAndUpdate()
                 } else {
-                    EnginePipeline.send(EngineAction.SpaceKey(gen = DecodingInfo.nextActionGeneration()))
+                    EnginePipeline.send(EngineAction.SpaceKey(
+                        gen = DecodingInfo.nextActionGeneration(),
+                        insertSpace = keyCode == KeyEvent.KEYCODE_SPACE,
+                    ))
                 }
             }
             KeyEvent.KEYCODE_CLEAR -> resetToIdleState()
