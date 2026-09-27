@@ -1712,6 +1712,10 @@ class InputView(context: Context, val service: ImeService) : RelativeLayout(cont
 
     private var selStart = 0
     private var selEnd = 0
+
+    val hasTextSelection: Boolean
+        get() = isTextSelectionActive(selStart, selEnd)
+
     private var oldCandidatesEnd = 0
     private var expectedSelStart = -1
     private var expectedSelEnd = -1
@@ -1992,3 +1996,6 @@ class InputView(context: Context, val service: ImeService) : RelativeLayout(cont
         }
     }
 }
+
+internal fun isTextSelectionActive(selStart: Int, selEnd: Int): Boolean =
+    selStart >= 0 && selEnd >= 0 && selStart != selEnd

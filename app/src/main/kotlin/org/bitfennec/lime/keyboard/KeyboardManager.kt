@@ -102,7 +102,7 @@ class KeyboardManager {
                 org.bitfennec.lime.core.HandwritingEngine.scheduleIdleUnload(60_000L)
             }
         }
-        if (isNewContainer || container is InputBaseContainer) {
+        if (isNewContainer || container is InputBaseContainer || container is TextEditContainer) {
             container.updateSkbLayout()
         }
         mKeyboardRootView.showView(container)

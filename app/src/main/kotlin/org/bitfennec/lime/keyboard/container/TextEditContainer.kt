@@ -20,6 +20,7 @@ import org.bitfennec.lime.R
 import org.bitfennec.lime.data.theme.ThemeManager
 import org.bitfennec.lime.keyboard.InputView
 import org.bitfennec.lime.keyboard.KeyboardManager
+import org.bitfennec.lime.keyboard.isTextSelectionActive
 import org.bitfennec.lime.prefs.InputFeedbacks
 import org.bitfennec.lime.prefs.behavior.SkbMenuMode
 import org.bitfennec.lime.utils.DevicesUtils
@@ -105,38 +106,52 @@ class TextEditContainer(context: Context, inputView: InputView) : BaseContainer(
         applyTheme()
     }
 
+    private fun collapseSelection() {
+        if (hasTextSelected) {
+            hasTextSelected = false
+            updateSelectAllOrCutButton()
+        }
+    }
+
     private fun setupListeners() {
         // D-Pad directional keys with long-press auto-repeat
         setupRepeatButton(btnLeft) {
             triggerFeedback(btnLeft, InputFeedbacks.SoundEffect.Standard)
+            collapseSelection()
             inputView.service.sendCombinationKeyEvents(KeyEvent.KEYCODE_DPAD_LEFT)
         }
         setupRepeatButton(btnRight) {
             triggerFeedback(btnRight, InputFeedbacks.SoundEffect.Standard)
+            collapseSelection()
             inputView.service.sendCombinationKeyEvents(KeyEvent.KEYCODE_DPAD_RIGHT)
         }
         setupRepeatButton(btnUp) {
             triggerFeedback(btnUp, InputFeedbacks.SoundEffect.Standard)
+            collapseSelection()
             inputView.service.sendCombinationKeyEvents(KeyEvent.KEYCODE_DPAD_UP)
         }
         setupRepeatButton(btnDown) {
             triggerFeedback(btnDown, InputFeedbacks.SoundEffect.Standard)
+            collapseSelection()
             inputView.service.sendCombinationKeyEvents(KeyEvent.KEYCODE_DPAD_DOWN)
         }
 
         // Home and End of line
         btnHome.setOnClickListener {
             triggerFeedback(btnHome, InputFeedbacks.SoundEffect.Standard)
+            collapseSelection()
             inputView.service.sendCombinationKeyEvents(KeyEvent.KEYCODE_MOVE_HOME)
         }
         btnEnd.setOnClickListener {
             triggerFeedback(btnEnd, InputFeedbacks.SoundEffect.Standard)
+            collapseSelection()
             inputView.service.sendCombinationKeyEvents(KeyEvent.KEYCODE_MOVE_END)
         }
 
         // Space with auto-repeat
         setupRepeatButton(btnSpace) {
             triggerFeedback(btnSpace, InputFeedbacks.SoundEffect.Standard)
+            collapseSelection()
             inputView.service.sendDownUpKeyEvents(KeyEvent.KEYCODE_SPACE)
         }
 
@@ -145,6 +160,7 @@ class TextEditContainer(context: Context, inputView: InputView) : BaseContainer(
             triggerFeedback(btnSelectAllOrCut, InputFeedbacks.SoundEffect.Standard)
             if (hasTextSelected) {
                 inputView.service.commitTextEditMenu(android.R.id.cut)
+                collapseSelection()
             } else {
                 inputView.service.commitTextEditMenu(android.R.id.selectAll)
             }
@@ -160,11 +176,13 @@ class TextEditContainer(context: Context, inputView: InputView) : BaseContainer(
         btnPaste.setOnClickListener {
             triggerFeedback(btnPaste, InputFeedbacks.SoundEffect.Standard)
             inputView.service.commitTextEditMenu(android.R.id.paste)
+            collapseSelection()
         }
 
         // Delete with auto-repeat
         setupRepeatButton(btnDelete) {
             triggerFeedback(btnDelete, InputFeedbacks.SoundEffect.Delete)
+            collapseSelection()
             inputView.service.sendDownUpKeyEvents(KeyEvent.KEYCODE_DEL)
         }
 
@@ -214,11 +232,26 @@ class TextEditContainer(context: Context, inputView: InputView) : BaseContainer(
         InputFeedbacks.soundEffect(effect)
     }
 
+    fun syncSelectionState() {
+        val selectedText = inputView.service.getSelectedText()
+        val hasSelection = if (selectedText.isNotEmpty()) {
+            true
+        } else if (inputView.service.currentInputConnection == null) {
+            inputView.hasTextSelection
+        } else {
+            false
+        }
+        if (hasTextSelected != hasSelection) {
+            hasTextSelected = hasSelection
+            updateSelectAllOrCutButton()
+        }
+    }
+
     /**
      * Selection change notification from InputView.onUpdateSelection.
      */
     fun onSelectionUpdated(selStart: Int, selEnd: Int) {
-        val hasSelection = (selStart != selEnd)
+        val hasSelection = isTextSelectionActive(selStart, selEnd)
         if (hasTextSelected != hasSelection) {
             hasTextSelected = hasSelection
             updateSelectAllOrCutButton()
@@ -227,6 +260,7 @@ class TextEditContainer(context: Context, inputView: InputView) : BaseContainer(
 
     override fun updateSkbLayout() {
         applyTheme()
+        syncSelectionState()
     }
 
     fun applyTheme() {

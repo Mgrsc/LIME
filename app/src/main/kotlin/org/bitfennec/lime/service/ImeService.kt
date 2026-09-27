@@ -1149,7 +1149,16 @@ class ImeService : InputMethodService(), LifecycleOwner {
     }
 
     fun getSelectedText(): String {
-        return currentInputConnection?.getSelectedText(0)?.toString() ?: ""
+        return try {
+            currentInputConnection?.getSelectedText(0)?.toString() ?: ""
+        } catch (e: RuntimeException) {
+            Log.w(
+                "ImeService",
+                "{\"event\":\"ime.selection_read\",\"result\":\"failed\",\"exception\":\"${e.javaClass.simpleName}\"}",
+                e,
+            )
+            ""
+        }
     }
 
     fun handleHardwareKeyboard(newConfig: Configuration? = null) {
