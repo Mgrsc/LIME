@@ -30,12 +30,16 @@ int main(int argc, char** argv) {
     for (size_t i = 0; i < table.metadata()->syllabary->size; ++i)
         syllables[table.GetSyllableById(i)] = i;
     for (const auto& item : std::vector<std::pair<std::string, std::string>>{
-            {"你好", "ni hao"}, {"銀行", "yin hang"}, {"嗯", "en"},
-            {"阿巴拉契亞", "a ba la qi ya"}}) {
+            {"你好", "ni hao"}, {"银行", "yin hang"}, {"嗯", "en"},
+            {"楚雄", "chu xiong"}, {"郑州", "zheng zhou"}, {"徐州", "xu zhou"},
+            {"秦皇岛", "qin huang dao"}, {"呼和浩特", "hu he hao te"},
+            {"乌鲁木齐", "wu lu mu qi"}}) {
         rime::Code code;
         assert(parse_code_to_syllables("  " + item.second + "  ", syllables, code));
         bool found = false;
-        assert(is_entry_in_system_dict_locked("pinyin", item.first, code, found) && found);
+        bool ok = is_entry_in_system_dict_locked("pinyin", item.first, code, found) && found;
+        std::cout << "Testing: " << item.first << " -> " << ok << std::endl;
+        assert(ok);
         code.push_back(syllables.at("a"));
         assert(is_entry_in_system_dict_locked("pinyin", item.first, code, found) && !found);
     }

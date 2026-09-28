@@ -26,3 +26,13 @@ dicts/lianxiang.dict.yaml
 name: lianxiang
 version: "LTS"
 sort: by_weight
+
+dicts/diming.dict.yaml
+# Rime dictionary
+# encoding: utf-8
+#https://github.com/amzxyz/RIME-LMDG
+#------行政区划、地理、地标、景区、实体------
+---
+name: diming
+version: "LTS"
+sort: by_weight

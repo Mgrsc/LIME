@@ -9,6 +9,7 @@ from pathlib import Path
 import sys
 import subprocess
 import tempfile
+import unittest
 from unittest.mock import patch
 import zipfile
 
@@ -83,7 +84,8 @@ def main():
 def check_native(probe: Path, before: Path, after: Path):
     queries = [("pinyin", q) for q in (
         "e", "ee", "e'e", "eee", "oo", "en", "enen", "eneng", "engen", "engeng", "ng",
-        "jiayouo", "jiayoue", "yine", "nv", "nu", "dayuyanmoxing", "lixianyuyinshibie")]
+        "jiayouo", "jiayoue", "yine", "nv", "nu", "dayuyanmoxing", "lixianyuyinshibie",
+        "chuxiong", "zhengzhou", "xuzhou")]
     queries += [("double_pinyin_flypy", q) for q in ("ee", "eeee", "enen", "oooo", "nv", "nu")]
     queries += [("t9_pinyin", q) for q in ("33", "333", "36", "3636", "66", "64")]
     queries += [("pinyin", "zhonghuarenmingongheguo"), ("double_pinyin_flypy", "dayuyjmoxk")]
@@ -105,7 +107,8 @@ def check_native(probe: Path, before: Path, after: Path):
                           ("dayuyanmoxing", "大语言模型"), ("zhonghuarenmingongheguo", "中华人民共和国"),
                           ("qingxuxingjinshi", "情绪性进食"), ("jiqixuexijishi", "机器学习基石"),
                           ("rengongzhinengzhili", "人工智能治理"),
-                          ("lixianyuyinshibie", "离线语音识别")):
+                          ("lixianyuyinshibie", "离线语音识别"),
+                          ("chuxiong", "楚雄"), ("zhengzhou", "郑州"), ("xuzhou", "徐州")):
         assert new["pinyin", query][0] == phrase, (query, new["pinyin", query])
     assert new["double_pinyin_flypy", "eeee"][0] == "呃呃"
     assert "大语言模型" in new["double_pinyin_flypy", "dayuyjmoxk"]
@@ -126,6 +129,7 @@ def check_apk(bundle: Path, apk_path: Path):
     assert report["builder_sha256"] == hashlib.sha256(
         (Path(__file__).parent / "build_candidate_dictionary.py").read_bytes()).hexdigest()
     assert any(item["path"] == "dicts/lianxiang.dict.yaml" for item in report["source"]["files"])
+    assert any(item["path"] == "dicts/diming.dict.yaml" for item in report["source"]["files"])
     with zipfile.ZipFile(apk_path) as apk:
         assert apk.read("assets/rime-assets-manifest.json") == manifest_path.read_bytes()
         for name, expected in manifest["system_assets"].items():
@@ -134,6 +138,11 @@ def check_apk(bundle: Path, apk_path: Path):
             assert apk.read("assets/rime/" + name) == data, name
         assert not any(name.endswith(".dict.yaml") or name == "assets/rime/essay.txt" for name in apk.namelist())
     print(f"PASS APK manifest and all {len(manifest['system_assets'])} Rime asset fingerprints")
+
+
+class WanxiangUpdateTest(unittest.TestCase):
+    def test_snapshot_update_workflow_and_gates(self):
+        main()
 
 
 if __name__ == "__main__":

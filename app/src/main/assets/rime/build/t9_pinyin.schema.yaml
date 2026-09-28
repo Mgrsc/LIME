@@ -4,7 +4,7 @@ __build_info:
     default: 1789272582
     default.custom: 0
     t9_pinyin.custom: 0
-    t9_pinyin.schema: 1790177865
+    t9_pinyin.schema: 1790180797
 emoji:
   opencc_config: emoji.json
   option_name: emoji
@@ -81,9 +81,9 @@ translator:
   enable_completion: true
   enable_encoder: true
   enable_sentence: false
-  weight_ordered: true
   enable_user_dict: true
   preedit_format:
     - "xform/([nljqxy])v/$1ü/"
   prism: t9_pinyin
   spelling_hints: 3
+  weight_ordered: true

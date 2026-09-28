@@ -1,10 +1,10 @@
 __build_info:
   rime_version: 1.17.0
   timestamps:
-    default: 1790311194
+    default: 1789272582
     default.custom: 0
     pinyin.custom: 0
-    pinyin.schema: 1790311194
+    pinyin.schema: 1790310270
 emoji:
   opencc_config: emoji.json
   option_name: emoji

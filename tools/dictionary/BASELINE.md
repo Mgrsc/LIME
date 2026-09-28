@@ -74,7 +74,7 @@ python3 tools/dictionary/generate_assets_manifest.py
 
 ## 2026-09-13：全新安装词库切换
 
-生产拼音底座改为固定万象 `zi+jichu+lianxiang`，提交见 `candidates.lock.json` 的 `wanxiang` 项。保留 Rime 三方案与独立 English；`modern.tsv` 仅保留原创产品术语，现代词和网络词随上游更新；空的热词入口已删除，旧 Luna 构建脚本仅用于历史对照，不是默认生产流程。上文 Luna 数据属于历史基线。
+生产拼音底座改为固定万象 `zi+jichu+lianxiang+diming`，提交见 `candidates.lock.json` 的 `wanxiang` 项。保留 Rime 三方案与独立 English；`modern.tsv` 仅保留原创产品术语，现代词和网络词随上游更新；空的热词入口已删除，旧 Luna 构建脚本仅用于历史对照，不是默认生产流程。上文 Luna 数据属于历史基线。
 
 新流程使用 Python 标准库与项目现有 librime，无上游 Lua、模型或在线热词抓取。每次构建必须使用新的输出目录：
 
