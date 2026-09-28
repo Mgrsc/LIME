@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.9.1] - 2026-09-28
+
+### Added
+- **Wanxiang Geographic Lexicon Integration**: Bundled upstream `dicts/diming.dict.yaml` with 209 negative-weight anomaly rows safely quarantined, introducing 84,620 standardized Chinese geographic names (e.g., Chuxiong, Zhengzhou, Xuzhou, Qinhuangdao, Hohhot).
+- **Lexicon Regression CI Gate**: Added automated place-name regression verification suite and native candidate lookup assertions in `tools/dictionary/`.
+
+### Fixed
+- **Missing Place-Name Candidates**: Resolved missing regional prefecture and city candidate predictions across Pinyin and T9 layouts.
+
+---
+
 ## [0.9.0] - 2026-09-25
 
 ### Added

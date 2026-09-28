@@ -9,7 +9,7 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
 }
 
-val appVersionName = "0.9.0"
+val appVersionName = "0.9.1"
 
 fun versionCodeDate(): Int {
     return (System.currentTimeMillis() / 1000).toInt()

@@ -14,7 +14,7 @@
 
 <p align="center">
   <a href="https://github.com/Mgrsc/LIME"><img src="https://img.shields.io/badge/GitHub-Mgrsc%2FLIME-blue?logo=github" alt="GitHub Repo" /></a>
-  <a href="https://github.com/Mgrsc/LIME/releases"><img src="https://img.shields.io/badge/Version-0.9.0-blue.svg" alt="Version 0.9.0" /></a>
+  <a href="https://github.com/Mgrsc/LIME/releases"><img src="https://img.shields.io/badge/Version-0.9.1-blue.svg" alt="Version 0.9.1" /></a>
   <a href="https://github.com/Mgrsc/LIME/actions/workflows/ci.yml"><img src="https://github.com/Mgrsc/LIME/actions/workflows/ci.yml/badge.svg" alt="CI Status" /></a>
   <a href="./LICENSE"><img src="https://img.shields.io/badge/License-BSD--3--Clause-green.svg" alt="License" /></a>
   <a href="./CODE_OF_CONDUCT.md"><img src="https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg" alt="Contributor Covenant" /></a>
