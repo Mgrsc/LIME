@@ -74,7 +74,7 @@ python3 tools/dictionary/generate_assets_manifest.py
 
 ## 2026-09-13：全新安装词库切换
 
-生产拼音底座改为固定万象 `zi+jichu+lianxiang+diming`，提交见 `candidates.lock.json` 的 `wanxiang` 项。保留 Rime 三方案与独立 English；`modern.tsv` 仅保留原创产品术语，现代词和网络词随上游更新；空的热词入口已删除，旧 Luna 构建脚本仅用于历史对照，不是默认生产流程。上文 Luna 数据属于历史基线。
+生产拼音底座改为固定万象 `zi+jichu+lianxiang+diming+yiren+mingren+renming+duoyin+yaopin+huaxue+yixue`，提交见 `candidates.lock.json` 的 `wanxiang` 项。保留 Rime 三方案与独立 English；`modern.tsv` 保留原创产品术语与显式标注来源的补充读音，现代词和网络词随上游更新；空的热词入口已删除，旧 Luna 构建脚本仅用于历史对照，不是默认生产流程。上文 Luna 数据属于历史基线。
 
 新流程使用 Python 标准库与项目现有 librime，无上游 Lua、模型或在线热词抓取。每次构建必须使用新的输出目录：
 
@@ -85,9 +85,16 @@ python3 tools/dictionary/compile_candidate_bundle.py .dev/scratch/wanxiang-relea
 
 `--deployer` 指向按项目当前 librime 源码编译的宿主工具；新环境按下文“宿主工具构建”操作，不依赖旧工程或未发布脚本。无 `--publish` 时只生成隔离包；发布仅允许锁定万象来源，完整编译后替换资产、更新清单，旧资源保留在 `.dev/scratch/lexicon-release-*`，同步失败恢复旧资源及清单。
 
-同词同码取最大权重；语气词覆盖值、源 hash、生成器和编译器 hash 见随包 `BUILD_REPORT.json`。九键将边缘音节投影到习惯码，避免 `ng→64`；嗯嗯只补自身的混合 en/eng 入口。“呃呃呃”在 eee 下优先属于项目偏好，不代表“鹅鹅鹅”“饿饿饿”注音错误。
+同词同码取最大权重；人名词库（yiren / mingren / renming）设置 2000 权重上限且在碰撞基础表时严格分档限额（基础词权重 ≥150 时限额为 `base_max - 1`，基础词权重 <150 时人名保底权重 150），既保住日常高频词（如“章节”4317 优先于“张杰”2000，“武警”1416 优先于“吴京”1415，“橙汁”759 优先于“程之”758，“缉拿”288 优先于“吉娜”），又防止极低权重基础噪词压制真实知名人名（如“刘慈欣”150 优先于“硫磁锌”90）；语气词覆盖值、源 hash、生成器和编译器 hash 见随包 `BUILD_REPORT.json`。九键将边缘音节投影到习惯码，避免 `ng→64`；嗯嗯只补自身的混合 en/eng 入口。“呃呃呃”在 eee 下优先属于项目偏好，不代表“鹅鹅鹅”“饿饿饿”注音错误。
 
-数据许可独立于应用：随包 `UPSTREAM_LICENSE`、`SOURCE_HEADERS.txt`、`NOTICE.txt`、`PROJECT_WORDS_LICENSE`。保留万象 CC BY 4.0 声明，原创词条采用项目 BSD-3-Clause；没有引入白霜 GPL 数据。原有预测资源继续保留自身许可。根声明不代表对全部第三方语料来源作法律担保，所选固定源未发现具体冲突，来源颗粒度缺口见 `.dev/design/lexicon-source-selection.md`。
+引擎行为与已知边界：
+- 基础词权重 <150 的同码冷僻条目会让位给知名人名（如硫磁锌让位给刘慈欣），而基础词权重 ≥150 的条目则绝对保护首选；
+- 保护语义为“人名权重严格低于该码的最大基础权重”，极低权重同码异体/简繁对（base 权重 1–62，跨词 5 例、同词 9 例，合计 14 例，如小泽玛利亚/小泽玛丽亚）之间可能存在并列；
+- 当同一（词, 码）同时出现在基础表与人名表时，合并规则取最大值（max），限额后的人名权重若高于基础表原值（如李严 20→998、耿介 60→90，全量共 36 例）会被保留，但该权重依然严格低于该码位最高基础词，不改变首选候选；
+- 拼音引擎遵循“精确拼写优先于模糊拼写”机制，因此全拼精确输入 `sunyang`（孙杨）、`yangze`（杨泽）、`zhangyang`（张扬）优先于模糊音候选（顺眼 `shun yan`、沿着 `yan zhe`、赞扬 `zan yang`）；
+- `duoyin` 引入的精确注音条目可能对同码地名等极低权重条目产生合理更替（如 `zhangping` 漳平 63 → 长平 300，`zhangyou` 长幼 142 → 长有 898）。
+
+数据许可独立于应用：随包 `UPSTREAM_LICENSE`、`SOURCE_HEADERS.txt`、`NOTICE.txt`、`PROJECT_WORDS_LICENSE`。保留万象 CC BY 4.0 声明，原创词条采用项目 BSD-3-Clause；显式标注来源的补充读音（如大都）遵循万象 duoyin 源 CC BY 4.0 声明；没有引入白霜 GPL 数据。原有预测资源继续保留自身许可。根声明不代表对全部第三方语料来源作法律担保，所选固定源未发现具体冲突，来源颗粒度缺口见 `.dev/references/lexicon-selection/`。
 
 用户明确本项目按全新安装验收，不实施旧 userdb 迁移/清理；旧学习记录仍可能保留旧编码。不能以全新安装检查通过声称旧用户迁移通过。
 
@@ -107,7 +114,7 @@ python3 tools/dictionary/compile_candidate_bundle.py .dev/scratch/wanxiang-candi
 
 候选通过三方案原生回归后，将候选锁替换 `candidates.lock.json`，再用新目录重建并 `--publish`，最后验证 APK manifest 与候选。保留回归保护项 ee/e'e/eee、oo/yine、en/ng、九键和小鹤，补验长词。更新检查成功不等于分发成功；手机仍随 APK 更新。不包含运行时联网、独立热搜源或自动提交。
 
-集中检查使用 `python3 tools/dictionary/test_wanxiang_update.py`，不联网；在已有宿主探针的工作区，可附加 `--probe <probe> --before <previous-bundle> --after app/src/main/assets/rime --apk app/build/outputs/apk/debug/app-debug.apk` 验证候选和打包指纹。定时执行位置尚待确认，目前仅交付检查命令，未启用本机或 CI 定时任务。
+集中检查使用 `python3 tools/dictionary/test_wanxiang_update.py`，不联网；若要执行原生全量候选排序回归验证，必须附加 `--probe <probe> --before <previous-bundle> --after app/src/main/assets/rime --apk app/build/outputs/apk/debug/app-debug.apk`。定时执行位置尚待确认，目前仅交付检查命令，未启用本机或 CI 定时任务。
 
 ## 宿主工具构建（Linux）
 

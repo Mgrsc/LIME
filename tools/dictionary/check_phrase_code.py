@@ -27,13 +27,19 @@ int main(int argc, char** argv) {
     rime::Table table(deployer.shared_data_dir / "build" / "pinyin.table.bin");
     assert(table.Load());
     std::unordered_map<std::string, rime::SyllableId> syllables;
+    std::cout << "Syllables count: " << table.metadata()->syllabary->size << std::endl;
+    assert(table.metadata()->syllabary->size == 418 && "unexpected syllabary size");
     for (size_t i = 0; i < table.metadata()->syllabary->size; ++i)
         syllables[table.GetSyllableById(i)] = i;
     for (const auto& item : std::vector<std::pair<std::string, std::string>>{
             {"你好", "ni hao"}, {"银行", "yin hang"}, {"嗯", "en"},
             {"楚雄", "chu xiong"}, {"郑州", "zheng zhou"}, {"徐州", "xu zhou"},
             {"秦皇岛", "qin huang dao"}, {"呼和浩特", "hu he hao te"},
-            {"乌鲁木齐", "wu lu mu qi"}}) {
+            {"乌鲁木齐", "wu lu mu qi"},
+            {"邓紫棋", "deng zi qi"}, {"周杰伦", "zhou jie lun"},
+            {"雷军", "lei jun"}, {"刘慈欣", "liu ci xin"},
+            {"对乙酰氨基酚", "dui yi xian an ji fen"}, {"布洛芬", "bu luo fen"},
+            {"大都", "da du"}}) {
         rime::Code code;
         assert(parse_code_to_syllables("  " + item.second + "  ", syllables, code));
         bool found = false;

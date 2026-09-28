@@ -36,3 +36,75 @@ dicts/diming.dict.yaml
 name: diming
 version: "LTS"
 sort: by_weight
+
+dicts/yiren.dict.yaml
+# encoding utf-8
+# rime dictionary
+#https://github.com/amzxyz/RIME-LMDG
+# ------艺人词库-------
+# --目前加入的与主词库不构成干扰--
+---
+name: yiren
+version: "LTS"
+sort: by_weight
+
+dicts/mingren.dict.yaml
+# rime dictionary
+# encoding: utf-8
+# https://github.com/amzxyz/RIME-LMDG
+#(历史人物、学者、作家、政治家、企业家、公众人物等)
+---
+name: mingren
+version: "LTS"
+sort: by_weight
+
+dicts/renming.dict.yaml
+# Rime dictionary
+# encoding: utf-8
+#https://github.com/amzxyz/RIME-LMDG
+#----人名词库-------直接正则提取未经筛选
+#^(?!.*阿姨|.*爸爸|.*伯伯|.*老师|.*村|.*乡|.*镇|.*老|.*宅|.*店|.*家|.*爷爷|.*奶奶|.*大人|.*先生|.*女士)[夏|宋|徐|丁|崔|白|梁|岳|段|赵|钱|孙|李|周|吴|郑|王|冯|秦|陈|杜|褚|卫|蒋|沈|韩|杨|朱|尤|许|何|吕|张|孔|曹|严|华|金|魏|陶|江|姜|苏|鲁|罗|雷|黄|马|叶]..\t.*\t[1-9][0-3][0-9]{2}$\n
+---
+name: renming
+version: "LTS"
+sort: by_weight
+
+dicts/duoyin.dict.yaml
+# Rime dictionary
+# encoding: utf-8
+#https://github.com/amzxyz/RIME-LMDG
+#兼容词库，对于多字词汇两种读音的场景，手动维护到本表以及一些其他的杂项
+---
+name: duoyin
+version: "LTS"
+sort: by_weight
+
+dicts/yaopin.dict.yaml
+# rime dictionary
+# encoding: utf-8
+#https://github.com/amzxyz/RIME-LMDG
+# ------- 药品-------
+---
+name: yaopin
+version: "LTS"
+sort: by_weight
+
+dicts/huaxue.dict.yaml
+# rime dictionary
+# encoding: utf-8
+#https://github.com/amzxyz/RIME-LMDG
+# ------- 化学-------
+---
+name: huaxue
+version: "LTS"
+sort: by_weight
+
+dicts/yixue.dict.yaml
+# rime dictionary
+# encoding: utf-8
+#https://github.com/amzxyz/RIME-LMDG
+# ------- 医学-------
+---
+name: yixue
+version: "LTS"
+sort: by_weight

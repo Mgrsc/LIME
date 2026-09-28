@@ -281,6 +281,64 @@
         "exclusion_reason": "Reviewed quarantine: source rows with -1 weights in upstream diming dictionary; retain exact matches until reviewed upstream changes."
       },
       {
+        "path": "dicts/yiren.dict.yaml",
+        "cache": "wanxiang-dicts__yiren.dict.yaml",
+        "sha256": "871511333c44a32ccbc4748ab9f43f5832b9d935f07cf82a83c857081ab0716b"
+      },
+      {
+        "path": "dicts/mingren.dict.yaml",
+        "cache": "wanxiang-dicts__mingren.dict.yaml",
+        "sha256": "c514a69f483ff26b270a4503b487f7fd4a924e1bf2f4577d6774889dbc46de0c",
+        "excluded_rows": [
+          "陈阿娇\tchén ā jiāo"
+        ],
+        "exclusion_reason": "Reviewed quarantine: source rows with missing or malformed weight in upstream mingren dictionary; retain exact matches until reviewed upstream changes."
+      },
+      {
+        "path": "dicts/renming.dict.yaml",
+        "cache": "wanxiang-dicts__renming.dict.yaml",
+        "sha256": "48c650fffacbfe00b6001635ef6335f2ac1d37355de8d69c11df41b8eb098f34"
+      },
+      {
+        "path": "dicts/duoyin.dict.yaml",
+        "cache": "wanxiang-dicts__duoyin.dict.yaml",
+        "sha256": "e2ca41bd334cc1485ccb3066014fa1b13c41374b0bdbe1bc88bfe09d579c28dc",
+        "excluded_rows": [
+          "血债血还\txuè zhài xiě huán",
+          "血债血偿\txuè zhài xiě cháng",
+          "碍着您了\tài zháo nín le",
+          "没地\tmò dì",
+          "没过了\tmò guò le",
+          "没过我\tmò guò wǒ",
+          "没过线\tmò guò xiàn",
+          "爿字旁\tchuáng zì páng",
+          "爿字旁\tpán zì páng",
+          "赢得了\tyíng de liǎo",
+          "干将\tgān jiāng",
+          "大都\tdà dū\t\t350"
+        ],
+        "exclusion_reason": "Reviewed quarantine: source rows with missing or malformed weight in upstream duoyin dictionary; retain exact matches until reviewed upstream changes."
+      },
+      {
+        "path": "dicts/yaopin.dict.yaml",
+        "cache": "wanxiang-dicts__yaopin.dict.yaml",
+        "sha256": "b05f94cff2db10c9774c6a8e451e8f441decd9992679584369d998829dc1c1b6",
+        "excluded_rows": [
+          "西妥昔单抗β\txī tuǒ xī dān kàng beta\t10"
+        ],
+        "exclusion_reason": "Reviewed quarantine: source row contains non-pinyin latin syllable beta polluting syllable inventory."
+      },
+      {
+        "path": "dicts/huaxue.dict.yaml",
+        "cache": "wanxiang-dicts__huaxue.dict.yaml",
+        "sha256": "acfb4d0be8228439dcba044e92a1118653089fca6cc08d9f74afdb53d3aee798"
+      },
+      {
+        "path": "dicts/yixue.dict.yaml",
+        "cache": "wanxiang-dicts__yixue.dict.yaml",
+        "sha256": "a38c29aef6130aff840ab94bd83641ab6061226ca0ebfef007b0ab8fd5f5eaf8"
+      },
+      {
         "path": "LICENSE",
         "cache": "wanxiang-LICENSE",
         "sha256": "9e5f1b3c610b9c2da5c313bf81d577a7d1acec686bdb0384edefa6df0f90cd94"
@@ -289,11 +347,11 @@
     "attribution": "amzxyz and contributors (RIME-LMDG / rime-wanxiang)",
     "license_url": "https://creativecommons.org/licenses/by/4.0/"
   },
-  "normalized_duplicates": 2234,
+  "normalized_duplicates": 2920,
   "additions": {
     "modern.tsv": {
-      "added": 2,
-      "sha256": "acd478e177c32261ad3c457bef97cf8b0154fcc47920fb6e02bdf23765bac237"
+      "added": 3,
+      "sha256": "ce9a5d46f0d9b69fb1a7275aa62a50aa098a73596ec1dab45f981dee8f7c1540"
     }
   },
   "aliases": {
@@ -329,9 +387,9 @@
     }
   ],
   "alias_sha256": "bd755cade1a57f57f69f46b05d1c8056be71b32a343cea85df27165a6bf157be",
-  "builder_sha256": "0c3f93b9bab2fe326251a3dd91811ea362a02cd55764a7bff4e23fbbbe506be2",
+  "builder_sha256": "29c12f57819c8dd57508e23bbafe7ecefbcd433087e5c2f6f0d94eaec2d7c5c8",
   "alias_builder_sha256": "5d52ad76b1cfc8144e2e53dc33f9d9f3e199e7f31169a6309c6ba4f4e307160e",
-  "output_sha256": "dae62b84710c099596153445ab23896c89f3d5c8b50eb01c107ade29e3a688f7",
+  "output_sha256": "4c1616304fca5212571d9f2d3b841a0f8e16d35c0a00d9c990c93d4d29d9fc7e",
   "status": "bundled; fresh-install profile",
   "runtime_inputs": {
     "build/default.yaml": "9b3aa9b91f1fbc211e6fcb1852aec81680b16ba579e2218cfec3056d6864ecb1",
@@ -348,19 +406,19 @@
     "opencc/emoji.ocd2": "6bab402815c984ed4a5badea4b95db03a7a6f656d61088bd77f524e1561d2cbb",
     "opencc/others.ocd2": "7f867095dc40b667aa6080954a92f52488f96d7c8ac88febaa3da458663fa6ac",
     "opencc/s2t.json": "710bb970e406d9c0a3dd33c609248686cf1c5578d064b7b7fc89e70fbb9ea75d",
-    "pinyin.dict.yaml": "dae62b84710c099596153445ab23896c89f3d5c8b50eb01c107ade29e3a688f7",
+    "pinyin.dict.yaml": "4c1616304fca5212571d9f2d3b841a0f8e16d35c0a00d9c990c93d4d29d9fc7e",
     "pinyin.schema.yaml": "b0ba6d92dfd249a92ab82b50e7b3045e9a12583581d653610003fffee4a5b188",
     "t9_pinyin.schema.yaml": "1ef0e9ac9ab97b5a1164eba49c1bfd3b56175442811505cb9f78beaf64bfdead",
     "user.yaml": "c88f1036cdf3b8cbdf8f6470d25eefde7b27fc61fecea1a4857fdd28191b0c19"
   },
   "deployer_sha256": "e95bfab9cae8f69409f46851960fba17c7a6934dab54c5980330b441e3e0bd4d",
-  "compiler_sha256": "3900f6fbed435e328d9c43b5088d1cafcc493372c767a5fc1f0e7e809435321c",
+  "compiler_sha256": "6894fd1da09548e107a0a40968cc63fb0f48b60c057eecf698e10f465177b1b2",
   "host_libraries": {
     "librime.so.1.17.0": "0575bf2fa2745be810cbe5b8f10b2052ccb3984682324a8c407dc892410af8e3"
   },
   "compiled_outputs": {
     "double_pinyin_flypy.prism.bin": {
-      "sha256": "cd6b663074761751466100c58b9333617082d9206676feda48fd02e41893bc45",
+      "sha256": "72baf9f93f185b5d17c77983b5d0fb61da55239e26fd48ff5187f2274df14370",
       "bytes": 14672
     },
     "english.prism.bin": {
@@ -372,19 +430,19 @@
       "bytes": 680940
     },
     "pinyin.prism.bin": {
-      "sha256": "b83fbc1588746aa56e7000bc16890632d3fbbc80bd2c07f09cec6415b8e81502",
+      "sha256": "57d1a0bd6db820680f730d7303cf3e193f1e4c51bc0a89fa65d4ad9eca5c9d98",
       "bytes": 38024
     },
     "pinyin.reverse.bin": {
-      "sha256": "ff4a5eee73a5619f6d991bdc9bdbeb063e377252b3504d1e1a0ed2219ec4cb04",
+      "sha256": "d895b59d70981bf9a6c9333b5ab71c7f0e53dced3a553fecc909c9f91ebb6eca",
       "bytes": 263804
     },
     "pinyin.table.bin": {
-      "sha256": "ca522b755f63b9445bfa5c6746ecc99e537d9563b95a6c0411d82d95456c9fb1",
-      "bytes": 52543888
+      "sha256": "8b876cd7fb1b1017517b1333fc615cc2928dd00a2fd5baf7a5125edb316d7ebd",
+      "bytes": 55576124
     },
     "t9_pinyin.prism.bin": {
-      "sha256": "3798646506bf07180cbf0729efa6388e80599d98d8ee5ecf81c2dab591cf6f54",
+      "sha256": "4c03c40430c697f03b9a11e3a769ad0125b83a8186beb68223cf4e8648d5c07c",
       "bytes": 20848
     }
   }

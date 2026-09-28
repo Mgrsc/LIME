@@ -50,7 +50,7 @@ def main() -> None:
     metadata = {
         "rime_version": "1.17.0",
         "table_format": "Rime::Table/4.0",
-        "dict_data_version": 2026091301,
+        "dict_data_version": 2026092801,
     }
     report_path = rime_assets / "BUILD_REPORT.json"
     if report_path.exists():
@@ -58,7 +58,7 @@ def main() -> None:
         metadata = {
             "rime_version": "1.17.0",
             "table_format": "Rime::Table/4.0",
-            "dict_data_version": 2026091301,
+            "dict_data_version": 2026092801,
             "upstream_repository": report["source"]["repository"],
             "upstream_commit": report["source"]["commit"],
             "upstream_license": report["source"]["license"],

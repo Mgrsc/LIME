@@ -10,11 +10,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.9.1] - 2026-09-28
 
 ### Added
-- **Wanxiang Geographic Lexicon Integration**: Bundled upstream `dicts/diming.dict.yaml` with 209 negative-weight anomaly rows safely quarantined, introducing 84,620 standardized Chinese geographic names (e.g., Chuxiong, Zhengzhou, Xuzhou, Qinhuangdao, Hohhot).
-- **Lexicon Regression CI Gate**: Added automated place-name regression verification suite and native candidate lookup assertions in `tools/dictionary/`.
+- **Wanxiang Domain & Entity Lexicon Expansion**: Integrated 8 additional domain dictionaries from `rime-wanxiang` CC-BY-4.0 (`diming`, `yiren`, `mingren`, `renming`, `duoyin`, `yaopin`, `huaxue`, `yixue`), bringing out-of-the-box coverage for prominent figures/celebrities (e.g. 邓紫棋, 周杰伦, 雷军, 刘慈欣), medical/chemical terminology (e.g. 对乙酰氨基酚, 布洛芬), geographic locations (e.g. 楚雄, 郑州, 徐州, 秦皇岛, 呼和浩特), and polyphonic disambiguation.
+- **Lexicon Regression CI Gate**: Added automated multi-domain regression verification suite and native candidate lookup assertions in `tools/dictionary/`.
+
+### Changed
+- **Celebrity & Person Name Weight Capping**: Enforced a dual-bound weight mechanism (ceiling of 2,000 and floor of 150 against colliding base dictionary entries) for `yiren`, `mingren`, and `renming`. This guarantees everyday high-frequency vocabulary (e.g., `章节` vs `张杰`, `武警` vs `吴京`, `橙汁` vs `程之`, `缉拿` vs `吉娜`) is not displaced at top candidate positions while preventing obscure low-weight entries (e.g., `硫磁锌` 90) from suppressing notable figures (e.g., `刘慈欣` 150).
+- **Pinyin Syllabary Hygiene**: Quarantined non-standard Latin phonetic annotations (e.g., `西妥昔单抗β`) to keep the canonical Pinyin syllable inventory strictly at 418.
+- **Modern Vocabulary Recovery**: Restored canonical polyphonic pronunciation for `大都` (`dà dū`) in `modern.tsv` attributed to `rime-wanxiang-duoyin` under CC-BY-4.0.
 
 ### Fixed
-- **Missing Place-Name Candidates**: Resolved missing regional prefecture and city candidate predictions across Pinyin and T9 layouts.
+- **Missing Place-Name, Celebrity & Medical Candidates**: Resolved missing regional prefecture/city, celebrity name, and common pharmaceutical candidate predictions across Pinyin and T9 layouts.
 
 ---
 

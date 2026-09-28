@@ -14,7 +14,7 @@ from unittest.mock import patch
 import zipfile
 
 import check_wanxiang_update as updater
-from build_candidate_dictionary import entries, normalize_code
+from build_candidate_dictionary import WANXIANG_KNOWN_DICTS, entries, normalize_code
 
 
 def main():
@@ -85,7 +85,8 @@ def check_native(probe: Path, before: Path, after: Path):
     queries = [("pinyin", q) for q in (
         "e", "ee", "e'e", "eee", "oo", "en", "enen", "eneng", "engen", "engeng", "ng",
         "jiayouo", "jiayoue", "yine", "nv", "nu", "dayuyanmoxing", "lixianyuyinshibie",
-        "chuxiong", "zhengzhou", "xuzhou")]
+        "chuxiong", "zhengzhou", "xuzhou", "dengziqi", "zhoujielun",
+        "leijun", "liucixin", "duiyixiananjifen", "dadu", "zhangjie")]
     queries += [("double_pinyin_flypy", q) for q in ("ee", "eeee", "enen", "oooo", "nv", "nu")]
     queries += [("t9_pinyin", q) for q in ("33", "333", "36", "3636", "66", "64")]
     queries += [("pinyin", "zhonghuarenmingongheguo"), ("double_pinyin_flypy", "dayuyjmoxk")]
@@ -108,8 +109,14 @@ def check_native(probe: Path, before: Path, after: Path):
                           ("qingxuxingjinshi", "情绪性进食"), ("jiqixuexijishi", "机器学习基石"),
                           ("rengongzhinengzhili", "人工智能治理"),
                           ("lixianyuyinshibie", "离线语音识别"),
-                          ("chuxiong", "楚雄"), ("zhengzhou", "郑州"), ("xuzhou", "徐州")):
+                          ("chuxiong", "楚雄"), ("zhengzhou", "郑州"), ("xuzhou", "徐州"),
+                          ("dengziqi", "邓紫棋"), ("zhoujielun", "周杰伦"),
+                          ("leijun", "雷军"), ("liucixin", "刘慈欣"),
+                          ("duiyixiananjifen", "对乙酰氨基酚"),
+                          ("zhangjie", "章节")):
         assert new["pinyin", query][0] == phrase, (query, new["pinyin", query])
+    assert "大都" in new["pinyin", "dadu"]
+    assert "张杰" in new["pinyin", "zhangjie"]
     assert new["double_pinyin_flypy", "eeee"][0] == "呃呃"
     assert "大语言模型" in new["double_pinyin_flypy", "dayuyjmoxk"]
     assert "加油哦" not in new["pinyin", "jiayoue"]
@@ -128,8 +135,12 @@ def check_apk(bundle: Path, apk_path: Path):
     assert set(report["additions"]) == {"modern.tsv"}
     assert report["builder_sha256"] == hashlib.sha256(
         (Path(__file__).parent / "build_candidate_dictionary.py").read_bytes()).hexdigest()
-    assert any(item["path"] == "dicts/lianxiang.dict.yaml" for item in report["source"]["files"])
-    assert any(item["path"] == "dicts/diming.dict.yaml" for item in report["source"]["files"])
+    for item_path in ("dicts/lianxiang.dict.yaml", "dicts/diming.dict.yaml",
+                      "dicts/yiren.dict.yaml", "dicts/mingren.dict.yaml",
+                      "dicts/renming.dict.yaml", "dicts/duoyin.dict.yaml",
+                      "dicts/yaopin.dict.yaml", "dicts/huaxue.dict.yaml",
+                      "dicts/yixue.dict.yaml"):
+        assert any(item["path"] == item_path for item in report["source"]["files"]), item_path
     with zipfile.ZipFile(apk_path) as apk:
         assert apk.read("assets/rime-assets-manifest.json") == manifest_path.read_bytes()
         for name, expected in manifest["system_assets"].items():
@@ -143,6 +154,11 @@ def check_apk(bundle: Path, apk_path: Path):
 class WanxiangUpdateTest(unittest.TestCase):
     def test_snapshot_update_workflow_and_gates(self):
         main()
+
+    def test_pinned_dictionaries_and_regression_places(self):
+        lock = json.loads((Path(__file__).parent / "candidates.lock.json").read_text())
+        wanxiang_paths = {item["path"] for item in lock["wanxiang"]["files"] if item["path"] != "LICENSE"}
+        self.assertEqual(wanxiang_paths, WANXIANG_KNOWN_DICTS)
 
 
 if __name__ == "__main__":

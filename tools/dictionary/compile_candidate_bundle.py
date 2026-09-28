@@ -98,7 +98,8 @@ def main() -> None:
         notice = staged / "NOTICE.txt"
         notice.write_text(notice.read_text().replace(
             "实验产物，尚未完成生产分发来源审查；不代表整个应用采用该数据许可。",
-            "本应用拼音基础数据采用上述许可；本项目原创增量采用 BSD-3-Clause。"
+            "本应用拼音基础数据采用上述许可；本项目原创增量采用 BSD-3-Clause；"
+            "显式标注来源的补充读音（见 modern.tsv）遵循对应声明。"
             "本声明不改变应用代码及其他第三方资源的许可。"))
         release_report = dict(report, status="bundled; fresh-install profile")
         (staged / "BUILD_REPORT.json").write_text(json.dumps(release_report, ensure_ascii=False, indent=2) + "\n")
@@ -115,6 +116,7 @@ def main() -> None:
             shutil.copy2(release / manifest.name, manifest)
             raise
         print(f"Published Wanxiang assets; previous bundle retained at {release}")
+        print(f"[HINT] Run probe verification: python3 tools/dictionary/test_wanxiang_update.py --probe <probe> --before {release}/previous-rime --after app/src/main/assets/rime")
     else:
         print(f"Compiled experimental bundle: {bundle}")
 

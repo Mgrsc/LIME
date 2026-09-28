@@ -311,6 +311,64 @@
         "exclusion_reason": "Reviewed quarantine: source rows with -1 weights in upstream diming dictionary; retain exact matches until reviewed upstream changes."
       },
       {
+        "path": "dicts/yiren.dict.yaml",
+        "cache": "wanxiang-dicts__yiren.dict.yaml",
+        "sha256": "871511333c44a32ccbc4748ab9f43f5832b9d935f07cf82a83c857081ab0716b"
+      },
+      {
+        "path": "dicts/mingren.dict.yaml",
+        "cache": "wanxiang-dicts__mingren.dict.yaml",
+        "sha256": "c514a69f483ff26b270a4503b487f7fd4a924e1bf2f4577d6774889dbc46de0c",
+        "excluded_rows": [
+          "陈阿娇\tchén ā jiāo"
+        ],
+        "exclusion_reason": "Reviewed quarantine: source rows with missing or malformed weight in upstream mingren dictionary; retain exact matches until reviewed upstream changes."
+      },
+      {
+        "path": "dicts/renming.dict.yaml",
+        "cache": "wanxiang-dicts__renming.dict.yaml",
+        "sha256": "48c650fffacbfe00b6001635ef6335f2ac1d37355de8d69c11df41b8eb098f34"
+      },
+      {
+        "path": "dicts/duoyin.dict.yaml",
+        "cache": "wanxiang-dicts__duoyin.dict.yaml",
+        "sha256": "e2ca41bd334cc1485ccb3066014fa1b13c41374b0bdbe1bc88bfe09d579c28dc",
+        "excluded_rows": [
+          "血债血还\txuè zhài xiě huán",
+          "血债血偿\txuè zhài xiě cháng",
+          "碍着您了\tài zháo nín le",
+          "没地\tmò dì",
+          "没过了\tmò guò le",
+          "没过我\tmò guò wǒ",
+          "没过线\tmò guò xiàn",
+          "爿字旁\tchuáng zì páng",
+          "爿字旁\tpán zì páng",
+          "赢得了\tyíng de liǎo",
+          "干将\tgān jiāng",
+          "大都\tdà dū\t\t350"
+        ],
+        "exclusion_reason": "Reviewed quarantine: source rows with missing or malformed weight in upstream duoyin dictionary; retain exact matches until reviewed upstream changes."
+      },
+      {
+        "path": "dicts/yaopin.dict.yaml",
+        "cache": "wanxiang-dicts__yaopin.dict.yaml",
+        "sha256": "b05f94cff2db10c9774c6a8e451e8f441decd9992679584369d998829dc1c1b6",
+        "excluded_rows": [
+          "西妥昔单抗β\txī tuǒ xī dān kàng beta\t10"
+        ],
+        "exclusion_reason": "Reviewed quarantine: source row contains non-pinyin latin syllable beta polluting syllable inventory."
+      },
+      {
+        "path": "dicts/huaxue.dict.yaml",
+        "cache": "wanxiang-dicts__huaxue.dict.yaml",
+        "sha256": "acfb4d0be8228439dcba044e92a1118653089fca6cc08d9f74afdb53d3aee798"
+      },
+      {
+        "path": "dicts/yixue.dict.yaml",
+        "cache": "wanxiang-dicts__yixue.dict.yaml",
+        "sha256": "a38c29aef6130aff840ab94bd83641ab6061226ca0ebfef007b0ab8fd5f5eaf8"
+      },
+      {
         "path": "LICENSE",
         "cache": "wanxiang-LICENSE",
         "sha256": "9e5f1b3c610b9c2da5c313bf81d577a7d1acec686bdb0384edefa6df0f90cd94"

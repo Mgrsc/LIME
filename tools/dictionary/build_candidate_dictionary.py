@@ -19,6 +19,23 @@ REJECTED_PHRASE_CODES = {
     ("哦哦", "e e"), ("加油哦", "jia you e"), ("不错哦", "bu cuo e"),
     ("哦了", "e le"), ("哦耶", "e ye"),
 }
+WANXIANG_BASE_DICTS = {
+    "dicts/zi.dict.yaml",
+    "dicts/jichu.dict.yaml",
+    "dicts/lianxiang.dict.yaml",
+    "dicts/diming.dict.yaml",
+}
+WANXIANG_NAME_DICTS = {
+    "dicts/yiren.dict.yaml",
+    "dicts/mingren.dict.yaml",
+    "dicts/renming.dict.yaml",
+}
+WANXIANG_KNOWN_DICTS = WANXIANG_BASE_DICTS | WANXIANG_NAME_DICTS | {
+    "dicts/duoyin.dict.yaml",
+    "dicts/yaopin.dict.yaml",
+    "dicts/huaxue.dict.yaml",
+    "dicts/yixue.dict.yaml",
+}
 
 
 def fetch_source(source: dict, item: dict, cache: Path) -> Path:
@@ -96,11 +113,44 @@ def main() -> None:
     args.cache.mkdir(parents=True, exist_ok=True)
     merged: dict[tuple[str, str], int] = {}
     duplicate_count = 0
+    base_dicts = WANXIANG_BASE_DICTS if args.source == "wanxiang" else set()
+    name_dicts = WANXIANG_NAME_DICTS if args.source == "wanxiang" else set()
+    if args.source == "wanxiang":
+        unclassified = {item["path"] for item in source["files"] if item["path"] != "LICENSE"} - WANXIANG_KNOWN_DICTS
+        if unclassified:
+            raise ValueError(f"unclassified dictionary files in lock: {unclassified}")
+
+    base_codes: dict[str, int] = {}
+    base_entries_cache: dict[str, list[tuple[str, str, int]]] = {}
     for item in source["files"]:
-        cached = fetch_source(source, item, args.cache)
+        if item["path"] in base_dicts:
+            cached = fetch_source(source, item, args.cache)
+            item_entries = list(entries(cached, tuple(item.get("excluded_rows", []))))
+            base_entries_cache[item["path"]] = item_entries
+            for text, code, weight in item_entries:
+                base_codes[code] = max(base_codes.get(code, 0), weight)
+    for item in source["files"]:
         if item["path"] == "LICENSE":
             continue
-        for text, code, weight in entries(cached, tuple(item.get("excluded_rows", []))):
+        if item["path"] in base_entries_cache:
+            item_entries = base_entries_cache[item["path"]]
+        else:
+            cached = fetch_source(source, item, args.cache)
+            item_entries = entries(cached, tuple(item.get("excluded_rows", [])))
+        is_name_dict = item["path"] in name_dicts
+        for text, code, weight in item_entries:
+            if is_name_dict:
+                # Cap celebrity and person names so common words (e.g. 章节 vs 张杰, 武警 vs 吴京) are not displaced,
+                # while preserving a reasonable floor (150) so obscure low-weight entries (e.g. 硫磁锌 90) don't suppress real names (刘慈欣).
+                # Note: When the same phrase appears in both base and name dicts, max() preserves the capped name weight
+                # (e.g. 李严 20 -> 998), which remains strictly below the code's max base entry without displacing top candidates.
+                weight = min(weight, 2000)
+                if code in base_codes:
+                    base_max = base_codes[code]
+                    if base_max >= 150:
+                        weight = min(weight, base_max - 1)
+                    else:
+                        weight = min(weight, 150)
             key = (text, code)
             duplicate_count += key in merged
             # Upstream weights may be log-normalized; summing changes their meaning.
@@ -124,6 +174,21 @@ def main() -> None:
     # Minimal lead within this source's scale; native T9 ranking is a release gate.
     priorities["呃呃呃", "e e e"] = str(max(
         weight for (_, code), weight in merged.items() if code == "e e e") + 1)
+    if args.source == "wanxiang":
+        required_entries = {
+            ("楚雄", "chu xiong"),
+            ("郑州", "zheng zhou"),
+            ("邓紫棋", "deng zi qi"),
+            ("周杰伦", "zhou jie lun"),
+            ("雷军", "lei jun"),
+            ("刘慈欣", "liu ci xin"),
+            ("对乙酰氨基酚", "dui yi xian an ji fen"),
+            ("布洛芬", "bu luo fen"),
+            ("大都", "da du"),
+        }
+        missing_entries = [f"{text} ({code})" for text, code in required_entries if (text, code) not in merged]
+        if missing_entries:
+            raise ValueError(f"missing required entries: {', '.join(missing_entries)}")
     args.output.mkdir(parents=True)
     dictionary = args.output / "pinyin.dict.yaml"
     with dictionary.open("w", encoding="utf-8") as output:
@@ -155,7 +220,7 @@ def main() -> None:
         f"署名：{source['attribution']}\n许可链接：{source['license_url']}\n"
         f"上游许可：{source['license']}，见 UPSTREAM_LICENSE。原始声明保留在锁定源文件中。\n"
         "源文件头部声明副本见 SOURCE_HEADERS.txt。\n"
-        "本项目修改：去声调（保留 ü→v）、同键取最大权重、补充独立整理词条及习惯码，"
+        "本项目修改：去声调（保留 ü→v）、同键取最大权重、补充独立整理词条与显式标注来源的补充读音及习惯码，"
         "限定嗯嗯混合习惯码及呃呃呃同码领先权重，详情见 BUILD_REPORT。\n"
         "实验产物，尚未完成生产分发来源审查；不代表整个应用采用该数据许可。\n",
         encoding="utf-8")
