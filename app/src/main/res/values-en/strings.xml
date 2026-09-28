@@ -184,7 +184,6 @@
     <string name="keyboard_calculator">Keyboard Calculator</string>
     <string name="keyboard_calculator_desc">Provide real-time expression calculation in numeric keypad</string>
     <string name="calc_err_divide_by_zero">Cannot divide by 0</string>
-    <string name="input_methods">Input Methods</string>
     <string name="button_vibration_amplitude">Haptic Intensity</string>
     <string name="clipboard_group_history">History &amp; Storage</string>
     <string name="clipboard_group_suggestion_ui">Instant Suggestions &amp; Panel Layout</string>

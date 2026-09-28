@@ -201,7 +201,6 @@
     <string name="keyboard_calculator">键盘计算器</string>
     <string name="keyboard_calculator_desc">在数字键盘输入算式时实时提供计算结果</string>
     <string name="calc_err_divide_by_zero">除数不能为 0</string>
-    <string name="input_methods">输入法</string>
     <string name="button_vibration_amplitude">触感强度</string>
     <string name="clipboard_group_history">历史记录与存储</string>
     <string name="clipboard_group_suggestion_ui">即时推荐与面板排版</string>
