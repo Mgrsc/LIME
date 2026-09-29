@@ -184,7 +184,7 @@ class EditorInfoPrivacyTest {
     }
 
     @Test
-    fun testT9SoftKeyMetaStateNeverCarriesCaseModifiers() {
+    fun testSoftKeyMetaStateSuppressesCaseModifiersWhenRequested() {
         assertEquals(0, InputModeSwitcher.resolveSoftKeyMetaState(true, InputModeSwitcher.MASK_CASE_LOWER))
         assertEquals(0, InputModeSwitcher.resolveSoftKeyMetaState(true, InputModeSwitcher.MASK_CASE_UPPER))
         assertEquals(0, InputModeSwitcher.resolveSoftKeyMetaState(true, InputModeSwitcher.MASK_CASE_CAPS))

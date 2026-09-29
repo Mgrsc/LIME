@@ -334,8 +334,8 @@ object InputModeSwitcher {
             KeyboardManager.instance.switchKeyboard()
         }
 
-        val charCase = applyEditorCharCase(flags)
-        dispatchEditorPolicy(charCase)
+        applyEditorCharCase(flags)
+        dispatchEditorPolicy()
         (KeyboardManager.instance.currentContainer as? InputBaseContainer)?.updateStates()
     }
 
@@ -368,7 +368,7 @@ object InputModeSwitcher {
         transientInputModeBeforeHandwriting = MODE_UNSET
         KeyboardManager.instance.inputView?.endHandwritingSession()
         KeyboardManager.instance.switchKeyboard()
-        dispatchEditorPolicy(0)
+        dispatchEditorPolicy()
     }
 
     /**
@@ -434,10 +434,10 @@ object InputModeSwitcher {
     val isLower: Boolean
         get() = mToggleStates.modifiers == MASK_CASE_LOWER
 
-    fun resolveSoftKeyMetaState(): Int = resolveSoftKeyMetaState(isChineseT9, mToggleStates.modifiers)
+    fun resolveSoftKeyMetaState(): Int = resolveSoftKeyMetaState(!isEnglish, mToggleStates.modifiers)
 
-    internal fun resolveSoftKeyMetaState(isT9: Boolean, modifiers: Int): Int {
-        if (isT9) return 0
+    internal fun resolveSoftKeyMetaState(suppressCase: Boolean, modifiers: Int): Int {
+        if (suppressCase) return 0
         return when (modifiers) {
             MASK_CASE_CAPS -> KeyEvent.META_CAPS_LOCK_ON
             MASK_CASE_UPPER -> KeyEvent.META_SHIFT_ON
@@ -464,7 +464,7 @@ object InputModeSwitcher {
         }
         mToggleStates.modifiers = MASK_CASE_LOWER
         if (applyEngine) {
-            dispatchEditorPolicy(0)
+            dispatchEditorPolicy()
         }
         (KeyboardManager.instance.currentContainer as? InputBaseContainer)?.updateStates()
     }
@@ -479,33 +479,22 @@ object InputModeSwitcher {
         }
     }
 
-    private fun applyEditorCharCase(flags: EditorFieldFlags): Int {
-        val schema = currentRimeSchema()
-        if (schema == CustomConstant.SCHEMA_ZH_T9 || isChineseT9) {
+    private fun applyEditorCharCase(flags: EditorFieldFlags) {
+        if (!isEnglish) {
             mToggleStates.modifiers = MASK_CASE_LOWER
-            return 0
+            return
         }
-        return when {
-            flags.isCapCharacters -> {
-                mToggleStates.modifiers = MASK_CASE_CAPS
-                KeyEvent.META_CAPS_LOCK_ON
-            }
-            flags.isCapWords || flags.isCapSentences -> {
-                mToggleStates.modifiers = MASK_CASE_UPPER
-                KeyEvent.META_SHIFT_ON
-            }
-            else -> {
-                mToggleStates.modifiers = MASK_CASE_LOWER
-                0
-            }
+        mToggleStates.modifiers = when {
+            flags.isCapCharacters -> MASK_CASE_CAPS
+            flags.isCapWords || flags.isCapSentences -> MASK_CASE_UPPER
+            else -> MASK_CASE_LOWER
         }
     }
 
-    private fun dispatchEditorPolicy(charCase: Int) {
+    private fun dispatchEditorPolicy() {
         EnginePipeline.send(
             EngineAction.ApplyEditorPolicy(
                 schema = currentRimeSchema(),
-                charCase = charCase,
                 clearComposition = true,
             )
         )

@@ -52,7 +52,6 @@ class EngineSessionPolicyTest {
                 EnginePipeline.send(
                     EngineAction.ApplyEditorPolicy(
                         schema = "pinyin",
-                        charCase = 1,
                         clearComposition = true,
                     )
                 )
@@ -124,7 +123,6 @@ class EngineSessionPolicyTest {
         EnginePipeline.send(
             EngineAction.ApplyEditorPolicy(
                 schema = "pinyin",
-                charCase = 0,
                 clearComposition = true,
                 gen = 7001L,
             )
@@ -155,7 +153,7 @@ class EngineSessionPolicyTest {
             val ordinary = InputModeSwitcher.EditorFieldFlags()
             val session = EnginePipeline.bindEditor(key, ordinary)
             assertTrue(EnginePipeline.send(EngineAction.ApplyEditorPolicy(
-                schema = "pinyin", charCase = 0,
+                schema = "pinyin",
                 gen = 8001L,
             )))
             assertEquals(session, EnginePipeline.bindEditor(

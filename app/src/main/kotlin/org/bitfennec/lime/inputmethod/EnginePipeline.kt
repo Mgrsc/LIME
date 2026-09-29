@@ -155,7 +155,6 @@ sealed interface EngineAction {
     ) : EngineAction
     data class ApplyEditorPolicy(
         val schema: String,
-        val charCase: Int,
         val clearComposition: Boolean = true,
         val gen: Long = 0L,
     ) : EngineAction
@@ -741,7 +740,6 @@ object EnginePipeline {
                     publishCurrentState(sessionId, gen = action.gen)
                 }
                 is EngineAction.SetCharCase -> {
-                    RimeEngine.setCharCase(action.charCase)
                     publishState(_stateFlow.value.copy(
                         candidates = snapshotCandidates(),
                         showComposition = RimeEngine.showComposition,
@@ -806,7 +804,6 @@ object EnginePipeline {
                     val inputPrefs = runCatching { AppPrefs.getInstance().input }.getOrNull()
                     applyImeOption("traditionalization", inputPrefs?.chineseFanTi?.getValue() == true)
                     applyImeOption("emoji", inputPrefs?.emojiInput?.getValue() == true)
-                    RimeEngine.setCharCase(action.charCase)
                     emitRimeSnapshot(sessionId, null)
                     publishCurrentState(sessionId, gen = action.gen, engineReady = true)
                 }

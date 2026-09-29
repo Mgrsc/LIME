@@ -358,7 +358,6 @@ class ImeService : InputMethodService(), LifecycleOwner {
         applyImeWindowSecurity(flags.isPassword)
         EnginePipeline.send(EngineAction.ApplyEditorPolicy(
             schema = InputModeSwitcher.currentRimeSchema(),
-            charCase = InputModeSwitcher.resolveSoftKeyMetaState(),
         ))
         clearInlineSuggestions()
         DecodingInfo.reset(invalidateSession = false, resetEngine = false)
@@ -615,7 +614,6 @@ class ImeService : InputMethodService(), LifecycleOwner {
         if (!EnginePipeline.stateFlow.value.engineReady) {
             EnginePipeline.send(EngineAction.ApplyEditorPolicy(
                 schema = InputModeSwitcher.currentRimeSchema(),
-                charCase = InputModeSwitcher.resolveSoftKeyMetaState(),
                 clearComposition = false,
             ))
         }

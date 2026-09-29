@@ -34,8 +34,6 @@ object RimeEngine {
     private var backspaceKeyCode = 0
     private var kpLeftKeyCode = 0
     private var kpRightKeyCode = 0
-    private const val MASK_CASE_LOWER = 0
-    private var charCase = 0x0000
     private var englishStartedWithCapsLock = false
 
     fun ensureStarted(): Boolean {
@@ -52,7 +50,6 @@ object RimeEngine {
     }
 
     fun selectSchema(mod: String): Boolean {
-        charCase = MASK_CASE_LOWER
         englishStartedWithCapsLock = false
         Rime.getInstance(false)
         return Rime.selectRimeSchema(mod).also { selected ->
@@ -248,7 +245,6 @@ object RimeEngine {
         rawInput = ""
         englishStartedWithCapsLock = false
         runCatching { Rime.clearCompositionSnapshot()?.let(::updateCandidatesOrCommitText) }
-        if(charCase == KeyEvent.META_SHIFT_ON) charCase = MASK_CASE_LOWER
     }
 
     fun destroy() = Rime.destroy()
@@ -317,20 +313,15 @@ object RimeEngine {
         val compositionText = snapshot.composition.preedit.orEmpty()
         val compositionPage = snapshot.page.pageNo
         val rimeSchema = snapshot.schemaId
-        val isT9 = rimeSchema == CustomConstant.SCHEMA_ZH_T9 || InputModeSwitcher.isChineseT9
+        val isEnglish = rimeSchema == CustomConstant.SCHEMA_EN
         fun formatCandidateText(text: String): String {
-            if (isT9) return text
-            if (rimeSchema == CustomConstant.SCHEMA_EN) {
+            if (isEnglish) {
                 return formatEnglishCandidate(text, snapshot.rawInput)
             }
-            return when (charCase) {
-                KeyEvent.META_SHIFT_ON -> text.lowercase().replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }
-                KeyEvent.META_CAPS_LOCK_ON -> text.uppercase()
-                else -> text.lowercase()
-            }
+            return text
         }
 
-        val literal = snapshot.rawInput.takeIf { rimeSchema == CustomConstant.SCHEMA_EN }.orEmpty()
+        val literal = snapshot.rawInput.takeIf { isEnglish }.orEmpty()
         val candidateEntries = buildList {
             if (literal.isNotEmpty() && resetExpandedCandidates) {
                 add(CandidateListItem("", literal) to CandidateReference(compositionPage, null))
@@ -356,16 +347,7 @@ object RimeEngine {
             compositionText,
             rimeSchema,
             snapshot.t9Metadata?.preedit.orEmpty(),
-        )
-        composition = if (isT9) {
-            composition.lowercase(Locale.ROOT)
-        } else {
-            when (charCase) {
-                KeyEvent.META_SHIFT_ON -> composition.lowercase().replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }
-                KeyEvent.META_CAPS_LOCK_ON -> composition.uppercase()
-                else -> composition.lowercase()
-            }
-        }
+        ).lowercase(Locale.ROOT)
         pinyins = snapshot.t9Metadata?.prefixOptions ?: emptyArray()
         t9LockedCount = snapshot.t9Metadata?.lockedCount ?: 0
         currentCandidatePageNo = snapshot.page.pageNo
@@ -423,12 +405,7 @@ object RimeEngine {
             return formatted
         }
         rawInput = ""
-        return when (charCase) {
-            KeyEvent.META_SHIFT_ON -> commitText.lowercase()
-                .replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }
-            KeyEvent.META_CAPS_LOCK_ON -> commitText.uppercase()
-            else -> commitText.lowercase()
-        }
+        return commitText
     }
 
     private fun formatEnglishCandidate(text: String, input: String): String {
@@ -463,10 +440,6 @@ object RimeEngine {
         in KeyEvent.KEYCODE_P..KeyEvent.KEYCODE_S -> '7'.code
         in KeyEvent.KEYCODE_T..KeyEvent.KEYCODE_V -> '8'.code
         else -> '9'.code
-    }
-
-    fun setCharCase(charCase: Int) {
-        this.charCase = charCase
     }
 
     val candidatePageNo: Int

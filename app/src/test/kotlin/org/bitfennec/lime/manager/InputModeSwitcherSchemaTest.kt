@@ -1,6 +1,8 @@
 package org.bitfennec.lime.manager
 
 import android.content.SharedPreferences
+import android.view.KeyEvent
+import android.view.inputmethod.EditorInfo
 import org.bitfennec.lime.application.CustomConstant
 import org.bitfennec.lime.prefs.AppPrefs
 import org.junit.Assert.assertEquals
@@ -107,6 +109,28 @@ class InputModeSwitcherSchemaTest {
             assertEquals(schema, AppPrefs.getInstance().internal.pinyinModeRime.getValue())
             assertEquals(schema, InputModeSwitcher.currentRimeSchema())
         }
+    }
+
+    @Test
+    fun testChineseModeNeverAdoptsEditorCapitalizationFlags() {
+        val capInfo = EditorInfo().apply {
+            inputType = EditorInfo.TYPE_CLASS_TEXT or
+                EditorInfo.TYPE_TEXT_FLAG_CAP_SENTENCES or
+                EditorInfo.TYPE_TEXT_FLAG_CAP_WORDS
+        }
+        InputModeSwitcher.saveInputMode(InputModeSwitcher.MODE_QWERTY_CHINESE, applyEngine = false)
+        InputModeSwitcher.requestInputWithSkb(capInfo, restarting = false)
+
+        assertTrue(InputModeSwitcher.isChinese)
+        assertEquals(InputModeSwitcher.MASK_CASE_LOWER, InputModeSwitcher.mToggleStates.modifiers)
+        assertEquals(0, InputModeSwitcher.resolveSoftKeyMetaState())
+
+        InputModeSwitcher.saveInputMode(InputModeSwitcher.MODE_SKB_ENGLISH_LOWER, applyEngine = false)
+        InputModeSwitcher.requestInputWithSkb(capInfo, restarting = true)
+
+        assertTrue(InputModeSwitcher.isEnglish)
+        assertEquals(InputModeSwitcher.MASK_CASE_UPPER, InputModeSwitcher.mToggleStates.modifiers)
+        assertEquals(KeyEvent.META_SHIFT_ON, InputModeSwitcher.resolveSoftKeyMetaState())
     }
 
     private class InMemorySharedPreferences : SharedPreferences {
