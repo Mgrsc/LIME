@@ -8,6 +8,7 @@ import android.view.ViewGroup
 import android.widget.LinearLayout
 import android.widget.SeekBar
 import android.widget.TextView
+import android.widget.Toast
 import androidx.activity.result.ActivityResultLauncher
 import androidx.appcompat.widget.SwitchCompat
 import androidx.fragment.app.Fragment
@@ -57,7 +58,11 @@ class ThemeFragment : Fragment() {
     }
 
     private fun applyCustomTheme(theme: Theme.Custom) {
-        ThemeManager.saveTheme(theme)
+        if (!ThemeManager.saveTheme(theme)) {
+            val ctx = context ?: return
+            Toast.makeText(ctx, R.string.failed_to_save_theme, Toast.LENGTH_SHORT).show()
+            return
+        }
         if (ThemeManager.prefs.followSystemDayNightTheme.getValue()) {
             ThemeManager.prefs.followSystemDayNightTheme.setValue(false)
         }

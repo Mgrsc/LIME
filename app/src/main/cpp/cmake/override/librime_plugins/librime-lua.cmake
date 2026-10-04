@@ -20,6 +20,13 @@ if(EXISTS "${LUA_SRC_DIR}/lua.h")
     file(GLOB LUA_SOURCES "${LUA_SRC_DIR}/*.c")
     list(REMOVE_ITEM LUA_SOURCES "${LUA_SRC_DIR}/lua.c" "${LUA_SRC_DIR}/luac.c")
 
+    if(EXISTS "${RIME_JNI_ROOT}/src_override/librime-lua")
+        # Track override files as CMake configure dependencies so edits trigger re-copy
+        file(GLOB_RECURSE _rime_lua_override_deps CONFIGURE_DEPENDS "${RIME_JNI_ROOT}/src_override/librime-lua/*")
+        set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${_rime_lua_override_deps})
+        file(COPY "${RIME_JNI_ROOT}/src_override/librime-lua/" DESTINATION "${LIBRIME_LUA_SOURCE_DIR}")
+    endif()
+
     file(GLOB LUA_PLUGIN_SOURCES
         "${LIBRIME_LUA_SOURCE_DIR}/src/*.cc"
         "${LIBRIME_LUA_SOURCE_DIR}/src/lib/*.cc"

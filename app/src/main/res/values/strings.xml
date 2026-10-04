@@ -370,6 +370,10 @@
     <string name="exception_user_data_filename">备份文件扩展名不正确</string>
     <string name="exception_user_data_metadata">找不到用户数据的元数据</string>
     <string name="user_data_imported">用户数据导入成功，请重启应用</string>
+    <string name="user_data_imported_with_skipped">用户数据导入成功（已跳过 %d 个安全受限文件），请重启应用</string>
+    <string name="user_data_exported">用户数据导出完成</string>
+    <string name="user_data_exported_with_filtered">用户数据导出完成（已排除 %d 个安全受限文件）</string>
+    <string name="failed_to_save_theme">保存主题失败</string>
     <string name="confirm_import_user_data">导入用户数据将覆盖当前设置与输入历史，且需重启应用方可生效。确定要继续吗？</string>
     <string name="restart_channel">应用重启</string>
     <string name="restart_notify_msg">应用已重启，轻触此处打开</string>

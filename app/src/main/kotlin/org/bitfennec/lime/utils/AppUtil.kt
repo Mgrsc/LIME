@@ -57,6 +57,27 @@ object AppUtil {
         exitProcess(0)
     }
 
+    val isAndroidRuntime: Boolean by lazy {
+        System.getProperty("java.vendor")?.contains("Android", ignoreCase = true) == true
+    }
+
+    fun logWarn(tag: String, message: String) {
+        if (isAndroidRuntime) {
+            android.util.Log.w(tag, message)
+        } else {
+            System.err.println(message)
+        }
+    }
+
+    fun logError(tag: String, message: String, tr: Throwable? = null) {
+        if (isAndroidRuntime) {
+            android.util.Log.e(tag, message, tr)
+        } else {
+            System.err.println(message)
+            tr?.printStackTrace(System.err)
+        }
+    }
+
     @SuppressLint("NotificationPermission")
     fun showRestartNotification(ctx: Context) {
         val channelId = "app-restart"

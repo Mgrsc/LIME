@@ -9,8 +9,26 @@ import java.util.UUID
 object ThemeFilesManager {
 
     private val dir = File(Launcher.instance.context.getExternalFilesDir(null), "theme").also { it.mkdirs() }
+    internal val canonicalDir by lazy { dir.canonicalFile }
 
-    private fun themeFile(theme: Theme.Custom) = File(dir, theme.name + ".json")
+    private fun themeFile(theme: Theme.Custom): File {
+        val safeName = File(theme.name).name
+        require(safeName == theme.name && safeName.isNotBlank() && safeName != "." && safeName != "..") {
+            "Invalid theme name: ${theme.name}"
+        }
+        val file = File(dir, "$safeName.json").canonicalFile
+        require(file.parentFile == canonicalDir) {
+            "Theme file escaped theme directory"
+        }
+        return file
+    }
+
+    private fun getConfinedFile(rawPath: String): File? {
+        val safeName = File(rawPath).name
+        if (safeName.isBlank() || safeName == "." || safeName == "..") return null
+        val target = File(dir, safeName).canonicalFile
+        return if (target.parentFile == canonicalDir) target else null
+    }
 
     fun newCustomBackgroundImages(): Triple<String, File, File> {
         val themeName = UUID.randomUUID().toString()
@@ -24,10 +42,10 @@ object ThemeFilesManager {
     }
 
     fun deleteThemeFiles(theme: Theme.Custom) {
-        themeFile(theme).delete()
-        theme.backgroundImage?.let {
-            File(it.croppedFilePath).delete()
-            File(it.srcFilePath).delete()
+        runCatching { themeFile(theme).delete() }
+        theme.backgroundImage?.let { bg ->
+            getConfinedFile(bg.croppedFilePath)?.delete()
+            getConfinedFile(bg.srcFilePath)?.delete()
         }
     }
 
@@ -43,12 +61,16 @@ object ThemeFilesManager {
                 }.getOrElse {
                     return@decode null
                 }
+                val safeName = File(theme.name).name
+                if (safeName != theme.name || safeName.isBlank() || safeName == "." || safeName == "..") {
+                    return@decode null
+                }
                 var currentTheme = theme
                 if (theme.backgroundImage != null) {
                     val bg = theme.backgroundImage
-                    val croppedFile = File(bg.croppedFilePath).let { if (it.exists()) it else File(dir, it.name) }
-                    val srcFile = File(bg.srcFilePath).let { if (it.exists()) it else File(dir, it.name) }
-                    if (!croppedFile.exists() || !srcFile.exists()) {
+                    val croppedFile = getConfinedFile(bg.croppedFilePath)
+                    val srcFile = getConfinedFile(bg.srcFilePath)
+                    if (croppedFile == null || srcFile == null || !croppedFile.exists() || !srcFile.exists()) {
                         return@decode null
                     }
                     if (croppedFile.absolutePath != bg.croppedFilePath || srcFile.absolutePath != bg.srcFilePath) {

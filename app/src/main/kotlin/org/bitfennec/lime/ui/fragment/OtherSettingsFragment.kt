@@ -53,14 +53,19 @@ class OtherSettingsFragment : Fragment() {
                         }
                         try {
                             val inputStream = cr.openInputStream(uri)!!
-                            UserDataManager.import(inputStream).getOrThrow()
+                            val skippedCount = UserDataManager.import(inputStream).getOrThrow()
                             lifecycleScope.launch(NonCancellable + Dispatchers.Main) {
                                 delay(400L)
                                 AppUtil.exit()
                             }
                             withContext(Dispatchers.Main) {
                                 AppUtil.showRestartNotification(ctx)
-                                Toast.makeText(ctx, R.string.user_data_imported, Toast.LENGTH_SHORT).show()
+                                val msg = if (skippedCount > 0) {
+                                    ctx.getString(R.string.user_data_imported_with_skipped, skippedCount)
+                                } else {
+                                    ctx.getString(R.string.user_data_imported)
+                                }
+                                Toast.makeText(ctx, msg, Toast.LENGTH_SHORT).show()
                             }
                         } catch (e: Exception) {
                             ctx.importErrorDialog(e)
@@ -77,7 +82,15 @@ class OtherSettingsFragment : Fragment() {
                     withContext(NonCancellable + Dispatchers.IO) {
                         try {
                             val outputStream = ctx.contentResolver.openOutputStream(uri)!!
-                            UserDataManager.export(outputStream).getOrThrow()
+                            val filteredCount = UserDataManager.export(outputStream).getOrThrow()
+                            withContext(Dispatchers.Main) {
+                                val msg = if (filteredCount > 0) {
+                                    ctx.getString(R.string.user_data_exported_with_filtered, filteredCount)
+                                } else {
+                                    ctx.getString(R.string.user_data_exported)
+                                }
+                                Toast.makeText(ctx, msg, Toast.LENGTH_SHORT).show()
+                            }
                         } catch (e: Exception) {
                             ctx.importErrorDialog(e)
                         }

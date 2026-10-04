@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
     <string name="ime_app_name">LIME</string>
     <string name="ime_app_name_debug">LIME (Debug)</string>
     <string name="delete_prediction">Delete prediction</string>
@@ -337,6 +337,10 @@
     <string name="exception_user_data_filename">The file extension does not match backup archive</string>
     <string name="exception_user_data_metadata">Cannot find user data metadata</string>
     <string name="user_data_imported">User data imported, please restart application</string>
+    <string name="user_data_imported_with_skipped" tools:ignore="PluralsCandidate">User data imported (%d file(s) skipped due to security policy), please restart application</string>
+    <string name="user_data_exported">User data exported</string>
+    <string name="user_data_exported_with_filtered" tools:ignore="PluralsCandidate">User data exported (%d file(s) excluded due to security policy)</string>
+    <string name="failed_to_save_theme">Failed to save theme</string>
     <string name="confirm_import_user_data">Importing user data will overwrite current settings and typing history, taking effect after app restart. Continue?</string>
     <string name="restart_channel">Application Restart</string>
     <string name="restart_notify_msg">Application restarted, tap here to open</string>

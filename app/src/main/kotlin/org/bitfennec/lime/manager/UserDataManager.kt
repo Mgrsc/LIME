@@ -13,8 +13,10 @@ import org.bitfennec.lime.data.theme.ThemeFilesManager
 import org.bitfennec.lime.data.theme.ThemeManager
 import org.bitfennec.lime.database.AppDatabase
 import org.bitfennec.lime.environment.ImeEnvironment
+import org.bitfennec.lime.utils.AppUtil
 import org.bitfennec.lime.utils.errorRuntime
 import org.bitfennec.lime.utils.extract
+import org.bitfennec.lime.utils.isConfinedTo
 import org.bitfennec.lime.utils.withTempDir
 import org.bitfennec.lime.utils.versionCodeCompat
 import kotlinx.serialization.ExperimentalSerializationApi
@@ -49,19 +51,35 @@ object UserDataManager {
         val exportTime: Long
     )
 
-    private fun writeFileTree(srcDir: File, destPrefix: String, dest: ZipOutputStream) {
+
+    private fun logSecurityWarning(name: String, reason: String, event: String = "blocked_import_file") {
+        val escapedName = org.bitfennec.lime.utils.StringUtils.escapeJson(name)
+        val payload = "{\"event\":\"$event\",\"name\":\"$escapedName\",\"reason\":\"$reason\"}"
+        AppUtil.logWarn("UserDataManager", payload)
+    }
+
+    private fun writeFileTree(
+        srcDir: File,
+        destPrefix: String,
+        dest: ZipOutputStream,
+        fileFilter: (relPath: String, file: File) -> Boolean,
+    ): Int {
+        var filteredCount = 0
         dest.putNextEntry(ZipEntry("$destPrefix/"))
         srcDir.walkTopDown().forEach { f ->
             val related = f.relativeTo(srcDir)
-            if (related.path != "") {
-                if (f.isDirectory) {
-                    dest.putNextEntry(ZipEntry("$destPrefix/${related.path}/"))
-                } else if (f.isFile) {
-                    dest.putNextEntry(ZipEntry("$destPrefix/${related.path}"))
+            val relPath = related.invariantSeparatorsPath
+            if (relPath.isNotEmpty() && f.isFile) {
+                if (fileFilter(relPath, f)) {
+                    dest.putNextEntry(ZipEntry("$destPrefix/$relPath"))
                     f.inputStream().use { it.copyTo(dest) }
+                } else {
+                    logSecurityWarning(f.name, "disallowed_type", "export_filtered_file")
+                    filteredCount++
                 }
             }
         }
+        return filteredCount
     }
 
     private val sharedPrefsDir by lazy { File(Launcher.instance.context.applicationInfo.dataDir, "shared_prefs") }
@@ -74,18 +92,19 @@ object UserDataManager {
     fun export(dest: OutputStream, timestamp: Long = System.currentTimeMillis()) = runCatching {
         requireWorkerThread("export")
         ZipOutputStream(dest.buffered()).use { zipStream ->
+            var filtered = 0
             // shared_prefs
-            writeFileTree(sharedPrefsDir, "shared_prefs", zipStream)
+            filtered += writeFileTree(sharedPrefsDir, "shared_prefs", zipStream, ::isSafeSharedPrefsFile)
             // databases
-            writeFileTree(dataBasesDir, "databases", zipStream)
+            filtered += writeFileTree(dataBasesDir, "databases", zipStream, ::isSafeDatabaseFile)
             // rime
             if (rimeDir.exists()) {
-                writeFileTree(rimeDir, "rime", zipStream)
+                filtered += writeFileTree(rimeDir, "rime", zipStream, ::isSafeRimeFile)
             }
             // external
             val extDir = externalDir
             if (extDir != null && extDir.exists()) {
-                writeFileTree(extDir, "external", zipStream)
+                filtered += writeFileTree(extDir, "external", zipStream, ::isSafeExternalFile)
             }
             // metadata
             zipStream.putNextEntry(ZipEntry("metadata.json"))
@@ -98,13 +117,77 @@ object UserDataManager {
             )
             json.encodeToStream(metadata, zipStream)
             zipStream.closeEntry()
+            filtered
         }
     }
 
-    private fun copyDir(source: File, target: File) {
-        if (source.exists() && source.isDirectory) {
-            source.copyRecursively(target, overwrite = true)
+    private val BLOCKED_EXECUTABLE_EXTENSIONS = setOf("lua", "so", "sh", "dex", "apk", "jar")
+    private val ALLOWED_DB_PREFIXES = setOf("ime_db")
+
+    @androidx.annotation.VisibleForTesting
+    internal fun isSafeRimeFile(relPath: String, file: File): Boolean {
+        val lowerRel = relPath.lowercase()
+        val ext = file.extension.lowercase()
+        return ext !in BLOCKED_EXECUTABLE_EXTENSIONS &&
+            !lowerRel.startsWith("lua/") &&
+            !lowerRel.contains("/lua/")
+    }
+
+    // yagni: flat ime_db prefix whitelist for SQLite; upgrade when additional db schemas or subdirs are introduced
+    @androidx.annotation.VisibleForTesting
+    internal fun isSafeDatabaseFile(relPath: String, file: File): Boolean {
+        if (relPath.contains('/')) return false
+        val lowerName = file.name.lowercase()
+        val ext = file.extension.lowercase()
+        if (ext in BLOCKED_EXECUTABLE_EXTENSIONS) return false
+        return ALLOWED_DB_PREFIXES.any { prefix ->
+            lowerName == prefix || lowerName.startsWith("$prefix-") || lowerName.startsWith("$prefix.")
         }
+    }
+
+    @androidx.annotation.VisibleForTesting
+    internal fun isSafeSharedPrefsFile(relPath: String, file: File): Boolean {
+        return !relPath.contains('/') && file.name.lowercase().endsWith(".xml")
+    }
+
+    // yagni: blacklist-only filtering for app external directory; upgrade to strict whitelist when directory structure is formalized
+    @androidx.annotation.VisibleForTesting
+    internal fun isSafeExternalFile(relPath: String, file: File): Boolean {
+        val ext = file.extension.lowercase()
+        return ext !in BLOCKED_EXECUTABLE_EXTENSIONS
+    }
+
+    @androidx.annotation.VisibleForTesting
+    internal fun safeCopyDir(
+        source: File,
+        target: File,
+        fileFilter: (relPath: String, file: File) -> Boolean,
+    ): Int {
+        if (!source.exists() || !source.isDirectory) return 0
+        var skippedCount = 0
+
+        source.walkTopDown().forEach { file ->
+            val relPath = file.relativeTo(source).invariantSeparatorsPath
+            if (relPath.isEmpty()) return@forEach
+
+            val destFile = File(target, relPath)
+            if (!destFile.isConfinedTo(target)) {
+                logSecurityWarning(file.name, "traversal")
+                skippedCount++
+                return@forEach
+            }
+
+            if (file.isFile) {
+                if (fileFilter(relPath, file)) {
+                    destFile.parentFile?.mkdirs()
+                    file.copyTo(destFile, overwrite = true)
+                } else {
+                    logSecurityWarning(file.name, "disallowed_type")
+                    skippedCount++
+                }
+            }
+        }
+        return skippedCount
     }
 
     @WorkerThread
@@ -113,15 +196,16 @@ object UserDataManager {
         ZipInputStream(src).use { zipStream ->
             withTempDir { tempDir ->
                 val metadataFile = zipStream.extract(tempDir).find { it.name == "metadata.json" } ?: errorRuntime(R.string.exception_user_data_metadata)
-                val metadata = json.decodeFromString<Metadata>(metadataFile.readText())
-                copyDir(File(tempDir, "shared_prefs"), sharedPrefsDir)
-                copyDir(File(tempDir, "databases"), dataBasesDir)
+                json.decodeFromString<Metadata>(metadataFile.readText())
+                var skipped = 0
+                skipped += safeCopyDir(File(tempDir, "shared_prefs"), sharedPrefsDir, ::isSafeSharedPrefsFile)
+                skipped += safeCopyDir(File(tempDir, "databases"), dataBasesDir, ::isSafeDatabaseFile)
                 val importRimeDir = File(tempDir, "rime")
                 if (importRimeDir.exists()) {
                     val started = runBlocking {
                         EnginePipeline.executeExclusive {
                             Rime.destroy()
-                            copyDir(importRimeDir, rimeDir)
+                            skipped += safeCopyDir(importRimeDir, rimeDir, ::isSafeRimeFile)
                             Rime.startup(Launcher.instance.context, fullCheck = false)
                         }
                     }
@@ -130,9 +214,9 @@ object UserDataManager {
                 val importExternalDir = File(tempDir, "external")
                 val extDir = externalDir
                 if (importExternalDir.exists() && extDir != null) {
-                    copyDir(importExternalDir, extDir)
+                    skipped += safeCopyDir(importExternalDir, extDir, ::isSafeExternalFile)
                 }
-                metadata
+                skipped
             }
         }
     }
@@ -281,11 +365,7 @@ object UserDataManager {
                 } else {
                     val escapedDict = org.bitfennec.lime.utils.StringUtils.escapeJson(dictName)
                     val payload = "{\"event\":\"classify_user_dict\",\"result\":\"degraded\",\"dict\":\"$escapedDict\"}"
-                    if (System.getProperty("java.vendor")?.contains("Android", ignoreCase = true) == true) {
-                        android.util.Log.w("UserDataManager", payload)
-                    } else {
-                        System.err.println(payload)
-                    }
+                    AppUtil.logWarn("UserDataManager", payload)
                     list.map { it.copy(isCustom = true) }
                 }
             } finally {

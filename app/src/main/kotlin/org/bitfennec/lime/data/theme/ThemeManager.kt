@@ -7,6 +7,7 @@ import android.os.Looper
 import androidx.annotation.Keep
 import org.bitfennec.lime.prefs.AppPrefs
 import org.bitfennec.lime.prefs.WeakHashSet
+import org.bitfennec.lime.utils.AppUtil
 import org.bitfennec.lime.utils.isDarkMode
 import org.bitfennec.lime.view.preference.ManagedPreference
 
@@ -83,8 +84,14 @@ object ThemeManager {
 
     val prefs = AppPrefs.getInstance().registerProvider(::ThemePrefs)
 
-    fun saveTheme(theme: Theme.Custom) {
-        ThemeFilesManager.saveThemeFiles(theme)
+    fun saveTheme(theme: Theme.Custom): Boolean {
+        val result = runCatching { ThemeFilesManager.saveThemeFiles(theme) }
+        result.onFailure {
+            val escaped = org.bitfennec.lime.utils.StringUtils.escapeJson(theme.name)
+            val payload = "{\"event\":\"theme_save_failed\",\"name\":\"$escaped\"}"
+            AppUtil.logError("ThemeManager", payload, it)
+            return false
+        }
         customThemes.indexOfFirst { it.name == theme.name }.also {
             if (it >= 0) customThemes[it] = theme else customThemes.add(0, theme)
         }
@@ -92,6 +99,7 @@ object ThemeManager {
             _activeTheme = theme
             fireChange()
         }
+        return true
     }
 
     fun deleteTheme(name: String) {

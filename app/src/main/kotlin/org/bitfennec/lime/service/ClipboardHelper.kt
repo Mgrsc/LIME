@@ -1,5 +1,7 @@
 package org.bitfennec.lime.service
 
+import android.annotation.SuppressLint
+import android.content.ClipDescription
 import android.content.ClipboardManager.OnPrimaryClipChangedListener
 import androidx.annotation.VisibleForTesting
 import kotlinx.coroutines.CoroutineScope
@@ -35,6 +37,14 @@ object ClipboardHelper : OnPrimaryClipChangedListener {
         eventSequence.set(0)
     }
 
+    @SuppressLint("InlinedApi")
+    internal fun isSensitiveClip(
+        description: ClipDescription?,
+    ): Boolean {
+        val extras = description?.extras ?: return false
+        return extras.getBoolean(ClipDescription.EXTRA_IS_SENSITIVE, false)
+    }
+
     fun init() {
         Launcher.instance.context.clipboardManager.addPrimaryClipChangedListener(this)
     }
@@ -42,7 +52,11 @@ object ClipboardHelper : OnPrimaryClipChangedListener {
     override fun onPrimaryClipChanged() {
         val isClipboardListening = AppPrefs.getInstance().clipboard.clipboardListening.getValue()
         if (isClipboardListening) {
-            val item = Launcher.instance.context.clipboardManager.primaryClip?.getItemAt(0)
+            val clipManager = Launcher.instance.context.clipboardManager
+            if (isSensitiveClip(clipManager.primaryClipDescription)) {
+                return
+            }
+            val item = clipManager.primaryClip?.getItemAt(0)
             item?.takeIf { it.text?.isNotBlank() == true }?.let {
                 val rawText = it.text.toString()
                 handleClipText(
