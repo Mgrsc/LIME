@@ -71,7 +71,13 @@ class PointerPipeline {
         var canSelectForDeletion: Boolean = true,
     ) {
         val effectiveDeleteCursor: Int
-            get() = (if (deleteInitialCursor > 0) deleteInitialCursor else deleteInitialTextLength).coerceAtLeast(0)
+            get() {
+                if (deleteInitialTextLength <= 0) return 0
+                if (deleteInitialTextLength >= DELETE_TEXT_LOOKUP_LIMIT && deleteInitialCursor > deleteInitialTextLength) {
+                    return deleteInitialCursor
+                }
+                return deleteInitialTextLength
+            }
     }
 
     private val pointers = mutableMapOf<Int, PointerState>()
@@ -668,7 +674,9 @@ class PointerPipeline {
             }
             commands += PointerCommand.DismissPopup
         } else {
-            val maxChars = if (state.canSelectForDeletion) effectiveCursor else 0
+            // [comment] yagni: swipe selection bounds to DELETE_TEXT_LOOKUP_LIMIT (1000 chars) verified by getTextBeforeCursor;
+            // upgrade when supporting cross-block multi-thousand char delete gesture
+            val maxChars = if (state.canSelectForDeletion) state.deleteInitialTextLength.coerceAtLeast(0) else 0
             val targetStep = ((slideDist / moveContext.deleteStepPx).toInt() + 1).coerceIn(0, maxChars)
             if (targetStep != state.deleteSwipeStep) {
                 val shouldVibrate = targetStep > state.deleteSwipeStep
@@ -726,6 +734,7 @@ class PointerPipeline {
         key.code == KeyEvent.KEYCODE_N || key.code == KeyEvent.KEYCODE_M
 
     companion object {
+        const val DELETE_TEXT_LOOKUP_LIMIT = 1000
         const val VOICE_ARM_TIMEOUT_MS = 180L
         const val DEFAULT_SYMBOL_MIN_SWIPE_DP = 20
         private const val DEFAULT_KEY_DIMENSION = 100f

@@ -62,7 +62,7 @@ class DeleteKeyGestureController(
                 DevicesUtils.tryVibrate(targetView)
                 execute(pipeline.onDown(deleteKey, event.x, event.y, id, PointerPipeline.DownContext(
                     selectionEnd = inputView.getSelectionEnd(),
-                    textBeforeCursorLength = inputView.getTextBeforeCursor(1000).length,
+                    textBeforeCursorLength = inputView.getTextBeforeCursor(PointerPipeline.DELETE_TEXT_LOOKUP_LIMIT).length,
                     canSelectForDeletion = !inputView.hasUncommittedComposing(),
                     longPressTimeoutMs = 400L,
                 )))

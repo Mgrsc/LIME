@@ -160,7 +160,7 @@ open class BaseKeyboardView(context: Context?) : View(context) {
 
         val selectionEnd = if (key?.code == KeyEvent.KEYCODE_DEL) mService?.getSelectionEnd() ?: 0 else 0
         val textBeforeCursorLength = if (key?.code == KeyEvent.KEYCODE_DEL) {
-            mService?.getTextBeforeCursor(1000)?.length ?: 0
+            mService?.getTextBeforeCursor(PointerPipeline.DELETE_TEXT_LOOKUP_LIMIT)?.length ?: 0
         } else {
             0
         }

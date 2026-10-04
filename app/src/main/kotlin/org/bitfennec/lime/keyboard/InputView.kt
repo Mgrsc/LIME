@@ -1594,6 +1594,12 @@ class InputView(context: Context, val service: ImeService) : RelativeLayout(cont
     }
 
     fun onStartInputView(editorInfo: EditorInfo, restarting: Boolean) {
+        val initialStart = editorInfo.initialSelStart
+        val initialEnd = editorInfo.initialSelEnd
+        selStart = if (initialStart >= 0) initialStart else 0
+        selEnd = if (initialEnd >= 0) initialEnd else 0
+        expectedSelStart = -1
+        expectedSelEnd = -1
         InputModeSwitcher.requestInputWithSkb(editorInfo, restarting)
         if (restarting) {
             KeyboardManager.instance.currentContainer?.updateSkbLayout()
@@ -1804,7 +1810,7 @@ class InputView(context: Context, val service: ImeService) : RelativeLayout(cont
 
     fun getSelectionEnd(): Int = selEnd
 
-    fun getTextBeforeCursor(length: Int = 1000): String {
+    fun getTextBeforeCursor(length: Int = PointerPipeline.DELETE_TEXT_LOOKUP_LIMIT): String {
         return service.getTextBeforeCursor(length)
     }
 
@@ -1824,6 +1830,12 @@ class InputView(context: Context, val service: ImeService) : RelativeLayout(cont
         mSkbCandidatesBarView.clearComposingSynchronous()
     }
 
+    private fun resolveSwipeDeleteAnchor(initialCursor: Int, textLength: Int): Int = when {
+        initialCursor > 0 && textLength >= PointerPipeline.DELETE_TEXT_LOOKUP_LIMIT && initialCursor > textLength -> initialCursor
+        selEnd > 0 && textLength >= PointerPipeline.DELETE_TEXT_LOOKUP_LIMIT && selEnd > textLength -> selEnd
+        else -> textLength
+    }
+
     /**
      * Swipe-left selection: updates reverse selection region (fcitx5 style).
      */
@@ -1831,11 +1843,11 @@ class InputView(context: Context, val service: ImeService) : RelativeLayout(cont
         if (hasUncommittedComposing()) {
             return
         }
-        val targetCursor = when {
-            initialCursor > 0 -> initialCursor
-            selEnd > 0 -> selEnd
-            else -> service.getTextBeforeCursor(1000).length
+        val textLength = service.getTextBeforeCursor(PointerPipeline.DELETE_TEXT_LOOKUP_LIMIT).length
+        if (textLength <= 0 || charCount <= 0) {
+            return
         }
+        val targetCursor = resolveSwipeDeleteAnchor(initialCursor, textLength)
         val start = (targetCursor - charCount).coerceAtLeast(0)
         service.setSelection(start, targetCursor)
     }
@@ -1855,6 +1867,11 @@ class InputView(context: Context, val service: ImeService) : RelativeLayout(cont
             return
         }
         if (charCount <= 0) return
+
+        val textLength = service.getTextBeforeCursor(PointerPipeline.DELETE_TEXT_LOOKUP_LIMIT).length
+        val targetCursor = resolveSwipeDeleteAnchor(initialCursor, textLength)
+        selEnd = (targetCursor - charCount).coerceAtLeast(0)
+        selStart = selEnd
 
         val selectedText = service.getSelectedText()
         val text = if (selectedText.isNotEmpty()) selectedText else service.getTextBeforeCursor(charCount)
@@ -1876,11 +1893,11 @@ class InputView(context: Context, val service: ImeService) : RelativeLayout(cont
         if (hasUncommittedComposing()) {
             return
         }
-        val targetCursor = when {
-            initialCursor > 0 -> initialCursor
-            selEnd > 0 -> selEnd
-            else -> service.getTextBeforeCursor(1000).length
+        val textLength = service.getTextBeforeCursor(PointerPipeline.DELETE_TEXT_LOOKUP_LIMIT).length
+        if (textLength <= 0) {
+            return
         }
+        val targetCursor = resolveSwipeDeleteAnchor(initialCursor, textLength)
         service.setSelection(targetCursor, targetCursor)
     }
 
@@ -1897,6 +1914,8 @@ class InputView(context: Context, val service: ImeService) : RelativeLayout(cont
         val textToSave = if (selectedText.isNotEmpty()) "$textBefore$selectedText" else textBefore
         if (textToSave.isNotEmpty()) {
             textBeforeCursors.push(textToSave)
+            selStart = 0
+            selEnd = 0
             if (selectedText.isNotEmpty()) {
                 service.commitText("")
             }

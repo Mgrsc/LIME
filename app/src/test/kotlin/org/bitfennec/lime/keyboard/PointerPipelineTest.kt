@@ -188,6 +188,46 @@ class PointerPipelineTest {
     }
 
     @Test
+    fun deleteSwipeLeftWithStaleSelectionEndOnEmptyTextDoesNotSelectOrVibrate() {
+        val pipeline = PointerPipeline()
+        val delete = SoftKey(KeyEvent.KEYCODE_DEL, "")
+
+        pipeline.onDown(delete, 0f, 0f, 0, PointerPipeline.DownContext(
+            selectionEnd = 5,
+            textBeforeCursorLength = 0,
+            longPressTimeoutMs = 500L,
+            canSelectForDeletion = true,
+        ))
+        pipeline.onScroll(0, -1f, 0f, 1f, 0f, moveContext())
+        val move = pipeline.onScroll(0, -31f, 0f, 30f, 0f, moveContext())
+        val up = pipeline.onUp()
+
+        assertFalse(move.any { it is PointerCommand.DeleteSelect })
+        assertFalse(move.contains(PointerCommand.Haptic(org.bitfennec.lime.prefs.InputFeedbacks.HapticEvent.STEP)))
+        assertFalse(move.any { it is PointerCommand.PopupShowText })
+        assertFalse(up.any { it is PointerCommand.DeleteCommit })
+    }
+
+    @Test
+    fun deleteSwipeLeftWithStaleSelectionEndClampedToAvailableTextLength() {
+        val pipeline = PointerPipeline()
+        val delete = SoftKey(KeyEvent.KEYCODE_DEL, "")
+
+        pipeline.onDown(delete, 0f, 0f, 0, PointerPipeline.DownContext(
+            selectionEnd = 10,
+            textBeforeCursorLength = 1,
+            longPressTimeoutMs = 500L,
+            canSelectForDeletion = true,
+        ))
+        pipeline.onScroll(0, -1f, 0f, 1f, 0f, moveContext())
+        val move = pipeline.onScroll(0, -31f, 0f, 30f, 0f, moveContext())
+        val up = pipeline.onUp()
+
+        assertTrue(move.any { it == PointerCommand.DeleteSelect(charCount = 1, initialCursor = 1) })
+        assertTrue(up.any { it == PointerCommand.DeleteCommit(charCount = 1, initialCursor = 1) })
+    }
+
+    @Test
     fun deleteSwipeStopsRepeatFallback() {
         val pipeline = PointerPipeline()
         val delete = SoftKey(KeyEvent.KEYCODE_DEL, "")
