@@ -165,10 +165,16 @@ class CandidatesContainer(context: Context, inputView: InputView) : BaseContaine
             deleteMenuRequestId++
             predictionDeletePopup?.dismiss()
             predictionDeletePopup = null
-            pendingScrollToTopOnOpen = false
+            pendingScrollToTopOnOpen = true
             lastFirstCandidateText = null
             lastLoadedCandidatePageNo = Int.MIN_VALUE
             requestedNextCandidatePageNo = null
+            if (::mRVSymbolsView.isInitialized) {
+                mRVSymbolsView.stopScroll()
+                mRVSymbolsView.scrollToPosition(0)
+            }
+            mRVLeftPrefix.stopScroll()
+            mRVLeftPrefix.scrollToPosition(0)
         } else if (changedView === this && isShown) {
             pendingScrollToTopOnOpen = true
         }
@@ -204,10 +210,16 @@ class CandidatesContainer(context: Context, inputView: InputView) : BaseContaine
         mRVSymbolsView.removeCallbacks(fillViewportTask)
         predictionDeletePopup?.dismiss()
         predictionDeletePopup = null
-        pendingScrollToTopOnOpen = false
+        pendingScrollToTopOnOpen = true
         lastFirstCandidateText = null
         lastLoadedCandidatePageNo = Int.MIN_VALUE
         requestedNextCandidatePageNo = null
+        if (::mRVSymbolsView.isInitialized) {
+            mRVSymbolsView.stopScroll()
+            mRVSymbolsView.scrollToPosition(0)
+        }
+        mRVLeftPrefix.stopScroll()
+        mRVLeftPrefix.scrollToPosition(0)
         super.onDetachedFromWindow()
     }
 
@@ -236,13 +248,25 @@ class CandidatesContainer(context: Context, inputView: InputView) : BaseContaine
 
             mCandidatesAdapter.setCandidates(candidates)
             if (shouldResetScroll) {
+                mRVSymbolsView.stopScroll()
                 mRVSymbolsView.scrollToPosition(0)
+                mRVSymbolsView.post {
+                    if (isAttachedToWindow && isShown && mRVSymbolsView.scrollState == RecyclerView.SCROLL_STATE_IDLE) {
+                        mRVSymbolsView.scrollToPosition(0)
+                    }
+                }
             }
             if (InputModeSwitcher.isChineseT9) {
                 mRVLeftPrefix.visibility = VISIBLE
                 updatePrefixsView()
                 if (shouldResetScroll) {
+                    mRVLeftPrefix.stopScroll()
                     mRVLeftPrefix.scrollToPosition(0)
+                    mRVLeftPrefix.post {
+                        if (isAttachedToWindow && isShown && mRVLeftPrefix.scrollState == RecyclerView.SCROLL_STATE_IDLE) {
+                            mRVLeftPrefix.scrollToPosition(0)
+                        }
+                    }
                 }
             } else {
                 mRVLeftPrefix.visibility = GONE

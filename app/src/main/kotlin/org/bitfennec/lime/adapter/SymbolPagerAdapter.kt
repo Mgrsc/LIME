@@ -147,9 +147,12 @@ class SymbolPagerAdapter(
             val child = rv.getChildAt(i)
             val holder = rv.getChildViewHolder(child)
             if (holder is StandardViewHolder) {
+                holder.emojiGroupRv.stopScroll()
                 holder.emojiGroupRv.scrollToPosition(0)
             } else if (holder is MoreViewHolder) {
+                holder.emojiGroupRv.stopScroll()
                 holder.emojiGroupRv.scrollToPosition(0)
+                holder.rvSubCategoryTabs.stopScroll()
                 holder.rvSubCategoryTabs.scrollToPosition(0)
             }
         }
@@ -190,6 +193,7 @@ class SymbolPagerAdapter(
         }
         if (categoryKey != null && stdHolder.lastCategory != categoryKey) {
             stdHolder.lastCategory = categoryKey
+            stdHolder.emojiGroupRv.stopScroll()
             stdHolder.emojiGroupRv.scrollToPosition(0)
         }
         val existingAdapter = stdHolder.emojiGroupRv.adapter as? SymbolAdapter
@@ -235,6 +239,7 @@ class SymbolPagerAdapter(
                         moreHolder.rvSubCategoryTabs.layoutManager = LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false)
                         moreHolder.rvSubCategoryTabs.adapter = SubCategoryChipAdapter(context, subCats, 0) { selectedSubCat ->
                             symbolAdapter.updateData(EmojiconData.moreSubCategorySymbols[selectedSubCat] ?: emptyList(), false)
+                            moreHolder.emojiGroupRv.stopScroll()
                             moreHolder.emojiGroupRv.scrollToPosition(0)
                             moreHolder.rvSubCategoryTabs.smoothScrollToPosition(subCats.indexOf(selectedSubCat))
                         }

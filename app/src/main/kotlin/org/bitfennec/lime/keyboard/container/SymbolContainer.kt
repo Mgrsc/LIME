@@ -96,8 +96,14 @@ class SymbolContainer(context: Context, inputView: InputView) : BaseContainer(co
             if (pendingScrollToTopOnOpen) {
                 pendingScrollToTopOnOpen = false
                 adapter.resetScrollPositions()
+                inner.stopScroll()
                 inner.scrollToPosition(0)
                 innerHolder.itemView.findViewById<RecyclerView>(R.id.rvSubCategoryTabs)?.scrollToPosition(0)
+                inner.post {
+                    if (isAttachedToWindow && isShown && inner.scrollState == RecyclerView.SCROLL_STATE_IDLE) {
+                        inner.scrollToPosition(0)
+                    }
+                }
             }
         }
     }
@@ -131,6 +137,10 @@ class SymbolContainer(context: Context, inputView: InputView) : BaseContainer(co
                 rememberPosition()
             }
         } else {
+            if (changedView === this && visibility == VISIBLE && isShown) {
+                pendingScrollToTopOnOpen = true
+                scrollResetRetries = 0
+            }
             wakeCurrentPage()
         }
     }
@@ -144,7 +154,7 @@ class SymbolContainer(context: Context, inputView: InputView) : BaseContainer(co
 
     override fun onDetachedFromWindow() {
         cancelPageWake()
-        pendingScrollToTopOnOpen = false
+        pendingScrollToTopOnOpen = true
         scrollResetRetries = 0
         super.onDetachedFromWindow()
     }

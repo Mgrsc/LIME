@@ -326,11 +326,15 @@ class ClipBoardContainer(context: Context, inputView: InputView) : BaseContainer
 
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
+        pendingScrollToTopOnOpen = true
         updateClipboardCollection()
     }
 
     override fun onVisibilityChanged(changedView: View, visibility: Int) {
         super.onVisibilityChanged(changedView, visibility)
+        if (changedView === this && visibility == VISIBLE && isShown) {
+            pendingScrollToTopOnOpen = true
+        }
         updateClipboardCollection()
     }
 
@@ -355,7 +359,9 @@ class ClipBoardContainer(context: Context, inputView: InputView) : BaseContainer
         clipboardCollectJob?.cancel()
         clipboardCollectJob = null
         pendingPinnedItem = null
-        pendingScrollToTopOnOpen = false
+        pendingScrollToTopOnOpen = true
+        mRVSymbolsView?.stopScroll()
+        mRVSymbolsView?.scrollToPosition(0)
         activeActionPopup?.dismiss()
         activeActionPopup = null
     }
@@ -381,9 +387,11 @@ class ClipBoardContainer(context: Context, inputView: InputView) : BaseContainer
                     val pinnedItem = pendingPinnedItem
                     if (pinnedItem != null && list.any { it == pinnedItem }) {
                         pendingPinnedItem = null
+                        mRVSymbolsView?.stopScroll()
                         mRVSymbolsView?.scrollToPosition(0)
                     } else if (pendingScrollToTopOnOpen) {
                         pendingScrollToTopOnOpen = false
+                        mRVSymbolsView?.stopScroll()
                         mRVSymbolsView?.scrollToPosition(0)
                     }
                 }
@@ -491,6 +499,7 @@ class ClipBoardContainer(context: Context, inputView: InputView) : BaseContainer
             mRVSymbolsView?.post {
                 if (pendingScrollToTopOnOpen && canUpdateClipboard()) {
                     pendingScrollToTopOnOpen = false
+                    mRVSymbolsView?.stopScroll()
                     mRVSymbolsView?.scrollToPosition(0)
                 }
             }

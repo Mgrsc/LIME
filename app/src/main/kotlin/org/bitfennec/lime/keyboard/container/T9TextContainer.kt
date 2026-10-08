@@ -121,6 +121,7 @@ open class T9TextContainer(
         super.onAttachedToWindow()
         pendingScrollToTopOnOpen = true
         if (DecodingInfo.prefixs.isEmpty()) {
+            mRVLeftPrefix.stopScroll()
             mRVLeftPrefix.scrollToPosition(0)
         }
     }
@@ -130,15 +131,20 @@ open class T9TextContainer(
         if (changedView === this && visibility == VISIBLE && isShown) {
             pendingScrollToTopOnOpen = true
             if (DecodingInfo.prefixs.isEmpty()) {
+                mRVLeftPrefix.stopScroll()
                 mRVLeftPrefix.scrollToPosition(0)
             }
         } else if (visibility != VISIBLE || !isShown) {
-            pendingScrollToTopOnOpen = false
+            pendingScrollToTopOnOpen = true
+            mRVLeftPrefix.stopScroll()
+            mRVLeftPrefix.scrollToPosition(0)
         }
     }
 
     override fun onDetachedFromWindow() {
-        pendingScrollToTopOnOpen = false
+        pendingScrollToTopOnOpen = true
+        mRVLeftPrefix.stopScroll()
+        mRVLeftPrefix.scrollToPosition(0)
         super.onDetachedFromWindow()
     }
 
@@ -163,6 +169,7 @@ open class T9TextContainer(
 
         if ((mRVLeftPrefix.adapter as? PrefixAdapter)?.matchesContent(prefixs, footer, calculatedItemHeight) == true) {
             if (shouldScrollTop) {
+                mRVLeftPrefix.stopScroll()
                 mRVLeftPrefix.scrollToPosition(0)
             }
             return
@@ -185,5 +192,9 @@ open class T9TextContainer(
             }
         )
         mRVLeftPrefix.adapter = adapter
+        if (shouldScrollTop) {
+            mRVLeftPrefix.stopScroll()
+            mRVLeftPrefix.scrollToPosition(0)
+        }
     }
 }
