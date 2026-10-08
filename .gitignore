@@ -37,3 +37,4 @@ app/src/main/cpp/include/
 *.keystore
 *.p12
 *.pfx
+/installation.yaml
