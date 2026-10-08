@@ -317,6 +317,7 @@ class ClipBoardContainer(context: Context, inputView: InputView) : BaseContainer
 
     private var clipboardCollectJob: Job? = null
     private var pendingPinnedItem: Clipboard? = null
+    private var pendingScrollToTopOnOpen = false
     private var clipboardGeneration = 0
     private var activeActionPopup: PopupWindow? = null
 
@@ -354,6 +355,7 @@ class ClipBoardContainer(context: Context, inputView: InputView) : BaseContainer
         clipboardCollectJob?.cancel()
         clipboardCollectJob = null
         pendingPinnedItem = null
+        pendingScrollToTopOnOpen = false
         activeActionPopup?.dismiss()
         activeActionPopup = null
     }
@@ -379,6 +381,9 @@ class ClipBoardContainer(context: Context, inputView: InputView) : BaseContainer
                     val pinnedItem = pendingPinnedItem
                     if (pinnedItem != null && list.any { it == pinnedItem }) {
                         pendingPinnedItem = null
+                        mRVSymbolsView?.scrollToPosition(0)
+                    } else if (pendingScrollToTopOnOpen) {
+                        pendingScrollToTopOnOpen = false
                         mRVSymbolsView?.scrollToPosition(0)
                     }
                 }
@@ -447,6 +452,7 @@ class ClipBoardContainer(context: Context, inputView: InputView) : BaseContainer
         actionsLayout?.visibility = VISIBLE
         activeActionPopup?.dismiss()
         activeActionPopup = null
+        pendingScrollToTopOnOpen = true
         val isLandscape = ImeEnvironment.isLandscape
         val count = if (isLandscape) 4 else 2
         val layoutMode = AppPrefs.getInstance().clipboard.clipboardLayoutCompact.getValue()
@@ -481,6 +487,13 @@ class ClipBoardContainer(context: Context, inputView: InputView) : BaseContainer
                 }
             }
             mRVSymbolsView?.adapter = mAdapter
+        } else if ((mAdapter?.itemCount ?: 0) > 0) {
+            mRVSymbolsView?.post {
+                if (pendingScrollToTopOnOpen && canUpdateClipboard()) {
+                    pendingScrollToTopOnOpen = false
+                    mRVSymbolsView?.scrollToPosition(0)
+                }
+            }
         }
         updateClipboardCollection()
     }

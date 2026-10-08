@@ -607,6 +607,7 @@ class CandidatesBar(context: Context?, attrs: AttributeSet?) : RelativeLayout(co
         mMenuRightArrowBtn.drawable?.setTint(activeTheme.keyTextColor)
         mRVContainerMenu.layoutParams = LinearLayout.LayoutParams(0, menuHeight, 1f)
         mCandidatesMenuAdapter.notifyChanged()  // Refresh menu items after expanding dropdown
+        mRVContainerMenu.scrollToPosition(0)
     }
 
     private fun onClickMenu(skbMenuMode: SkbMenuMode) {
@@ -838,6 +839,9 @@ class CandidatesBar(context: Context?, attrs: AttributeSet?) : RelativeLayout(co
                 if (view.visibility != VISIBLE) {
                     view.alpha = 1f
                     view.visibility = VISIBLE
+                    if (view === mCandidatesMenuContainer && ::mRVContainerMenu.isInitialized) {
+                        mRVContainerMenu.scrollToPosition(0)
+                    }
                 }
             } else {
                 if (view.visibility != GONE) {

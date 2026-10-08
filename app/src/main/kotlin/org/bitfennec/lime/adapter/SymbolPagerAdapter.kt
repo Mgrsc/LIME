@@ -141,6 +141,20 @@ class SymbolPagerAdapter(
         }
     }
 
+    fun resetScrollPositions() {
+        val rv = attachedRecyclerView ?: return
+        for (i in 0 until rv.childCount) {
+            val child = rv.getChildAt(i)
+            val holder = rv.getChildViewHolder(child)
+            if (holder is StandardViewHolder) {
+                holder.emojiGroupRv.scrollToPosition(0)
+            } else if (holder is MoreViewHolder) {
+                holder.emojiGroupRv.scrollToPosition(0)
+                holder.rvSubCategoryTabs.scrollToPosition(0)
+            }
+        }
+    }
+
     override fun getItemViewType(position: Int): Int {
         if (viewType == SymbolMode.Symbol && symbolCategories.getOrNull(position) == EmojiconData.SymbolCategory.MORE) {
             return VIEW_TYPE_MORE

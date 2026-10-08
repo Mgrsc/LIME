@@ -115,6 +115,33 @@ open class T9TextContainer(
         updateSymbolListView()
     }
 
+    private var pendingScrollToTopOnOpen = false
+
+    override fun onAttachedToWindow() {
+        super.onAttachedToWindow()
+        pendingScrollToTopOnOpen = true
+        if (DecodingInfo.prefixs.isEmpty()) {
+            mRVLeftPrefix.scrollToPosition(0)
+        }
+    }
+
+    override fun onVisibilityChanged(changedView: View, visibility: Int) {
+        super.onVisibilityChanged(changedView, visibility)
+        if (changedView === this && visibility == VISIBLE && isShown) {
+            pendingScrollToTopOnOpen = true
+            if (DecodingInfo.prefixs.isEmpty()) {
+                mRVLeftPrefix.scrollToPosition(0)
+            }
+        } else if (visibility != VISIBLE || !isShown) {
+            pendingScrollToTopOnOpen = false
+        }
+    }
+
+    override fun onDetachedFromWindow() {
+        pendingScrollToTopOnOpen = false
+        super.onDetachedFromWindow()
+    }
+
     // Update sidebar symbols display
     fun updateSymbolListView() {
         var prefixs = DecodingInfo.prefixs
@@ -131,7 +158,15 @@ open class T9TextContainer(
         val calculatedItemHeight = if (availableHeight > 0) availableHeight / 4 else 0
 
         val footer = if (!isPrefixs) mLlAddSymbol else null
-        if ((mRVLeftPrefix.adapter as? PrefixAdapter)?.matchesContent(prefixs, footer, calculatedItemHeight) == true) return
+        val shouldScrollTop = pendingScrollToTopOnOpen && !isPrefixs
+        pendingScrollToTopOnOpen = false
+
+        if ((mRVLeftPrefix.adapter as? PrefixAdapter)?.matchesContent(prefixs, footer, calculatedItemHeight) == true) {
+            if (shouldScrollTop) {
+                mRVLeftPrefix.scrollToPosition(0)
+            }
+            return
+        }
         val adapter = PrefixAdapter(
             context,
             prefixs,

@@ -67,18 +67,38 @@ class SymbolContainer(context: Context, inputView: InputView) : BaseContainer(co
     private var lastEditorSessionId: Long = -1L
     private var lastSelectedTabPosition: Int = -1
     private var pageWakePending = false
+    private var pendingScrollToTopOnOpen = false
+    private var scrollResetRetries = 0
     private val pageWakeTask = object : Runnable {
         override fun run() {
             pageWakePending = false
             if (!isShown || !isAttachedToWindow || windowVisibility != VISIBLE) return
             val pager = mVPSymbolsView
-            if (pager.adapter !is SymbolPagerAdapter) return
-            val inner = (pager.getChildAt(0) as? RecyclerView)
+            val adapter = pager.adapter as? SymbolPagerAdapter ?: return
+            val innerHolder = (pager.getChildAt(0) as? RecyclerView)
                 ?.findViewHolderForAdapterPosition(pager.currentItem)
-                ?.itemView
-                ?.findViewById<RecyclerView>(R.id.emojiGroupRv)
-                ?: return
+            val inner = innerHolder?.itemView?.findViewById<RecyclerView>(R.id.emojiGroupRv)
+            if (inner == null) {
+                if (pendingScrollToTopOnOpen) {
+                    if (scrollResetRetries < 2) {
+                        scrollResetRetries++
+                        pageWakePending = true
+                        pager.postOnAnimation(this)
+                    } else {
+                        pendingScrollToTopOnOpen = false
+                        scrollResetRetries = 0
+                    }
+                }
+                return
+            }
+            scrollResetRetries = 0
             inner.requestLayout()
+            if (pendingScrollToTopOnOpen) {
+                pendingScrollToTopOnOpen = false
+                adapter.resetScrollPositions()
+                inner.scrollToPosition(0)
+                innerHolder.itemView.findViewById<RecyclerView>(R.id.rvSubCategoryTabs)?.scrollToPosition(0)
+            }
         }
     }
 
@@ -117,11 +137,15 @@ class SymbolContainer(context: Context, inputView: InputView) : BaseContainer(co
 
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
+        pendingScrollToTopOnOpen = true
+        scrollResetRetries = 0
         wakeCurrentPage()
     }
 
     override fun onDetachedFromWindow() {
         cancelPageWake()
+        pendingScrollToTopOnOpen = false
+        scrollResetRetries = 0
         super.onDetachedFromWindow()
     }
 
@@ -334,6 +358,7 @@ class SymbolContainer(context: Context, inputView: InputView) : BaseContainer(co
         (mVPSymbolsView.adapter as? SymbolPagerAdapter)?.setQueriesActive(false)
         mVPSymbolsView.removeCallbacks(pageWakeTask)
         pageWakePending = false
+        scrollResetRetries = 0
     }
 
     private fun updateTopSegmentUI() {
@@ -438,6 +463,8 @@ class SymbolContainer(context: Context, inputView: InputView) : BaseContainer(co
             if (mVPSymbolsView.currentItem != targetPosition) {
                 mVPSymbolsView.setCurrentItem(targetPosition, false)
             }
+            pendingScrollToTopOnOpen = true
+            scrollResetRetries = 0
             wakeCurrentPage()
             return
         }
@@ -472,6 +499,8 @@ class SymbolContainer(context: Context, inputView: InputView) : BaseContainer(co
         }
         tabLayoutMediator?.attach()
         mVPSymbolsView.setCurrentItem(targetPosition, false)
+        pendingScrollToTopOnOpen = true
+        scrollResetRetries = 0
         wakeCurrentPage()
     }
 
@@ -495,6 +524,8 @@ class SymbolContainer(context: Context, inputView: InputView) : BaseContainer(co
 
         if (alreadySameEmoji) {
             existingAdapter.refreshRecents()
+            pendingScrollToTopOnOpen = true
+            scrollResetRetries = 0
             wakeCurrentPage()
             return
         }

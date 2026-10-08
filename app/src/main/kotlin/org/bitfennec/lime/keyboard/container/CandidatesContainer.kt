@@ -44,6 +44,7 @@ import org.bitfennec.lime.utils.dp
 class CandidatesContainer(context: Context, inputView: InputView) : BaseContainer(context, inputView) {
     private var predictionDeletePopup: PopupWindow? = null
     private var deleteMenuRequestId = 0L
+    private var pendingScrollToTopOnOpen = false
     private var mSideSymbolsPinyin: List<SideSymbol> = emptyList()
     private lateinit var mRVSymbolsView: RecyclerView
     private lateinit var mCandidatesAdapter: CandidatesAdapter
@@ -164,6 +165,12 @@ class CandidatesContainer(context: Context, inputView: InputView) : BaseContaine
             deleteMenuRequestId++
             predictionDeletePopup?.dismiss()
             predictionDeletePopup = null
+            pendingScrollToTopOnOpen = false
+            lastFirstCandidateText = null
+            lastLoadedCandidatePageNo = Int.MIN_VALUE
+            requestedNextCandidatePageNo = null
+        } else if (changedView === this && isShown) {
+            pendingScrollToTopOnOpen = true
         }
         updatePaginationCallback()
     }
@@ -186,11 +193,21 @@ class CandidatesContainer(context: Context, inputView: InputView) : BaseContaine
         }
     }
 
+    override fun onAttachedToWindow() {
+        super.onAttachedToWindow()
+        pendingScrollToTopOnOpen = true
+        updatePaginationCallback()
+    }
+
     override fun onDetachedFromWindow() {
         deleteMenuRequestId++
         mRVSymbolsView.removeCallbacks(fillViewportTask)
         predictionDeletePopup?.dismiss()
         predictionDeletePopup = null
+        pendingScrollToTopOnOpen = false
+        lastFirstCandidateText = null
+        lastLoadedCandidatePageNo = Int.MIN_VALUE
+        requestedNextCandidatePageNo = null
         super.onDetachedFromWindow()
     }
 
@@ -209,16 +226,24 @@ class CandidatesContainer(context: Context, inputView: InputView) : BaseContaine
                 requestedNextCandidatePageNo = null
             }
             val currentFirst = candidates.firstOrNull()?.text
-            val isNewComposition = (currentFirst != lastFirstCandidateText)
+            val shouldResetScroll = shouldResetCandidateScroll(
+                pendingScrollToTopOnOpen = pendingScrollToTopOnOpen,
+                currentFirstText = currentFirst,
+                lastFirstText = lastFirstCandidateText,
+            )
+            pendingScrollToTopOnOpen = false
             lastFirstCandidateText = currentFirst
 
             mCandidatesAdapter.setCandidates(candidates)
-            if (isNewComposition) {
+            if (shouldResetScroll) {
                 mRVSymbolsView.scrollToPosition(0)
             }
             if (InputModeSwitcher.isChineseT9) {
                 mRVLeftPrefix.visibility = VISIBLE
                 updatePrefixsView()
+                if (shouldResetScroll) {
+                    mRVLeftPrefix.scrollToPosition(0)
+                }
             } else {
                 mRVLeftPrefix.visibility = GONE
             }
@@ -275,5 +300,20 @@ class CandidatesContainer(context: Context, inputView: InputView) : BaseContaine
                     windowVisibility == VISIBLE
             },
         )
+    }
+
+    companion object {
+        /**
+         * Pure decision function for candidate expansion viewport reset.
+         * Resets on fresh panel opening or when the top candidate text changes.
+         */
+        fun shouldResetCandidateScroll(
+            pendingScrollToTopOnOpen: Boolean,
+            currentFirstText: String?,
+            lastFirstText: String?
+        ): Boolean {
+            val firstCandidateChanged = currentFirstText != lastFirstText
+            return pendingScrollToTopOnOpen || firstCandidateChanged
+        }
     }
 }
