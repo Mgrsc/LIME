@@ -6,20 +6,24 @@ import shlex
 import subprocess
 import tempfile
 
-parser = argparse.ArgumentParser(description=__doc__)
-parser.add_argument("--librime-build", type=Path, required=True)
-args = parser.parse_args()
-root = Path(__file__).resolve().parents[2]
-build = args.librime_build.resolve()
-source = (root / "app/src/main/cpp/jni/lime_jni.cc").read_text()
-helpers = source[source.index("template<typename F>\nstatic bool with_system_dict_table_locked"):
-                 source.index("// 20. checkWordsInSystemDict")]
-flags = (build / "tools/CMakeFiles/rime_table_decompiler.dir/flags.make").read_text().splitlines()
-compiler_args = []
-for key in ("CXX_DEFINES = ", "CXX_INCLUDES = ", "CXX_FLAGS = "):
-    compiler_args.extend(shlex.split(next(line[len(key):] for line in flags if line.startswith(key))))
-main = r'''
-int main(int argc, char** argv) {
+from build_candidate_dictionary import WANXIANG_COLLOQUIAL_ENTRIES
+
+
+def check_phrase_code(librime_build: Path) -> None:
+    root = Path(__file__).resolve().parents[2]
+    build = librime_build.resolve()
+    source = (root / "app/src/main/cpp/jni/lime_jni.cc").read_text()
+    helpers = source[source.index("template<typename F>\nstatic bool with_system_dict_table_locked"):
+                     source.index("// 20. checkWordsInSystemDict")]
+    flags = (build / "tools/CMakeFiles/rime_table_decompiler.dir/flags.make").read_text().splitlines()
+    compiler_args = []
+    for key in ("CXX_DEFINES = ", "CXX_INCLUDES = ", "CXX_FLAGS = "):
+        compiler_args.extend(shlex.split(next(line[len(key):] for line in flags if line.startswith(key))))
+    colloquial_code_entries = ",\n".join(
+        f'            {{"{text}", "{code}"}}' for text, code in sorted(WANXIANG_COLLOQUIAL_ENTRIES)
+    )
+    main = f'''
+int main(int argc, char** argv) {{
     assert(argc == 2);
     auto& deployer = rime::Service::instance().deployer();
     deployer.user_data_dir = rime::path(argv[1]);
@@ -31,15 +35,16 @@ int main(int argc, char** argv) {
     assert(table.metadata()->syllabary->size == 418 && "unexpected syllabary size");
     for (size_t i = 0; i < table.metadata()->syllabary->size; ++i)
         syllables[table.GetSyllableById(i)] = i;
-    for (const auto& item : std::vector<std::pair<std::string, std::string>>{
-            {"你好", "ni hao"}, {"银行", "yin hang"}, {"嗯", "en"},
-            {"楚雄", "chu xiong"}, {"郑州", "zheng zhou"}, {"徐州", "xu zhou"},
-            {"秦皇岛", "qin huang dao"}, {"呼和浩特", "hu he hao te"},
-            {"乌鲁木齐", "wu lu mu qi"},
-            {"邓紫棋", "deng zi qi"}, {"周杰伦", "zhou jie lun"},
-            {"雷军", "lei jun"}, {"刘慈欣", "liu ci xin"},
-            {"对乙酰氨基酚", "dui yi xian an ji fen"}, {"布洛芬", "bu luo fen"},
-            {"大都", "da du"}}) {
+    for (const auto& item : std::vector<std::pair<std::string, std::string>>{{
+            {{"你好", "ni hao"}}, {{"银行", "yin hang"}}, {{"嗯", "en"}},
+            {{"楚雄", "chu xiong"}}, {{"郑州", "zheng zhou"}}, {{"徐州", "xu zhou"}},
+            {{"秦皇岛", "qin huang dao"}}, {{"呼和浩特", "hu he hao te"}},
+            {{"乌鲁木齐", "wu lu mu qi"}},
+            {{"邓紫棋", "deng zi qi"}}, {{"周杰伦", "zhou jie lun"}},
+            {{"雷军", "lei jun"}}, {{"刘慈欣", "liu ci xin"}},
+            {{"对乙酰氨基酚", "dui yi xian an ji fen"}}, {{"布洛芬", "bu luo fen"}},
+            {{"大都", "da du"}},
+{colloquial_code_entries}}}) {{
         rime::Code code;
         assert(parse_code_to_syllables("  " + item.second + "  ", syllables, code));
         bool found = false;
@@ -48,7 +53,7 @@ int main(int argc, char** argv) {
         assert(ok);
         code.push_back(syllables.at("a"));
         assert(is_entry_in_system_dict_locked("pinyin", item.first, code, found) && !found);
-    }
+    }}
     rime::Code code;
     assert(parse_code_to_syllables("ni hao", syllables, code));
     bool found = true;
@@ -56,10 +61,11 @@ int main(int argc, char** argv) {
     assert(!found);
     assert(!parse_code_to_syllables("invalid_syllable", syllables, code));
     assert(!is_entry_in_system_dict_locked("pinyin", "你好", code, found));
-    std::cout << "PASS: real phrase/code lookup, alternate code, whitespace, missing dictionary\n";
-}
+    std::cout << "PASS: real phrase/code lookup, alternate code, whitespace, missing dictionary\\n";
+}}
 '''
-header = """#include <rime/dict/table.h>
+
+    header = """#include <rime/dict/table.h>
 #include <rime/service.h>
 #include <unordered_map>
 #include <iostream>
@@ -67,12 +73,19 @@ header = """#include <rime/dict/table.h>
 #include <cstdio>
 #define LOGE(...) std::fprintf(stderr, __VA_ARGS__)
 """
-scratch = root / ".dev/scratch"
-scratch.mkdir(parents=True, exist_ok=True)
-with tempfile.TemporaryDirectory(prefix="phrase-code-", dir=scratch) as directory:
-    cpp = Path(directory) / "check.cc"
-    binary = Path(directory) / "check"
-    cpp.write_text(header + helpers + main)
-    subprocess.run(["g++", *compiler_args, "-UNDEBUG", str(cpp), "-L" + str(build / "lib"),
-                    "-Wl,-rpath," + str(build / "lib"), "-lrime", "-o", str(binary)], check=True)
-    subprocess.run([str(binary), str(root / "app/src/main/assets/rime")], check=True)
+    scratch = root / ".dev/scratch"
+    scratch.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix="phrase-code-", dir=scratch) as directory:
+        cpp = Path(directory) / "check.cc"
+        binary = Path(directory) / "check"
+        cpp.write_text(header + helpers + main)
+        subprocess.run(["g++", *compiler_args, "-UNDEBUG", str(cpp), "-L" + str(build / "lib"),
+                        "-Wl,-rpath," + str(build / "lib"), "-lrime", "-o", str(binary)], check=True)
+        subprocess.run([str(binary), str(root / "app/src/main/assets/rime")], check=True)
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--librime-build", type=Path, required=True)
+    args = parser.parse_args()
+    check_phrase_code(args.librime_build)

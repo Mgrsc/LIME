@@ -1,5 +1,12 @@
 # phrase	code	weight	provenance	review_date	license
-# Project vocabulary and explicitly attributed supplementary readings; weight is a conservative reachability baseline.
+# Project vocabulary and explicitly attributed supplementary readings; weights serve as reachability baselines and floor overrides against lower upstream values.
+# Colloquial phrases below are public-domain formulaic expressions; readings follow standard Pinyin and weights are defined by project baseline.
 离线语音识别	li xian yu yin shi bie	1	project-maintainer	2026-09-13	BSD-3-Clause
 离线手写识别	li xian shou xie shi bie	1	project-maintainer	2026-09-13	BSD-3-Clause
 大都	dà dū	350	rime-wanxiang-duoyin	2026-09-28	CC-BY-4.0
+这是什么东西	zhe shi shen me dong xi	1000	project-maintainer	2026-10-08	BSD-3-Clause
+是什么东西	shi shen me dong xi	1000	project-maintainer	2026-10-08	BSD-3-Clause
+那是什么东西	na shi shen me dong xi	1000	project-maintainer	2026-10-08	BSD-3-Clause
+到底是什么东西	dao di shi shen me dong xi	1000	project-maintainer	2026-10-08	BSD-3-Clause
+不管是什么东西	bu guan shi shen me dong xi	1000	project-maintainer	2026-10-08	BSD-3-Clause
+不知道是什么东西	bu zhi dao shi shen me dong xi	1000	project-maintainer	2026-10-08	BSD-3-Clause

@@ -2,11 +2,11 @@
   "metadata": {
     "rime_version": "1.17.0",
     "table_format": "Rime::Table/4.0",
-    "dict_data_version": 2026092801,
+    "dict_data_version": 2026100801,
     "upstream_repository": "https://github.com/amzxyz/rime-wanxiang",
     "upstream_commit": "1b66a704d0ddb3dfcac10d92bbf384b9209621ab",
     "upstream_license": "CC-BY-4.0",
-    "dictionary_source_sha256": "4c1616304fca5212571d9f2d3b841a0f8e16d35c0a00d9c990c93d4d29d9fc7e"
+    "dictionary_source_sha256": "6d289a545f38cebe0d2a21d5fe0721b0cfcebe2f0da8e266debb0905b9b2fcd2"
   },
   "ownership": {
     "preserved_user_files": [
@@ -22,8 +22,8 @@
   },
   "system_assets": {
     "BUILD_REPORT.json": {
-      "bytes": 20321,
-      "sha256": "1212f006a6dcf38ea1ab62e93a905e838e7a37fd68cc97be116923b6add43a12"
+      "bytes": 20340,
+      "sha256": "a33521e682681865b8494bcb4de90ffa45c95d8573e66351b043dea40bb24962"
     },
     "NOTICE.txt": {
       "bytes": 838,
@@ -47,7 +47,7 @@
     },
     "build/double_pinyin_flypy.prism.bin": {
       "bytes": 14672,
-      "sha256": "72baf9f93f185b5d17c77983b5d0fb61da55239e26fd48ff5187f2274df14370"
+      "sha256": "b32ccda7adc823838ff11b9e758af7673e75747cc17063b5d4a4d0a8f50911b2"
     },
     "build/double_pinyin_flypy.schema.yaml": {
       "bytes": 3107,
@@ -67,23 +67,23 @@
     },
     "build/pinyin.prism.bin": {
       "bytes": 38024,
-      "sha256": "57d1a0bd6db820680f730d7303cf3e193f1e4c51bc0a89fa65d4ad9eca5c9d98"
+      "sha256": "b9174d450d36d220ad0dafc6ddc676801ec75087fb842a622a7bbc911289e284"
     },
     "build/pinyin.reverse.bin": {
       "bytes": 263804,
-      "sha256": "d895b59d70981bf9a6c9333b5ab71c7f0e53dced3a553fecc909c9f91ebb6eca"
+      "sha256": "1bfb266c68e24963feda320be9702d9147ac6bfead2e4e0e829315f243cb1578"
     },
     "build/pinyin.schema.yaml": {
       "bytes": 1943,
       "sha256": "7e172eb35a2ae7a2e93ea194b7e076dbdb3d00d0b2a3624211157635acbdaa21"
     },
     "build/pinyin.table.bin": {
-      "bytes": 55576124,
-      "sha256": "8b876cd7fb1b1017517b1333fc615cc2928dd00a2fd5baf7a5125edb316d7ebd"
+      "bytes": 55576352,
+      "sha256": "ec9ce425e2ae3c61025993baad659c63a819f380e70297bcf361103e87727c28"
     },
     "build/t9_pinyin.prism.bin": {
       "bytes": 20848,
-      "sha256": "4c03c40430c697f03b9a11e3a769ad0125b83a8186beb68223cf4e8648d5c07c"
+      "sha256": "d430e1806381d6e46344d58e32ff2b75260f56383a018adc9fa56a4a19308f26"
     },
     "build/t9_pinyin.schema.yaml": {
       "bytes": 2005,

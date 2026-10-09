@@ -36,6 +36,14 @@ WANXIANG_KNOWN_DICTS = WANXIANG_BASE_DICTS | WANXIANG_NAME_DICTS | {
     "dicts/huaxue.dict.yaml",
     "dicts/yixue.dict.yaml",
 }
+WANXIANG_COLLOQUIAL_ENTRIES = {
+    ("这是什么东西", "zhe shi shen me dong xi"),
+    ("是什么东西", "shi shen me dong xi"),
+    ("那是什么东西", "na shi shen me dong xi"),
+    ("到底是什么东西", "dao di shi shen me dong xi"),
+    ("不管是什么东西", "bu guan shi shen me dong xi"),
+    ("不知道是什么东西", "bu zhi dao shi shen me dong xi"),
+}
 
 
 def fetch_source(source: dict, item: dict, cache: Path) -> Path:
@@ -95,6 +103,18 @@ def entries(path: Path, excluded: tuple[str, ...] = ()):
         raise ValueError(f"missing dictionary body: {path}")
     if remaining:
         raise ValueError(f"stale exclusions: {path}")
+
+
+def apply_addition(merged: dict[tuple[str, str], int], text: str, code: str, weight: int) -> str | None:
+    key = (text, code)
+    if key not in merged:
+        merged[key] = weight
+        return "added"
+    if weight > merged[key]:
+        # Defensive floor override: lift substandard upstream weights up to project baseline.
+        merged[key] = weight
+        return "lifted"
+    return None
 
 
 def main() -> None:
@@ -158,12 +178,21 @@ def main() -> None:
     additions = {}
     for name in ("modern.tsv",):
         path = ROOT / name
-        count = 0
+        added = 0
+        lifted = 0
         for text, code, weight in entries(path):
-            if (text, code) not in merged:
-                merged[text, code] = weight
-                count += 1
-        additions[name] = {"added": count, "sha256": hashlib.sha256(path.read_bytes()).hexdigest()}
+            action = apply_addition(merged, text, code, weight)
+            if action == "added":
+                added += 1
+            elif action == "lifted":
+                lifted += 1
+
+        additions[name] = {
+            "added": added,
+            "lifted": lifted,
+            "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+        }
+
     # Phrase-scoped compatibility: never derive eng from every en syllable.
     hum_weights = [weight for (text, code), weight in merged.items()
                    if text == "嗯嗯" and code in ("en en", "ng ng", "eng eng")]
@@ -185,10 +214,15 @@ def main() -> None:
             ("对乙酰氨基酚", "dui yi xian an ji fen"),
             ("布洛芬", "bu luo fen"),
             ("大都", "da du"),
-        }
+        } | WANXIANG_COLLOQUIAL_ENTRIES
         missing_entries = [f"{text} ({code})" for text, code in required_entries if (text, code) not in merged]
         if missing_entries:
             raise ValueError(f"missing required entries: {', '.join(missing_entries)}")
+        substandard_weights = [f"{text} ({merged[text, code]} < 1000)" for text, code in WANXIANG_COLLOQUIAL_ENTRIES
+                               if merged[text, code] < 1000]
+        if substandard_weights:
+            raise ValueError(f"colloquial phrases below minimum baseline weight: {', '.join(substandard_weights)}")
+
     args.output.mkdir(parents=True)
     dictionary = args.output / "pinyin.dict.yaml"
     with dictionary.open("w", encoding="utf-8") as output:

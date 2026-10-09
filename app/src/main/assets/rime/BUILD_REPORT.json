@@ -350,8 +350,9 @@
   "normalized_duplicates": 2920,
   "additions": {
     "modern.tsv": {
-      "added": 3,
-      "sha256": "ce9a5d46f0d9b69fb1a7275aa62a50aa098a73596ec1dab45f981dee8f7c1540"
+      "added": 9,
+      "lifted": 0,
+      "sha256": "4d2e4f644f34753d5a6cab08f4c19e214eed059dcbd8aa4e08ec98ddf7c5582f"
     }
   },
   "aliases": {
@@ -387,9 +388,9 @@
     }
   ],
   "alias_sha256": "bd755cade1a57f57f69f46b05d1c8056be71b32a343cea85df27165a6bf157be",
-  "builder_sha256": "29c12f57819c8dd57508e23bbafe7ecefbcd433087e5c2f6f0d94eaec2d7c5c8",
+  "builder_sha256": "62754f76a8654f162bae2b579afa5db4cc0e42113bdca9a88d3dca38e6e83abb",
   "alias_builder_sha256": "5d52ad76b1cfc8144e2e53dc33f9d9f3e199e7f31169a6309c6ba4f4e307160e",
-  "output_sha256": "4c1616304fca5212571d9f2d3b841a0f8e16d35c0a00d9c990c93d4d29d9fc7e",
+  "output_sha256": "6d289a545f38cebe0d2a21d5fe0721b0cfcebe2f0da8e266debb0905b9b2fcd2",
   "status": "bundled; fresh-install profile",
   "runtime_inputs": {
     "build/default.yaml": "9b3aa9b91f1fbc211e6fcb1852aec81680b16ba579e2218cfec3056d6864ecb1",
@@ -406,7 +407,7 @@
     "opencc/emoji.ocd2": "6bab402815c984ed4a5badea4b95db03a7a6f656d61088bd77f524e1561d2cbb",
     "opencc/others.ocd2": "7f867095dc40b667aa6080954a92f52488f96d7c8ac88febaa3da458663fa6ac",
     "opencc/s2t.json": "710bb970e406d9c0a3dd33c609248686cf1c5578d064b7b7fc89e70fbb9ea75d",
-    "pinyin.dict.yaml": "4c1616304fca5212571d9f2d3b841a0f8e16d35c0a00d9c990c93d4d29d9fc7e",
+    "pinyin.dict.yaml": "6d289a545f38cebe0d2a21d5fe0721b0cfcebe2f0da8e266debb0905b9b2fcd2",
     "pinyin.schema.yaml": "b0ba6d92dfd249a92ab82b50e7b3045e9a12583581d653610003fffee4a5b188",
     "t9_pinyin.schema.yaml": "1ef0e9ac9ab97b5a1164eba49c1bfd3b56175442811505cb9f78beaf64bfdead",
     "user.yaml": "c88f1036cdf3b8cbdf8f6470d25eefde7b27fc61fecea1a4857fdd28191b0c19"
@@ -418,7 +419,7 @@
   },
   "compiled_outputs": {
     "double_pinyin_flypy.prism.bin": {
-      "sha256": "72baf9f93f185b5d17c77983b5d0fb61da55239e26fd48ff5187f2274df14370",
+      "sha256": "b32ccda7adc823838ff11b9e758af7673e75747cc17063b5d4a4d0a8f50911b2",
       "bytes": 14672
     },
     "english.prism.bin": {
@@ -430,19 +431,19 @@
       "bytes": 680940
     },
     "pinyin.prism.bin": {
-      "sha256": "57d1a0bd6db820680f730d7303cf3e193f1e4c51bc0a89fa65d4ad9eca5c9d98",
+      "sha256": "b9174d450d36d220ad0dafc6ddc676801ec75087fb842a622a7bbc911289e284",
       "bytes": 38024
     },
     "pinyin.reverse.bin": {
-      "sha256": "d895b59d70981bf9a6c9333b5ab71c7f0e53dced3a553fecc909c9f91ebb6eca",
+      "sha256": "1bfb266c68e24963feda320be9702d9147ac6bfead2e4e0e829315f243cb1578",
       "bytes": 263804
     },
     "pinyin.table.bin": {
-      "sha256": "8b876cd7fb1b1017517b1333fc615cc2928dd00a2fd5baf7a5125edb316d7ebd",
-      "bytes": 55576124
+      "sha256": "ec9ce425e2ae3c61025993baad659c63a819f380e70297bcf361103e87727c28",
+      "bytes": 55576352
     },
     "t9_pinyin.prism.bin": {
-      "sha256": "4c03c40430c697f03b9a11e3a769ad0125b83a8186beb68223cf4e8648d5c07c",
+      "sha256": "d430e1806381d6e46344d58e32ff2b75260f56383a018adc9fa56a4a19308f26",
       "bytes": 20848
     }
   }

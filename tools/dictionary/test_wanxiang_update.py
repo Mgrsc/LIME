@@ -2,6 +2,7 @@
 """Self-contained snapshot update checks; no network or third-party packages."""
 from contextlib import redirect_stdout
 import argparse
+import csv
 import hashlib
 import io
 import json
@@ -13,8 +14,18 @@ import unittest
 from unittest.mock import patch
 import zipfile
 
+_tools_dir = str(Path(__file__).resolve().parent)
+if _tools_dir not in sys.path:
+    sys.path.insert(0, _tools_dir)
+
 import check_wanxiang_update as updater
-from build_candidate_dictionary import WANXIANG_KNOWN_DICTS, entries, normalize_code
+from build_candidate_dictionary import (
+    WANXIANG_COLLOQUIAL_ENTRIES,
+    WANXIANG_KNOWN_DICTS,
+    apply_addition,
+    entries,
+    normalize_code,
+)
 
 
 def main():
@@ -86,7 +97,8 @@ def check_native(probe: Path, before: Path, after: Path):
         "e", "ee", "e'e", "eee", "oo", "en", "enen", "eneng", "engen", "engeng", "ng",
         "jiayouo", "jiayoue", "yine", "nv", "nu", "dayuyanmoxing", "lixianyuyinshibie",
         "chuxiong", "zhengzhou", "xuzhou", "dengziqi", "zhoujielun",
-        "leijun", "liucixin", "duiyixiananjifen", "dadu", "zhangjie")]
+        "leijun", "liucixin", "duiyixiananjifen", "dadu", "zhangjie",
+        "zssmdx", "nssmdx", "ddssmdx")]
     queries += [("double_pinyin_flypy", q) for q in ("ee", "eeee", "enen", "oooo", "nv", "nu")]
     queries += [("t9_pinyin", q) for q in ("33", "333", "36", "3636", "66", "64")]
     queries += [("pinyin", "zhonghuarenmingongheguo"), ("double_pinyin_flypy", "dayuyjmoxk")]
@@ -113,8 +125,12 @@ def check_native(probe: Path, before: Path, after: Path):
                           ("dengziqi", "邓紫棋"), ("zhoujielun", "周杰伦"),
                           ("leijun", "雷军"), ("liucixin", "刘慈欣"),
                           ("duiyixiananjifen", "对乙酰氨基酚"),
-                          ("zhangjie", "章节")):
+                          ("zhangjie", "章节"),
+                          ("zssmdx", "这是什么东西"),
+                          ("nssmdx", "那是什么东西"),
+                          ("ddssmdx", "到底是什么东西")):
         assert new["pinyin", query][0] == phrase, (query, new["pinyin", query])
+
     assert "大都" in new["pinyin", "dadu"]
     assert "张杰" in new["pinyin", "zhangjie"]
     assert new["double_pinyin_flypy", "eeee"][0] == "呃呃"
@@ -159,6 +175,70 @@ class WanxiangUpdateTest(unittest.TestCase):
         lock = json.loads((Path(__file__).parent / "candidates.lock.json").read_text())
         wanxiang_paths = {item["path"] for item in lock["wanxiang"]["files"] if item["path"] != "LICENSE"}
         self.assertEqual(wanxiang_paths, WANXIANG_KNOWN_DICTS)
+
+    def test_colloquial_regression_gates(self):
+        root = Path(__file__).parent
+        modern_entries = {(phrase, code): weight for phrase, code, weight in entries(root / "modern.tsv")}
+        with (root / "lexicon-regression.tsv").open(encoding="utf-8") as f:
+            regression_cases = {(row["phrase"], row["code"]) for row in csv.DictReader(f, delimiter="\t")
+                                if row.get("category") == "colloquial"}
+        self.assertEqual(WANXIANG_COLLOQUIAL_ENTRIES, regression_cases)
+        for phrase, code in WANXIANG_COLLOQUIAL_ENTRIES:
+            self.assertIn((phrase, code), modern_entries)
+            self.assertGreaterEqual(modern_entries[phrase, code], 1000)
+
+        # Hard assertion on bundled build report and fingerprint chain
+        report_path = root.parents[1] / "app/src/main/assets/rime/BUILD_REPORT.json"
+        self.assertTrue(report_path.exists(), "BUILD_REPORT.json must exist in assets/rime")
+        report = json.loads(report_path.read_text())
+        modern_sha = hashlib.sha256((root / "modern.tsv").read_bytes()).hexdigest()
+        self.assertEqual(report["additions"]["modern.tsv"]["sha256"], modern_sha)
+        builder_sha = hashlib.sha256((root / "build_candidate_dictionary.py").read_bytes()).hexdigest()
+        self.assertEqual(report["builder_sha256"], builder_sha)
+
+        manifest_path = root.parents[1] / "app/src/main/assets/rime-assets-manifest.json"
+        self.assertTrue(manifest_path.exists(), "rime-assets-manifest.json must exist")
+        manifest = json.loads(manifest_path.read_text())
+        self.assertEqual(
+            manifest["metadata"]["dictionary_source_sha256"],
+            report["output_sha256"],
+        )
+        self.assertEqual(
+            manifest["system_assets"]["build/pinyin.table.bin"]["sha256"],
+            report["compiled_outputs"]["pinyin.table.bin"]["sha256"],
+        )
+        disk_table_path = root.parents[1] / "app/src/main/assets/rime/build/pinyin.table.bin"
+        self.assertTrue(disk_table_path.exists(), "build/pinyin.table.bin must exist on disk")
+        self.assertEqual(
+            hashlib.sha256(disk_table_path.read_bytes()).hexdigest(),
+            report["compiled_outputs"]["pinyin.table.bin"]["sha256"],
+        )
+
+        # Safe import and function contract verification for check_phrase_code
+        try:
+            from check_phrase_code import check_phrase_code
+        except ImportError:
+            from tools.dictionary.check_phrase_code import check_phrase_code
+        self.assertTrue(callable(check_phrase_code))
+        check_source = (root / "check_phrase_code.py").read_text()
+        self.assertIn("WANXIANG_COLLOQUIAL_ENTRIES", check_source)
+
+    def test_modern_additions_lifted_semantics(self):
+        # Verify defensive floor override lifts substandard upstream weight to baseline
+        mock_merged = {("这是什么东西", "zhe shi shen me dong xi"): 50}
+        action = apply_addition(mock_merged, "这是什么东西", "zhe shi shen me dong xi", 1000)
+        self.assertEqual(action, "lifted")
+        self.assertEqual(mock_merged["这是什么东西", "zhe shi shen me dong xi"], 1000)
+
+        # Verify higher upstream weight is preserved without modification
+        action_higher = apply_addition(mock_merged, "这是什么东西", "zhe shi shen me dong xi", 800)
+        self.assertIsNone(action_higher)
+        self.assertEqual(mock_merged["这是什么东西", "zhe shi shen me dong xi"], 1000)
+
+        # Verify new entry is recorded as added
+        action_new = apply_addition(mock_merged, "新词条", "xin ci tiao", 500)
+        self.assertEqual(action_new, "added")
+        self.assertEqual(mock_merged["新词条", "xin ci tiao"], 500)
 
 
 if __name__ == "__main__":
