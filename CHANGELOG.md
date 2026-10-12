@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.9.2] - 2026-10-12
+
+### Security
+- **Backup & Restore Hardening**: Enforced strict path traversal guards, file type whitelisting, and Room database confinement in `UserDataManager` to prevent unauthorized file writes.
+- **Theme Path Sanitization**: Sanitized custom background asset paths in `ThemeFilesManager` against directory traversal vulnerabilities.
+- **Lua Runtime Restrictions**: Stripped unsafe dynamic loading searchers and privileged OS execution calls in `librime-lua` while maintaining sandbox compatibility with upstream Wanxiang scripts.
+
+### Fixed
+- **Chinese Pinyin Capitalization**: Enforced lowercase composition across RIME engine pipelines and suppressed external editor auto-capitalization in Chinese input mode.
+- **Swipe-Delete Selection Bounds**: Prevented spurious delete selection and vibration feedback on empty text fields, synchronizing local cursor selection cache.
+- **Panel Scroll Position Persistence**: Reset scroll positions to top upon opening Candidate, Symbol, Clipboard, and T9 panels; hardened scroll resets with idle-gated frame locking to eliminate cross-session scroll position leakage.
+- **Lexicon Abbreviation Segmentation**: Supplemented core colloquial query phrases to stabilize pinyin abbreviation segmentation without regressing short abbreviation rankings.
+
+---
+
 ## [0.9.1] - 2026-09-28
 
 ### Added
