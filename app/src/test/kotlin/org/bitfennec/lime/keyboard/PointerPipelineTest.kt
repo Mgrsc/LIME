@@ -2,6 +2,7 @@ package org.bitfennec.lime.keyboard
 
 import android.view.KeyEvent
 import org.bitfennec.lime.keyboard.model.SoftKey
+import org.bitfennec.lime.prefs.InputFeedbacks.HapticEvent
 import org.bitfennec.lime.prefs.behavior.DeleteGestureAction
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -123,7 +124,7 @@ class PointerPipelineTest {
         val up = pipeline.onUp()
 
         assertTrue(move.any { it == PointerCommand.DeleteSelect(charCount = 2, initialCursor = 5) })
-        assertTrue(move.contains(PointerCommand.Haptic(org.bitfennec.lime.prefs.InputFeedbacks.HapticEvent.STEP)))
+        assertTrue(move.contains(PointerCommand.Haptic(HapticEvent.STEP)))
         assertTrue(up.any { it == PointerCommand.DeleteCommit(charCount = 2, initialCursor = 5) })
     }
 
@@ -143,7 +144,7 @@ class PointerPipelineTest {
         val up = pipeline.onUp()
 
         assertFalse(move.any { it is PointerCommand.DeleteSelect })
-        assertFalse(move.contains(PointerCommand.Haptic(org.bitfennec.lime.prefs.InputFeedbacks.HapticEvent.STEP)))
+        assertFalse(move.contains(PointerCommand.Haptic(HapticEvent.STEP)))
         assertFalse(move.any { it is PointerCommand.PopupShowText })
         assertFalse(up.any { it is PointerCommand.DeleteCommit })
     }
@@ -183,7 +184,7 @@ class PointerPipelineTest {
         val up = pipeline.onUp()
 
         assertFalse(move.any { it is PointerCommand.DeleteSelect })
-        assertFalse(move.contains(PointerCommand.Haptic(org.bitfennec.lime.prefs.InputFeedbacks.HapticEvent.STEP)))
+        assertFalse(move.contains(PointerCommand.Haptic(HapticEvent.STEP)))
         assertFalse(up.any { it is PointerCommand.DeleteCommit })
     }
 
@@ -203,7 +204,7 @@ class PointerPipelineTest {
         val up = pipeline.onUp()
 
         assertFalse(move.any { it is PointerCommand.DeleteSelect })
-        assertFalse(move.contains(PointerCommand.Haptic(org.bitfennec.lime.prefs.InputFeedbacks.HapticEvent.STEP)))
+        assertFalse(move.contains(PointerCommand.Haptic(HapticEvent.STEP)))
         assertFalse(move.any { it is PointerCommand.PopupShowText })
         assertFalse(up.any { it is PointerCommand.DeleteCommit })
     }
@@ -225,6 +226,118 @@ class PointerPipelineTest {
 
         assertTrue(move.any { it == PointerCommand.DeleteSelect(charCount = 1, initialCursor = 1) })
         assertTrue(up.any { it == PointerCommand.DeleteCommit(charCount = 1, initialCursor = 1) })
+    }
+
+    @Test
+    fun deleteSwipeSelectionAccelerationCalculations() {
+        val baseStep = 14f
+
+        assertEquals(0, calculateDeleteSwipeStep(-1f, baseStep, 100))
+        assertEquals(0, calculateDeleteSwipeStep(10f, 0f, 100))
+        assertEquals(0, calculateDeleteSwipeStep(10f, baseStep, 0))
+
+        assertEquals(1, calculateDeleteSwipeStep(0f, baseStep, 100))
+        assertEquals(2, calculateDeleteSwipeStep(14f, baseStep, 100))
+        assertEquals(3, calculateDeleteSwipeStep(28f, baseStep, 100))
+        assertEquals(4, calculateDeleteSwipeStep(42f, baseStep, 100))
+        assertEquals(5, calculateDeleteSwipeStep(56f, baseStep, 100))
+        assertEquals(6, calculateDeleteSwipeStep(70f, baseStep, 100))
+
+        assertEquals(16, calculateDeleteSwipeStep(140f, baseStep, 100))
+        assertEquals(36, calculateDeleteSwipeStep(210f, baseStep, 100))
+        assertEquals(86, calculateDeleteSwipeStep(280f, baseStep, 200))
+        assertEquals(126, calculateDeleteSwipeStep(308f, baseStep, 200))
+
+        assertEquals(10, calculateDeleteSwipeStep(280f, baseStep, 10))
+    }
+
+    @Test
+    fun deleteSwipeStepHapticPacing() {
+        assertFalse(shouldTriggerDeleteStepHaptic(newStep = 2, lastHapticStep = 2))
+        assertFalse(shouldTriggerDeleteStepHaptic(newStep = 1, lastHapticStep = 2))
+
+        assertTrue(shouldTriggerDeleteStepHaptic(newStep = 1, lastHapticStep = 0))
+        assertTrue(shouldTriggerDeleteStepHaptic(newStep = 5, lastHapticStep = 4))
+
+        assertFalse(shouldTriggerDeleteStepHaptic(newStep = 6, lastHapticStep = 5))
+        assertTrue(shouldTriggerDeleteStepHaptic(newStep = 7, lastHapticStep = 5))
+        assertTrue(shouldTriggerDeleteStepHaptic(newStep = 15, lastHapticStep = 13))
+
+        assertFalse(shouldTriggerDeleteStepHaptic(newStep = 16, lastHapticStep = 15))
+        assertFalse(shouldTriggerDeleteStepHaptic(newStep = 18, lastHapticStep = 15))
+        assertTrue(shouldTriggerDeleteStepHaptic(newStep = 19, lastHapticStep = 15))
+        assertTrue(shouldTriggerDeleteStepHaptic(newStep = 35, lastHapticStep = 31))
+
+        assertFalse(shouldTriggerDeleteStepHaptic(newStep = 36, lastHapticStep = 35))
+        assertFalse(shouldTriggerDeleteStepHaptic(newStep = 44, lastHapticStep = 35))
+        assertTrue(shouldTriggerDeleteStepHaptic(newStep = 45, lastHapticStep = 35))
+        assertTrue(shouldTriggerDeleteStepHaptic(newStep = 85, lastHapticStep = 75))
+
+        assertFalse(shouldTriggerDeleteStepHaptic(newStep = 86, lastHapticStep = 85))
+        assertFalse(shouldTriggerDeleteStepHaptic(newStep = 104, lastHapticStep = 85))
+        assertTrue(shouldTriggerDeleteStepHaptic(newStep = 105, lastHapticStep = 85))
+    }
+
+    @Test
+    fun deleteSwipeAdvanceRetreatAdvancePipelineHaptics() {
+        val pipeline = PointerPipeline()
+        val delete = SoftKey(KeyEvent.KEYCODE_DEL, "")
+
+        pipeline.onDown(delete, 0f, 0f, 0, PointerPipeline.DownContext(
+            selectionEnd = 50,
+            textBeforeCursorLength = 50,
+            longPressTimeoutMs = 500L,
+            canSelectForDeletion = true,
+        ))
+        pipeline.onScroll(0, -1f, 0f, 1f, 0f, moveContext())
+
+        val initialMove = pipeline.onScroll(0, -31f, 0f, 30f, 0f, moveContext())
+        assertTrue(initialMove.any { it is PointerCommand.DeleteSelect && it.charCount == 2 })
+        assertTrue(initialMove.contains(PointerCommand.Haptic(HapticEvent.STEP)))
+
+        val advanceTo16 = pipeline.onScroll(0, -156f, 0f, 125f, 0f, moveContext())
+        assertTrue(advanceTo16.any { it is PointerCommand.DeleteSelect && it.charCount == 16 })
+        assertTrue(advanceTo16.contains(PointerCommand.Haptic(HapticEvent.STEP)))
+
+        val retreatMove = pipeline.onScroll(0, -116f, 0f, -40f, 0f, moveContext())
+        assertTrue(retreatMove.any { it is PointerCommand.DeleteSelect && it.charCount == 10 })
+        assertFalse(retreatMove.contains(PointerCommand.Haptic(HapticEvent.STEP)))
+
+        val partialAdvanceMove = pipeline.onScroll(0, -123f, 0f, 7f, 0f, moveContext())
+        assertTrue(partialAdvanceMove.any { it is PointerCommand.DeleteSelect && it.charCount == 11 })
+        assertFalse(partialAdvanceMove.contains(PointerCommand.Haptic(HapticEvent.STEP)))
+
+        val reAdvanceMove = pipeline.onScroll(0, -130f, 0f, 7f, 0f, moveContext())
+        assertTrue(reAdvanceMove.any { it is PointerCommand.DeleteSelect && it.charCount == 12 })
+        assertTrue(reAdvanceMove.contains(PointerCommand.Haptic(HapticEvent.STEP)))
+    }
+
+    @Test
+    fun deleteSwipeCancelWithinSameGestureRestoresHapticOnReSlide() {
+        val pipeline = PointerPipeline()
+        val delete = SoftKey(KeyEvent.KEYCODE_DEL, "")
+
+        pipeline.onDown(delete, 0f, 0f, 0, PointerPipeline.DownContext(
+            selectionEnd = 50,
+            textBeforeCursorLength = 50,
+            longPressTimeoutMs = 500L,
+            canSelectForDeletion = true,
+        ))
+        pipeline.onScroll(0, -1f, 0f, 1f, 0f, moveContext())
+
+        val initialMove = pipeline.onScroll(0, -31f, 0f, 30f, 0f, moveContext())
+        assertTrue(initialMove.any { it is PointerCommand.DeleteSelect && it.charCount == 2 })
+        assertTrue(initialMove.contains(PointerCommand.Haptic(HapticEvent.STEP)))
+
+        val cancelMove = pipeline.onScroll(0, -5f, 0f, -26f, 0f, moveContext())
+        assertTrue(cancelMove.any { it is PointerCommand.DeleteCancel })
+
+        val reSlideMove = pipeline.onScroll(0, -31f, 0f, 26f, 0f, moveContext())
+        assertTrue(reSlideMove.any { it is PointerCommand.DeleteSelect && it.charCount == 2 })
+        assertTrue(
+            "Haptic must re-trigger when re-sliding after cancel within same gesture",
+            reSlideMove.contains(PointerCommand.Haptic(HapticEvent.STEP)),
+        )
     }
 
     @Test

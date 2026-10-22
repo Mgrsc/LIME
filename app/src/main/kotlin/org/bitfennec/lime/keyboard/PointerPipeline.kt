@@ -66,6 +66,7 @@ class PointerPipeline {
         var deleteGestureMode: DeleteGestureMode = DeleteGestureMode.NONE,
         var activeDeleteAction: DeleteGestureAction = DeleteGestureAction.NONE,
         var deleteSwipeStep: Int = 0,
+        var lastDeleteHapticStep: Int = 0,
         var deleteInitialCursor: Int = 0,
         var deleteInitialTextLength: Int = 0,
         var canSelectForDeletion: Boolean = true,
@@ -203,6 +204,7 @@ class PointerPipeline {
             state.deleteGestureMode = DeleteGestureMode.NONE
             state.activeDeleteAction = DeleteGestureAction.NONE
             state.deleteSwipeStep = 0
+            state.lastDeleteHapticStep = 0
             commands += PointerCommand.DismissPopup
         }
 
@@ -670,6 +672,7 @@ class PointerPipeline {
         if (slideDist < 0) {
             if (state.deleteSwipeStep != 0) {
                 state.deleteSwipeStep = 0
+                state.lastDeleteHapticStep = 0
                 commands += PointerCommand.DeleteCancel(effectiveCursor)
             }
             commands += PointerCommand.DismissPopup
@@ -677,9 +680,15 @@ class PointerPipeline {
             // [comment] yagni: swipe selection bounds to DELETE_TEXT_LOOKUP_LIMIT (1000 chars) verified by getTextBeforeCursor;
             // upgrade when supporting cross-block multi-thousand char delete gesture
             val maxChars = if (state.canSelectForDeletion) state.deleteInitialTextLength.coerceAtLeast(0) else 0
-            val targetStep = ((slideDist / moveContext.deleteStepPx).toInt() + 1).coerceIn(0, maxChars)
+            val targetStep = calculateDeleteSwipeStep(slideDist, moveContext.deleteStepPx, maxChars)
             if (targetStep != state.deleteSwipeStep) {
-                val shouldVibrate = targetStep > state.deleteSwipeStep
+                val shouldVibrate = shouldTriggerDeleteStepHaptic(
+                    newStep = targetStep,
+                    lastHapticStep = state.lastDeleteHapticStep,
+                )
+                if (shouldVibrate || targetStep < state.deleteSwipeStep) {
+                    state.lastDeleteHapticStep = targetStep
+                }
                 state.deleteSwipeStep = targetStep
                 commands += PointerCommand.DeleteSelect(state.deleteSwipeStep, effectiveCursor)
                 if (shouldVibrate) commands += PointerCommand.Haptic(HapticEvent.STEP)
@@ -697,11 +706,6 @@ class PointerPipeline {
             }
         }
         if (absTotalX < moveContext.deleteSwipeTriggerPx / 2 && absTotalY < moveContext.deleteVerticalTriggerPx / 2) {
-            if (state.deleteSwipeStep != 0) {
-                state.deleteSwipeStep = 0
-                commands += PointerCommand.DeleteCancel(effectiveCursor)
-            }
-            commands += PointerCommand.DismissPopup
             state.deleteGestureMode = DeleteGestureMode.NONE
             state.activeDeleteAction = DeleteGestureAction.NONE
         }
@@ -718,6 +722,7 @@ class PointerPipeline {
         val commands = mutableListOf<PointerCommand>(PointerCommand.CancelTimers(state.pointerId))
         if (state.deleteSwipeStep != 0) {
             state.deleteSwipeStep = 0
+            state.lastDeleteHapticStep = 0
             commands += PointerCommand.DeleteCancel(state.effectiveDeleteCursor)
         }
         commands += PointerCommand.PopupShowText(text, key, iconRes)
@@ -748,5 +753,74 @@ class PointerPipeline {
         private const val BOTTOM_ROW_RATIO_BONUS = 0.15f
         private const val BOTTOM_ROW_SPACE_ADJACENT_RATIO_BONUS = 0.30f
         private const val BOTTOM_ROW_TOP_EXIT_RATIO = 0.10f
+
+        internal const val DELETE_ACCEL_TIER1_UNITS = 5f
+        internal const val DELETE_ACCEL_TIER2_UNITS = 10f
+        internal const val DELETE_ACCEL_TIER3_UNITS = 15f
+        internal const val DELETE_ACCEL_TIER4_UNITS = 20f
+
+        internal const val DELETE_ACCEL_TIER1_RATE = 1
+        internal const val DELETE_ACCEL_TIER2_RATE = 2
+        internal const val DELETE_ACCEL_TIER3_RATE = 4
+        internal const val DELETE_ACCEL_TIER4_RATE = 10
+        internal const val DELETE_ACCEL_TIER5_RATE = 20
+
+        internal const val DELETE_ACCEL_TIER1_STEPS = DELETE_ACCEL_TIER1_UNITS * DELETE_ACCEL_TIER1_RATE
+        internal const val DELETE_ACCEL_TIER2_STEPS = DELETE_ACCEL_TIER1_STEPS +
+            (DELETE_ACCEL_TIER2_UNITS - DELETE_ACCEL_TIER1_UNITS) * DELETE_ACCEL_TIER2_RATE
+        internal const val DELETE_ACCEL_TIER3_STEPS = DELETE_ACCEL_TIER2_STEPS +
+            (DELETE_ACCEL_TIER3_UNITS - DELETE_ACCEL_TIER2_UNITS) * DELETE_ACCEL_TIER3_RATE
+        internal const val DELETE_ACCEL_TIER4_STEPS = DELETE_ACCEL_TIER3_STEPS +
+            (DELETE_ACCEL_TIER4_UNITS - DELETE_ACCEL_TIER3_UNITS) * DELETE_ACCEL_TIER4_RATE
+
+        internal const val DELETE_HAPTIC_TIER1_INTERVAL = DELETE_ACCEL_TIER1_RATE
+        internal const val DELETE_HAPTIC_TIER2_INTERVAL = DELETE_ACCEL_TIER2_RATE
+        internal const val DELETE_HAPTIC_TIER3_INTERVAL = DELETE_ACCEL_TIER3_RATE
+        internal const val DELETE_HAPTIC_TIER4_INTERVAL = DELETE_ACCEL_TIER4_RATE
+        internal const val DELETE_HAPTIC_TIER5_INTERVAL = DELETE_ACCEL_TIER5_RATE
     }
+}
+
+internal fun calculateDeleteSwipeStep(
+    slideDist: Float,
+    baseStepPx: Float,
+    maxChars: Int,
+): Int {
+    if (slideDist < 0f || baseStepPx <= 0f || maxChars <= 0) return 0
+    val normalized = slideDist / baseStepPx
+    val acceleratedDistance = when {
+        normalized < PointerPipeline.DELETE_ACCEL_TIER1_UNITS ->
+            normalized * PointerPipeline.DELETE_ACCEL_TIER1_RATE
+        normalized < PointerPipeline.DELETE_ACCEL_TIER2_UNITS -> {
+            val offset = normalized - PointerPipeline.DELETE_ACCEL_TIER1_UNITS
+            PointerPipeline.DELETE_ACCEL_TIER1_STEPS + offset * PointerPipeline.DELETE_ACCEL_TIER2_RATE
+        }
+        normalized < PointerPipeline.DELETE_ACCEL_TIER3_UNITS -> {
+            val offset = normalized - PointerPipeline.DELETE_ACCEL_TIER2_UNITS
+            PointerPipeline.DELETE_ACCEL_TIER2_STEPS + offset * PointerPipeline.DELETE_ACCEL_TIER3_RATE
+        }
+        normalized < PointerPipeline.DELETE_ACCEL_TIER4_UNITS -> {
+            val offset = normalized - PointerPipeline.DELETE_ACCEL_TIER3_UNITS
+            PointerPipeline.DELETE_ACCEL_TIER3_STEPS + offset * PointerPipeline.DELETE_ACCEL_TIER4_RATE
+        }
+        else -> {
+            val offset = normalized - PointerPipeline.DELETE_ACCEL_TIER4_UNITS
+            PointerPipeline.DELETE_ACCEL_TIER4_STEPS + offset * PointerPipeline.DELETE_ACCEL_TIER5_RATE
+        }
+    }
+    return (acceleratedDistance.toInt() + 1).coerceIn(0, maxChars)
+}
+
+internal fun shouldTriggerDeleteStepHaptic(
+    newStep: Int,
+    lastHapticStep: Int,
+): Boolean {
+    val interval = when {
+        newStep <= PointerPipeline.DELETE_ACCEL_TIER1_STEPS.toInt() -> PointerPipeline.DELETE_HAPTIC_TIER1_INTERVAL
+        newStep <= PointerPipeline.DELETE_ACCEL_TIER2_STEPS.toInt() -> PointerPipeline.DELETE_HAPTIC_TIER2_INTERVAL
+        newStep <= PointerPipeline.DELETE_ACCEL_TIER3_STEPS.toInt() -> PointerPipeline.DELETE_HAPTIC_TIER3_INTERVAL
+        newStep <= PointerPipeline.DELETE_ACCEL_TIER4_STEPS.toInt() -> PointerPipeline.DELETE_HAPTIC_TIER4_INTERVAL
+        else -> PointerPipeline.DELETE_HAPTIC_TIER5_INTERVAL
+    }
+    return (newStep - lastHapticStep) >= interval
 }

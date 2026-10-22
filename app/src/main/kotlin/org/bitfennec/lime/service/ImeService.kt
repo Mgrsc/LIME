@@ -1138,12 +1138,31 @@ class ImeService : InputMethodService(), LifecycleOwner {
         currentInputConnection?.performEditorAction(editorAction)
     }
 
-    fun deleteSurroundingText(length:Int) {
-        currentInputConnection?.deleteSurroundingText(length, 0)
+    fun deleteSurroundingText(length: Int): Boolean {
+        return try {
+            currentInputConnection?.deleteSurroundingText(length, 0) == true
+        } catch (e: RuntimeException) {
+            Log.w(
+                "ImeService",
+                "{\"event\":\"ime.delete_surrounding_text\",\"result\":\"failed\"," +
+                    "\"exception\":\"${e.javaClass.simpleName}\"}",
+                e,
+            )
+            false
+        }
     }
 
-    fun setSelection(start: Int, end: Int) {
-        currentInputConnection?.setSelection(start, end)
+    fun setSelection(start: Int, end: Int): Boolean {
+        return try {
+            currentInputConnection?.setSelection(start, end) == true
+        } catch (e: RuntimeException) {
+            Log.w(
+                "ImeService",
+                "{\"event\":\"ime.set_selection\",\"result\":\"failed\",\"exception\":\"${e.javaClass.simpleName}\"}",
+                e,
+            )
+            false
+        }
     }
 
     fun getSelectedText(): String {

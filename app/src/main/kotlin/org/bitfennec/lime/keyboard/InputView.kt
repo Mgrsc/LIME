@@ -466,9 +466,10 @@ class InputView(context: Context, val service: ImeService) : RelativeLayout(cont
                 KeyboardManager.instance.switchKeyboard()
             }
             PopupMenuMode.Clear -> {
-                service.getTextBeforeCursor(1000).takeIf { it.isNotEmpty() }?.let {
-                    textBeforeCursors.push(it)
-                    service.deleteSurroundingText(1000)
+                service.getTextBeforeCursor(1000).takeIf { it.isNotEmpty() }?.let { text ->
+                    if (service.deleteSurroundingText(text.length)) {
+                        textBeforeCursors.push(text)
+                    }
                 }
             }
             PopupMenuMode.Revertl -> {
@@ -1830,12 +1831,6 @@ class InputView(context: Context, val service: ImeService) : RelativeLayout(cont
         mSkbCandidatesBarView.clearComposingSynchronous()
     }
 
-    private fun resolveSwipeDeleteAnchor(initialCursor: Int, textLength: Int): Int = when {
-        initialCursor > 0 && textLength >= PointerPipeline.DELETE_TEXT_LOOKUP_LIMIT && initialCursor > textLength -> initialCursor
-        selEnd > 0 && textLength >= PointerPipeline.DELETE_TEXT_LOOKUP_LIMIT && selEnd > textLength -> selEnd
-        else -> textLength
-    }
-
     /**
      * Swipe-left selection: updates reverse selection region (fcitx5 style).
      */
@@ -1843,13 +1838,8 @@ class InputView(context: Context, val service: ImeService) : RelativeLayout(cont
         if (hasUncommittedComposing()) {
             return
         }
-        val textLength = service.getTextBeforeCursor(PointerPipeline.DELETE_TEXT_LOOKUP_LIMIT).length
-        if (textLength <= 0 || charCount <= 0) {
-            return
-        }
-        val targetCursor = resolveSwipeDeleteAnchor(initialCursor, textLength)
-        val start = (targetCursor - charCount).coerceAtLeast(0)
-        service.setSelection(start, targetCursor)
+        val range = calculateSwipeDeleteSelectionRange(initialCursor, charCount) ?: return
+        service.setSelection(range.first, range.second)
     }
 
     /**
@@ -1866,22 +1856,21 @@ class InputView(context: Context, val service: ImeService) : RelativeLayout(cont
             }
             return
         }
-        if (charCount <= 0) return
-
-        val textLength = service.getTextBeforeCursor(PointerPipeline.DELETE_TEXT_LOOKUP_LIMIT).length
-        val targetCursor = resolveSwipeDeleteAnchor(initialCursor, textLength)
-        selEnd = (targetCursor - charCount).coerceAtLeast(0)
+        val range = calculateSwipeDeleteSelectionRange(initialCursor, charCount) ?: return
+        selEnd = range.first
         selStart = selEnd
 
+        // Limit: relies on InputConnection return to avoid ghost undo; revisit if custom editors report false negatives
         val selectedText = service.getSelectedText()
-        val text = if (selectedText.isNotEmpty()) selectedText else service.getTextBeforeCursor(charCount)
-        if (text.isNotEmpty()) {
-            textBeforeCursors.push(text)
-        }
         if (selectedText.isNotEmpty()) {
-            service.commitText("")
+            if (service.commitText("")) {
+                textBeforeCursors.push(selectedText)
+            }
         } else {
-            service.deleteSurroundingText(charCount)
+            val text = service.getTextBeforeCursor(charCount)
+            if (text.isNotEmpty() && service.deleteSurroundingText(text.length)) {
+                textBeforeCursors.push(text)
+            }
         }
         resetToIdleState()
     }
@@ -1890,15 +1879,10 @@ class InputView(context: Context, val service: ImeService) : RelativeLayout(cont
      * Swipe-left cancel: restores cursor position on reverse swipe.
      */
     fun handleSwipeDeleteCancel(initialCursor: Int) {
-        if (hasUncommittedComposing()) {
+        if (hasUncommittedComposing() || initialCursor <= 0) {
             return
         }
-        val textLength = service.getTextBeforeCursor(PointerPipeline.DELETE_TEXT_LOOKUP_LIMIT).length
-        if (textLength <= 0) {
-            return
-        }
-        val targetCursor = resolveSwipeDeleteAnchor(initialCursor, textLength)
-        service.setSelection(targetCursor, targetCursor)
+        service.setSelection(initialCursor, initialCursor)
     }
 
     /**
@@ -1911,22 +1895,27 @@ class InputView(context: Context, val service: ImeService) : RelativeLayout(cont
         }
         val selectedText = service.getSelectedText()
         val textBefore = service.getTextBeforeCursor(10000)
-        val textToSave = if (selectedText.isNotEmpty()) "$textBefore$selectedText" else textBefore
-        if (textToSave.isNotEmpty()) {
-            textBeforeCursors.push(textToSave)
+        if (selectedText.isNotEmpty() || textBefore.isNotEmpty()) {
             selStart = 0
             selEnd = 0
-            if (selectedText.isNotEmpty()) {
-                service.commitText("")
+            val savedSelected = if (selectedText.isNotEmpty() && service.commitText("")) selectedText else ""
+            val selectionFailed = selectedText.isNotEmpty() && savedSelected.isEmpty()
+            val savedSurrounding = if (!selectionFailed && textBefore.isNotEmpty() && service.deleteSurroundingText(10000)) {
+                textBefore
+            } else {
+                ""
             }
-            service.deleteSurroundingText(10000)
-            val charCount = textToSave.codePointCount(0, textToSave.length)
-            if (charCount > 50) {
-                Toast.makeText(
-                    context,
-                    context.resources.getQuantityString(R.plurals.delete_tip_cleared_large_text, charCount, charCount),
-                    Toast.LENGTH_SHORT
-                ).show()
+            val textToSave = "$savedSurrounding$savedSelected"
+            if (textToSave.isNotEmpty()) {
+                textBeforeCursors.push(textToSave)
+                val charCount = textToSave.codePointCount(0, textToSave.length)
+                if (charCount > 50) {
+                    Toast.makeText(
+                        context,
+                        context.resources.getQuantityString(R.plurals.delete_tip_cleared_large_text, charCount, charCount),
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
             }
         }
         resetToIdleState()
@@ -1979,8 +1968,9 @@ class InputView(context: Context, val service: ImeService) : RelativeLayout(cont
         val delLen = findDeleteToPunctuationLength(text)
         if (delLen > 0) {
             val deletedText = text.takeLast(delLen)
-            textBeforeCursors.push(deletedText)
-            service.deleteSurroundingText(delLen)
+            if (service.deleteSurroundingText(delLen)) {
+                textBeforeCursors.push(deletedText)
+            }
             resetToIdleState()
         }
     }
@@ -2014,6 +2004,12 @@ class InputView(context: Context, val service: ImeService) : RelativeLayout(cont
             return text.length - (start + 1)
         }
     }
+}
+
+internal fun calculateSwipeDeleteSelectionRange(initialCursor: Int, charCount: Int): Pair<Int, Int>? {
+    if (initialCursor <= 0 || charCount <= 0) return null
+    val start = (initialCursor - charCount).coerceAtLeast(0)
+    return Pair(start, initialCursor)
 }
 
 internal fun isTextSelectionActive(selStart: Int, selEnd: Int): Boolean =
