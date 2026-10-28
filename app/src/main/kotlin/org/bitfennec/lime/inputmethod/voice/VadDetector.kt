@@ -30,22 +30,60 @@ class VadDetector(
         IN_SPEECH
     }
 
+    companion object {
+        const val INITIAL_NOISE_FLOOR = 0.00080f
+        const val MIN_NOISE_FLOOR = 0.00012f
+        private const val MAX_NOISE_FLOOR = 0.020f
+        private const val DIGITAL_SILENCE_FLOOR = 0.00005f
+        private const val MIN_SPEECH_ON_THRESHOLD = 0.00060f
+        private const val MAX_SPEECH_ON_THRESHOLD = 0.010f
+        private const val SPEECH_ON_NOISE_MULTIPLIER = 2.2f
+        private const val SPEECH_OFF_THRESHOLD_RATIO = 0.65f
+        private const val SPEECH_OFF_NOISE_MULTIPLIER = 1.45f
+        private const val NOISE_FREEZE_MULTIPLIER = 1.3f
+        private const val NOISE_DOWN_KEEP_WEIGHT = 0.90f
+        private const val NOISE_DOWN_SAMPLE_WEIGHT = 0.10f
+        private const val NOISE_UP_KEEP_WEIGHT = 0.985f
+        private const val NOISE_UP_SAMPLE_WEIGHT = 0.015f
+        private const val SPEECH_ONSET_FRAMES = 3
+        private const val SUB_PEAK_ADAPT_RATIO = 0.35f
+        private const val SUB_PEAK_MIN_FRAMES = 8
+        private const val SUB_PEAK_KEEP_WEIGHT = 0.92f
+        private const val SUB_PEAK_SAMPLE_WEIGHT = 0.08f
+    }
+
     private var state = State.SILENCE
     private var consecutiveSpeechFrames = 0
     private var currentSilenceMs = 0L
     private var currentSpeechMs = 0L
     private var totalIdleSilenceMs = 0L
+    private var lastFrameVoiceActive = false
+    private var utterancePeakRms = 0.0f
+    private var subPeakFrames = 0
 
-    // Adaptive noise floor tracking (RMS energy)
-    private var noiseFloor = 0.0010f
+    private var noiseFloor = INITIAL_NOISE_FLOOR
 
     private var lastSentenceTailSilenceMs = 0L
 
     fun getState(): State = state
     fun isInSpeech(): Boolean = state == State.IN_SPEECH
+    fun isVoiceActiveFrame(): Boolean = lastFrameVoiceActive
     fun getLastSentenceTailSilenceMs(): Long = lastSentenceTailSilenceMs
     fun getCurrentTailSilenceMs(): Long = if (state == State.IN_SPEECH) currentSilenceMs else 0L
     fun getNoiseFloor(): Float = noiseFloor
+    fun resetIdleSilence() { totalIdleSilenceMs = 0L }
+
+    private fun updateNoiseFloorOnQuietFrame(rms: Float) {
+        if (rms < DIGITAL_SILENCE_FLOOR) return
+        val freezeCeiling = noiseFloor * NOISE_FREEZE_MULTIPLIER
+        if (rms < noiseFloor) {
+            noiseFloor = (noiseFloor * NOISE_DOWN_KEEP_WEIGHT + rms * NOISE_DOWN_SAMPLE_WEIGHT)
+                .coerceIn(MIN_NOISE_FLOOR, MAX_NOISE_FLOOR)
+        } else if (rms < freezeCeiling) {
+            noiseFloor = (noiseFloor * NOISE_UP_KEEP_WEIGHT + rms * NOISE_UP_SAMPLE_WEIGHT)
+                .coerceIn(MIN_NOISE_FLOOR, MAX_NOISE_FLOOR)
+        }
+    }
 
     /** Feeds 512 samples (16kHz PCM normalized float array) and advances state machine. */
     fun processFrame(samples: FloatArray) {
@@ -53,7 +91,6 @@ class VadDetector(
 
         val frameDurationMs = (samples.size * 1000L) / AudioRecordHelper.SAMPLE_RATE
 
-        // 1. Compute frame RMS energy and peak amplitude
         var sumSquares = 0.0
         var maxPeak = 0.0f
         for (sample in samples) {
@@ -63,17 +100,19 @@ class VadDetector(
         }
         val rms = sqrt(sumSquares / samples.size).toFloat()
 
-        // 2. Dynamic adaptive hysteresis thresholds (~2.2x noiseFloor, clamped [0.0016, 0.010])
-        val speechOnThreshold = (noiseFloor * 2.2f).coerceIn(0.0016f, 0.010f)
-        val speechOffThreshold = (speechOnThreshold * 0.65f).coerceAtLeast(noiseFloor * 1.3f)
+        val speechOnThreshold = (noiseFloor * SPEECH_ON_NOISE_MULTIPLIER)
+            .coerceIn(MIN_SPEECH_ON_THRESHOLD, MAX_SPEECH_ON_THRESHOLD)
+        val speechOffThreshold = (speechOnThreshold * SPEECH_OFF_THRESHOLD_RATIO)
+            .coerceAtLeast(noiseFloor * SPEECH_OFF_NOISE_MULTIPLIER)
 
         val isVoiceActive = rms >= speechOnThreshold || (state == State.IN_SPEECH && rms >= speechOffThreshold)
+        lastFrameVoiceActive = isVoiceActive
 
         when (state) {
             State.SILENCE -> {
                 if (isVoiceActive) {
                     consecutiveSpeechFrames++
-                    if (consecutiveSpeechFrames >= 5) { // ~160ms onset to reject transient spikes
+                    if (consecutiveSpeechFrames >= SPEECH_ONSET_FRAMES) {
                         state = State.IN_SPEECH
                         currentSpeechMs = consecutiveSpeechFrames * frameDurationMs
                         consecutiveSpeechFrames = 0
@@ -83,15 +122,7 @@ class VadDetector(
                     }
                 } else {
                     consecutiveSpeechFrames = 0
-                    // Asymmetric noise floor tracking:
-                    // - If quieter than noiseFloor, track down smoothly
-                    // - If barely above noiseFloor (<1.3x), track up very slowly (0.005)
-                    // - If >=1.3x noiseFloor, FREEZE noiseFloor to prevent swallowing quiet whispers!
-                    if (rms < noiseFloor) {
-                        noiseFloor = (noiseFloor * 0.95f + rms * 0.05f).coerceIn(0.0005f, 0.020f)
-                    } else if (rms < noiseFloor * 1.3f) {
-                        noiseFloor = (noiseFloor * 0.995f + rms * 0.005f).coerceIn(0.0005f, 0.020f)
-                    }
+                    updateNoiseFloorOnQuietFrame(rms)
 
                     totalIdleSilenceMs += frameDurationMs
                     if (totalIdleSilenceMs >= silenceTimeoutMs) {
@@ -104,25 +135,39 @@ class VadDetector(
             State.IN_SPEECH -> {
                 currentSpeechMs += frameDurationMs
 
+                if (rms > utterancePeakRms) {
+                    utterancePeakRms = rms
+                    subPeakFrames = 0
+                } else if (rms < utterancePeakRms * SUB_PEAK_ADAPT_RATIO) {
+                    subPeakFrames++
+                    if (subPeakFrames >= SUB_PEAK_MIN_FRAMES && rms > noiseFloor) {
+                        noiseFloor = (noiseFloor * SUB_PEAK_KEEP_WEIGHT + rms * SUB_PEAK_SAMPLE_WEIGHT)
+                            .coerceIn(MIN_NOISE_FLOOR, MAX_NOISE_FLOOR)
+                    }
+                } else {
+                    subPeakFrames = 0
+                }
+
                 if (isVoiceActive) {
                     currentSilenceMs = 0L
                 } else {
                     currentSilenceMs += frameDurationMs
+                    updateNoiseFloorOnQuietFrame(rms)
                 }
 
-                // Segmentation triggers:
-                // A. Trailing silence reaches 700ms with valid speech duration
-                // B. Max utterance reaches 10.0s forced cutoff
                 val tailSilenceReached = currentSilenceMs >= minSilenceDurationMs && currentSpeechMs >= minSpeechDurationMs
                 val maxDurationReached = currentSpeechMs >= maxSpeechDurationMs
 
                 if (tailSilenceReached || maxDurationReached) {
                     lastSentenceTailSilenceMs = currentSilenceMs
                     state = State.SILENCE
+                    lastFrameVoiceActive = false
                     currentSpeechMs = 0L
                     currentSilenceMs = 0L
                     totalIdleSilenceMs = 0L
                     consecutiveSpeechFrames = 0
+                    utterancePeakRms = 0.0f
+                    subPeakFrames = 0
                     listener.onSpeechEnd()
                 }
             }
@@ -134,10 +179,13 @@ class VadDetector(
         if (state == State.IN_SPEECH) {
             lastSentenceTailSilenceMs = currentSilenceMs
             state = State.SILENCE
+            lastFrameVoiceActive = false
             currentSpeechMs = 0L
             currentSilenceMs = 0L
             totalIdleSilenceMs = 0L
             consecutiveSpeechFrames = 0
+            utterancePeakRms = 0.0f
+            subPeakFrames = 0
             listener.onSpeechEnd()
             return true
         }
@@ -146,11 +194,14 @@ class VadDetector(
 
     fun reset() {
         state = State.SILENCE
+        lastFrameVoiceActive = false
         consecutiveSpeechFrames = 0
         currentSilenceMs = 0L
         currentSpeechMs = 0L
         totalIdleSilenceMs = 0L
         lastSentenceTailSilenceMs = 0L
-        noiseFloor = 0.0010f
+        utterancePeakRms = 0.0f
+        subPeakFrames = 0
+        noiseFloor = INITIAL_NOISE_FLOOR
     }
 }

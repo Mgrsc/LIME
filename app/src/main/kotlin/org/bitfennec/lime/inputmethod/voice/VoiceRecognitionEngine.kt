@@ -337,9 +337,10 @@ object VoiceRecognitionEngine {
                 val rawText = result.text
                 val durationMs = android.os.SystemClock.elapsedRealtime() - startTime
                 val audioDurationMs = (samples.size * 1000L) / sampleRate
-                android.util.Log.i(
+                val strippedLength = VoicePostProcessor.stripTags(rawText).trim().length
+                android.util.Log.d(
                     "VoiceRecognitionEngine",
-                    """{"event":"voice.transcribe","result":"success","duration_ms":$durationMs,"audio_duration_ms":$audioDurationMs,"sample_count":${samples.size},"raw_text":"${escapeJson(rawText)}"}"""
+                    """{"event":"voice.transcribe","result":"success","duration_ms":$durationMs,"audio_duration_ms":$audioDurationMs,"sample_count":${samples.size},"raw_length":${rawText.length},"stripped_length":$strippedLength}"""
                 )
                 rawText
             } catch (e: Throwable) {

@@ -958,15 +958,27 @@ class ImeService : InputMethodService(), LifecycleOwner {
     }
 
     fun commitModalText(modalSessionId: Long, text: String): Boolean {
-        if (text.isEmpty() || InputModeSwitcher.isModalInputBlocked) return false
         val active = modalSession
+        if (text.isEmpty()) {
+            logModalSession("modal_session_commit", active?.mode, "rejected", "empty_text")
+            return false
+        }
+        if (InputModeSwitcher.isModalInputBlocked) {
+            logModalSession("modal_session_commit", active?.mode, "rejected", "modal_input_blocked")
+            return false
+        }
         if (active == null || active.id != modalSessionId || active.editorSessionId != EnginePipeline.currentSessionId) {
             val reason = if (active == null) "no_active_session" else if (active.id != modalSessionId) "session_id_mismatch" else "editor_session_mismatch"
             logModalSession("modal_session_commit", active?.mode, "rejected", reason)
             return false
         }
         DecodingInfo.clearModalCandidates(active.id)
-        return commitText(text)
+        val committed = commitText(text)
+        if (!committed) {
+            val reason = if (currentInputConnection == null) "null_input_connection" else "ic_commit_failed"
+            logModalSession("modal_session_commit", active.mode, "rejected", reason)
+        }
+        return committed
     }
 
     fun cancelModalSession(modalSessionId: Long? = null) {

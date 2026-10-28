@@ -711,11 +711,13 @@ class InputView(context: Context, val service: ImeService) : RelativeLayout(cont
         isVoiceSessionActive = true
         val resultGen = voiceResultGeneration.get()
 
+        var lastShownInterimLength = 0
         asrWorker = AsrWorker(
             onInterimResult = { interimText ->
                 post {
                     if (resultGen != voiceResultGeneration.get()) return@post
                     if (sessionId == currentVoiceSessionId && isVoiceSessionActive) {
+                        lastShownInterimLength = interimText.length
                         mVoiceOverlay?.updateLiveText(interimText)
                     }
                 }
@@ -725,19 +727,34 @@ class InputView(context: Context, val service: ImeService) : RelativeLayout(cont
                     // Do not gate on voiceResultGeneration: active_reused keeps the same
                     // sessionId, and bumping generation on restart would drop the previous
                     // utterance still decoding after overlay dismiss.
-                    if (sessionId == currentVoiceSessionId && isVoiceSessionActive) {
+                    val curSessionId = currentVoiceSessionId
+                    val curActive = isVoiceSessionActive
+                    val curGen = voiceResultGeneration.get()
+                    if (sessionId == curSessionId && curActive) {
                         if (finalText.isNotEmpty()) {
                             val committed = service.commitModalText(sessionId, finalText)
                             android.util.Log.i(
                                 "InputView",
-                                """{"event":"voice.commit_final","session_id":$sessionId,"success":$committed,"text_length":${finalText.length}}"""
+                                """{"event":"voice.commit_final","session_id":$sessionId,"result_gen":$resultGen,"current_gen":$curGen,"success":$committed,"text_length":${finalText.length},"last_interim_length":$lastShownInterimLength}"""
                             )
+                            lastShownInterimLength = 0
                             // May clear a newer session's interim preview when sessionId is reused;
                             // the next preview (~500ms) restores it.
                             mVoiceOverlay?.updateLiveText("")
                         } else {
+                            android.util.Log.i(
+                                "InputView",
+                                """{"event":"voice.commit_final","session_id":$sessionId,"result_gen":$resultGen,"current_gen":$curGen,"success":false,"reason":"empty_final_text","text_length":0,"last_interim_length":$lastShownInterimLength}"""
+                            )
+                            lastShownInterimLength = 0
+                            mVoiceOverlay?.updateLiveText("")
                             Toast.makeText(context, R.string.voice_retry_hint, Toast.LENGTH_SHORT).show()
                         }
+                    } else {
+                        android.util.Log.i(
+                            "InputView",
+                            """{"event":"voice.commit_final","session_id":$sessionId,"current_session_id":$curSessionId,"is_session_active":$curActive,"result_gen":$resultGen,"current_gen":$curGen,"success":false,"reason":"session_inactive_or_mismatch","text_length":${finalText.length},"last_interim_length":$lastShownInterimLength}"""
+                        )
                     }
                 }
             }
@@ -779,19 +796,22 @@ class InputView(context: Context, val service: ImeService) : RelativeLayout(cont
             }
 
             override fun onSpeechStart() {
-                post {
-                    if (resultGen == voiceResultGeneration.get() && sessionId == currentVoiceSessionId && isVoiceSessionActive) {
-                        mVoiceOverlay?.updateLiveText("")
-                    }
-                }
             }
 
             override fun onSentenceFinal(samples: FloatArray) {
-                if (resultGen == voiceResultGeneration.get() &&
-                    sessionId == currentVoiceSessionId &&
-                    isVoiceSessionActive
+                val curGen = voiceResultGeneration.get()
+                val curSessionId = currentVoiceSessionId
+                val curActive = isVoiceSessionActive
+                if (resultGen == curGen &&
+                    sessionId == curSessionId &&
+                    curActive
                 ) {
                     asrWorker?.submitFinal(samples)
+                } else {
+                    android.util.Log.i(
+                        "InputView",
+                        """{"event":"voice.sentence_final_dropped","session_id":$sessionId,"current_session_id":$curSessionId,"is_session_active":$curActive,"result_gen":$resultGen,"current_gen":$curGen,"sample_count":${samples.size}}"""
+                    )
                 }
             }
 
@@ -879,8 +899,23 @@ class InputView(context: Context, val service: ImeService) : RelativeLayout(cont
                 val worker = asrWorker
                 audioRecordHelper.stopRecording { remainingSamples ->
                     post {
-                        if (resultGen != voiceResultGeneration.get() || worker !== asrWorker) return@post
-                        if (sessionId != currentVoiceSessionId || !isVoiceSessionActive) return@post
+                        val curGen = voiceResultGeneration.get()
+                        val curSessionId = currentVoiceSessionId
+                        val curActive = isVoiceSessionActive
+                        if (resultGen != curGen || worker !== asrWorker) {
+                            android.util.Log.i(
+                                "InputView",
+                                """{"event":"voice.stop_handoff_dropped","reason":"gen_or_worker_mismatch","session_id":$sessionId,"current_session_id":$curSessionId,"result_gen":$resultGen,"current_gen":$curGen,"worker_match":${worker === asrWorker},"remaining_samples":${remainingSamples?.size ?: 0}}"""
+                            )
+                            return@post
+                        }
+                        if (sessionId != curSessionId || !curActive) {
+                            android.util.Log.i(
+                                "InputView",
+                                """{"event":"voice.stop_handoff_dropped","reason":"session_inactive_or_mismatch","session_id":$sessionId,"current_session_id":$curSessionId,"is_session_active":$curActive,"remaining_samples":${remainingSamples?.size ?: 0}}"""
+                            )
+                            return@post
+                        }
                         if (worker == null) {
                             overlay.dismiss()
                             service.cancelModalSession(sessionId)

@@ -734,7 +734,7 @@ class PointerPipeline {
 
     companion object {
         const val DELETE_TEXT_LOOKUP_LIMIT = 1000
-        const val VOICE_ARM_TIMEOUT_MS = 180L
+        const val VOICE_ARM_TIMEOUT_MS = 130L
         private const val DEFAULT_KEY_DIMENSION = 100f
         private const val CAPS_FLICK_CONE_FACTOR = 1.19f // cot(40°) ≈ 1.19 => |Δx| * 1.19 < Δy (±40° downward cone for caps flick)
         private const val CAPS_FLICK_PULLBACK_RATIO = 0.50f

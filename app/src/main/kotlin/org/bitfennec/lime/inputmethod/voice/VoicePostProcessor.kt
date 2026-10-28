@@ -17,11 +17,16 @@ object VoicePostProcessor {
     private val TRAILING_PUNCTUATION_REGEX = Regex("[，。！？,.!?；;、…~]+$")
     private val MULTI_SPACE_REGEX = Regex("[ \\t]+")
 
+    fun stripTags(rawOutput: String): String {
+        if (rawOutput.isEmpty()) return ""
+        return rawOutput.replace(SENSE_VOICE_TAG_REGEX, "")
+    }
+
     fun process(rawOutput: String, isFinal: Boolean): String {
         if (rawOutput.isEmpty()) return ""
 
         // 1. Strip SenseVoice formatting tags
-        var text = rawOutput.replace(SENSE_VOICE_TAG_REGEX, "")
+        var text = stripTags(rawOutput)
 
         // 2. Normalize whitespace
         text = text.replace(MULTI_SPACE_REGEX, " ").trim()

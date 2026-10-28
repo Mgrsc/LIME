@@ -1,9 +1,11 @@
 package org.bitfennec.lime.inputmethod.voice
 
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 
 class AsrWorkerTest {
 
@@ -103,5 +105,155 @@ class AsrWorkerTest {
         worker.reset()
         assertTrue(finished.await(2, TimeUnit.SECONDS))
         assertTrue(finals.isEmpty())
+    }
+
+    @Test
+    fun testFinalFallbackToLastPreviewWhenFinalDecodeIsPunctuationOnly() {
+        val interimLatch = CountDownLatch(1)
+        val finalLatch = CountDownLatch(1)
+        val finals = ArrayList<String>()
+        val callCount = AtomicInteger(0)
+
+        val worker = AsrWorker(
+            onInterimResult = {
+                interimLatch.countDown()
+            },
+            onFinalResult = {
+                finals.add(it)
+                finalLatch.countDown()
+            },
+            transcribe = {
+                if (callCount.incrementAndGet() == 1) {
+                    "<|zh|>你好世界。"
+                } else {
+                    "<|zh|>。"
+                }
+            },
+        )
+
+        val validSamples = FloatArray(AudioRecordHelper.SAMPLE_RATE)
+        worker.submitPreview(validSamples)
+        assertTrue(interimLatch.await(2, TimeUnit.SECONDS))
+
+        worker.finishSession(validSamples) {}
+        assertTrue(finalLatch.await(2, TimeUnit.SECONDS))
+        assertEquals(listOf("你好世界"), finals)
+    }
+
+    @Test
+    fun testPreviewFallbackRejectedWhenCoverageGapTooLargeOrCrossUtterance() {
+        val interimLatch = CountDownLatch(1)
+        val finalLatch = CountDownLatch(2)
+        val finals = ArrayList<String>()
+        val callCount = AtomicInteger(0)
+
+        val worker = AsrWorker(
+            onInterimResult = {
+                interimLatch.countDown()
+            },
+            onFinalResult = {
+                finals.add(it)
+                finalLatch.countDown()
+            },
+            transcribe = {
+                when (callCount.incrementAndGet()) {
+                    1 -> "<|zh|>短预览"
+                    else -> "<|zh|>。"
+                }
+            },
+        )
+
+        val shortPreviewSamples = FloatArray(AudioRecordHelper.SAMPLE_RATE)
+        worker.submitPreview(shortPreviewSamples)
+        assertTrue(interimLatch.await(2, TimeUnit.SECONDS))
+
+        val longFinalSamples = FloatArray(AudioRecordHelper.SAMPLE_RATE * 3)
+        worker.submitFinal(longFinalSamples)
+        worker.submitFinal(shortPreviewSamples)
+
+        assertTrue(finalLatch.await(2, TimeUnit.SECONDS))
+        assertEquals(listOf("", ""), finals)
+    }
+
+    @Test
+    fun testPreviewFallbackClearedOnSpeechStart() {
+        val interimLatch = CountDownLatch(1)
+        val finishedLatch = CountDownLatch(1)
+        val finals = ArrayList<String>()
+        val callCount = AtomicInteger(0)
+
+        val worker = AsrWorker(
+            onInterimResult = { interimLatch.countDown() },
+            onFinalResult = { finals.add(it) },
+            transcribe = {
+                if (callCount.incrementAndGet() == 1) "<|zh|>旧句子预览" else "<|zh|>。"
+            },
+        )
+
+        val oneSecSamples = FloatArray(AudioRecordHelper.SAMPLE_RATE)
+        worker.submitPreview(oneSecSamples)
+        assertTrue(interimLatch.await(2, TimeUnit.SECONDS))
+
+        worker.onSpeechStart()
+        worker.finishSession(oneSecSamples) {
+            finishedLatch.countDown()
+        }
+        assertTrue(finishedLatch.await(2, TimeUnit.SECONDS))
+        assertEquals(listOf(""), finals)
+    }
+
+    @Test
+    fun testPreviewFallbackRejectedWhenPreviewLongerThanFinal() {
+        val interimLatch = CountDownLatch(1)
+        val finishedLatch = CountDownLatch(1)
+        val finals = ArrayList<String>()
+        val callCount = AtomicInteger(0)
+
+        val worker = AsrWorker(
+            onInterimResult = { interimLatch.countDown() },
+            onFinalResult = { finals.add(it) },
+            transcribe = {
+                if (callCount.incrementAndGet() == 1) "<|zh|>两秒预览内容" else "<|zh|>。"
+            },
+        )
+
+        val oneSecSamples = FloatArray(AudioRecordHelper.SAMPLE_RATE)
+        val twoSecSamples = FloatArray(AudioRecordHelper.SAMPLE_RATE * 2)
+
+        worker.submitPreview(twoSecSamples)
+        assertTrue(interimLatch.await(2, TimeUnit.SECONDS))
+
+        worker.finishSession(oneSecSamples) {
+            finishedLatch.countDown()
+        }
+        assertTrue(finishedLatch.await(2, TimeUnit.SECONDS))
+        assertEquals(listOf(""), finals)
+    }
+
+    @Test
+    fun testPreviewFallbackAcceptsTailTrimmedFinal() {
+        val interimLatch = CountDownLatch(1)
+        val finalLatch = CountDownLatch(1)
+        val finals = ArrayList<String>()
+        val callCount = AtomicInteger(0)
+
+        val worker = AsrWorker(
+            onInterimResult = { interimLatch.countDown() },
+            onFinalResult = {
+                finals.add(it)
+                finalLatch.countDown()
+            },
+            transcribe = {
+                if (callCount.incrementAndGet() == 1) "<|zh|>你好你好" else "<|zh|>。"
+            },
+        )
+
+        val trimmedFinal = FloatArray(AudioRecordHelper.SAMPLE_RATE)
+        val untrimmedPreview = FloatArray(AudioRecordHelper.SAMPLE_RATE + 8_000)
+        worker.submitPreview(untrimmedPreview)
+        assertTrue(interimLatch.await(2, TimeUnit.SECONDS))
+        worker.finishSession(trimmedFinal) {}
+        assertTrue(finalLatch.await(2, TimeUnit.SECONDS))
+        assertEquals(listOf("你好你好"), finals)
     }
 }
