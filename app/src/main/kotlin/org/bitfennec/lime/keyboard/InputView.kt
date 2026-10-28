@@ -32,6 +32,7 @@ import org.bitfennec.lime.entity.StringQueue
 import org.bitfennec.lime.keyboard.model.SoftKey
 import org.bitfennec.lime.keyboard.container.CandidatesContainer
 import org.bitfennec.lime.keyboard.container.HandwritingContainer
+import org.bitfennec.lime.keyboard.container.InputBaseContainer
 import org.bitfennec.lime.keyboard.container.SymbolContainer
 import org.bitfennec.lime.keyboard.container.T9TextContainer
 import org.bitfennec.lime.keyboard.container.TextEditContainer
@@ -222,6 +223,7 @@ class InputView(context: Context, val service: ImeService) : RelativeLayout(cont
         }
         service.collectWhenStarted(EnginePipeline.stateFlow) {
             mSkbCandidatesBarView.showCandidates(skipUnchanged = true)
+            (KeyboardManager.instance.currentContainer as? InputBaseContainer)?.refreshCompositionState()
         }
     }
 
@@ -1134,7 +1136,9 @@ class InputView(context: Context, val service: ImeService) : RelativeLayout(cont
             }
             KeyEvent.KEYCODE_SHIFT_LEFT, KeyEvent.KEYCODE_SHIFT_RIGHT -> {
                 if (InputModeSwitcher.isChinese) {
-                    if (!DecodingInfo.isEngineFinish) processInput(KeyEventUtils.createSoftKeyEvent(keyCode = KeyEvent.KEYCODE_APOSTROPHE))
+                    if (!DecodingInfo.isEngineFinish) {
+                        processInput(KeyEventUtils.createSoftKeyEvent(keyCode = KeyEvent.KEYCODE_APOSTROPHE))
+                    }
                 } else {
                     InputModeSwitcher.processShiftKey(keyCode)
                 }

@@ -29,6 +29,7 @@ import org.bitfennec.lime.inputmethod.RimeEngine
 import org.bitfennec.lime.manager.InputModeSwitcher
 import org.bitfennec.lime.service.DecodingInfo
 import org.bitfennec.lime.utils.DevicesUtils
+import org.bitfennec.lime.utils.LimeTypefaces
 import org.bitfennec.lime.utils.PreeditCursorUtils
 import org.bitfennec.lime.utils.dp
 
@@ -52,7 +53,7 @@ class CandidatesPreeditView(private val context: Context) {
     @SuppressLint("ClickableViewAccessibility")
     val composingView: TextView = AppCompatTextView(context).apply {
         includeFontPadding = true
-        typeface = Typeface.DEFAULT
+        typeface = LimeTypefaces.regular
         isFallbackLineSpacing = true
         isSingleLine = true
         maxLines = 1

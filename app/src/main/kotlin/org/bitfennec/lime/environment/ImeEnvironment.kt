@@ -4,7 +4,6 @@ import android.app.Activity
 import android.content.Context
 import android.content.res.Configuration
 import android.graphics.Paint
-import android.graphics.Typeface
 import android.text.StaticLayout
 import android.text.TextPaint
 import android.util.TypedValue
@@ -13,6 +12,7 @@ import org.bitfennec.lime.application.Launcher
 import org.bitfennec.lime.data.theme.ThemeManager.prefs
 import org.bitfennec.lime.prefs.AppPrefs
 import org.bitfennec.lime.utils.DevicesUtils
+import org.bitfennec.lime.utils.LimeTypefaces
 import kotlin.math.max
 import kotlin.math.min
 
@@ -114,7 +114,7 @@ object ImeEnvironment {
                 composingTextSize,
                 context.resources.displayMetrics
             )
-            typeface = Typeface.DEFAULT
+            typeface = LimeTypefaces.regular
         }
         val fm = paint.fontMetricsInt
         val glyphBox = fm.descent - fm.ascent
@@ -131,7 +131,7 @@ object ImeEnvironment {
                 headerComposingTextSize,
                 context.resources.displayMetrics
             )
-            typeface = Typeface.DEFAULT
+            typeface = LimeTypefaces.regular
         }
         val headerFm = headerPaint.fontMetricsInt
         // Reserve fallback-font and cursor metrics before composing, keeping Insets stable.
@@ -152,13 +152,18 @@ object ImeEnvironment {
                 candidateTextSizeSp,
                 context.resources.displayMetrics
             )
-            typeface = Typeface.DEFAULT
+            typeface = LimeTypefaces.regular
         }
         val candFm = candPaint.fontMetricsInt
-        val candGlyphBox = candFm.bottom - candFm.top
+        val candSample = "Agjypq想着"
+        val candLayout = StaticLayout.Builder.obtain(candSample, 0, candSample.length, candPaint, Int.MAX_VALUE)
+            .setIncludePad(false)
+            .setUseLineSpacingFromFallbacks(true)
+            .build()
+        val candGlyphBox = max(candFm.bottom - candFm.top, candLayout.height)
         candidateRowHeight = max(
-            DevicesUtils.dip2px(36f),
-            candGlyphBox + DevicesUtils.dip2px(4f)
+            DevicesUtils.dip2px(40f),
+            candGlyphBox + DevicesUtils.dip2px(8f)
         )
 
         heightForCandidatesArea = candidateRowHeight + heightForcomposingHeader
@@ -173,7 +178,7 @@ object ImeEnvironment {
         heightForKeyboardMove = (heightForCandidatesArea * 0.25f).toInt().coerceAtLeast(keyboardMoveMinHeight)
 
         keyTextSize = (skbHeight * 0.092f * keyboardFontSizeRatio).toInt()
-        keyTextSmallSize = (skbHeight * 0.055f * keyboardFontSizeRatio).toInt()
+        keyTextSmallSize = (skbHeight * 0.042f * keyboardFontSizeRatio).toInt()
         keyXMargin = (prefs.keyXMargin.getValue() / 1000f * skbWidth).toInt()
         keyYMargin = (prefs.keyYMargin.getValue() / 1000f * skbHeight).toInt()
         inputAreaHeight = skbHeight + heightForCandidatesArea

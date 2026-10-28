@@ -77,7 +77,14 @@ class KeyboardAccessibilityHelper(private val keyboardView: BaseKeyboardView) : 
             KeyEvent.KEYCODE_SPACE -> context.getString(R.string.accessibility_key_space)
             KeyEvent.KEYCODE_DEL -> context.getString(R.string.accessibility_key_delete)
             KeyEvent.KEYCODE_ENTER -> context.getString(R.string.accessibility_key_enter)
-            KeyEvent.KEYCODE_SHIFT_LEFT, KeyEvent.KEYCODE_SHIFT_RIGHT -> context.getString(R.string.accessibility_key_shift)
+            KeyEvent.KEYCODE_SHIFT_LEFT -> {
+                if (InputModeSwitcher.isChinese) {
+                    context.getString(R.string.accessibility_key_syllable_delimiter)
+                } else {
+                    context.getString(R.string.accessibility_key_shift)
+                }
+            }
+            KeyEvent.KEYCODE_SHIFT_RIGHT -> context.getString(R.string.accessibility_key_shift)
             KeyEvent.KEYCODE_SYM, KeyEvent.KEYCODE_PICTSYMBOLS, KeyEvent.KEYCODE_NUM -> context.getString(R.string.accessibility_key_symbol)
             KeyEvent.KEYCODE_LANGUAGE_SWITCH -> context.getString(R.string.accessibility_key_language)
             InputModeSwitcher.USER_KEYCODE_CURSOR_DIRECTION -> context.getString(R.string.accessibility_key_cursor_move)

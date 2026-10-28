@@ -17,6 +17,7 @@ import android.widget.RadioButton
 import android.widget.RadioGroup
 import android.widget.ScrollView
 import android.widget.TextView
+import androidx.core.graphics.ColorUtils
 import androidx.recyclerview.widget.RecyclerView
 import org.bitfennec.lime.R
 import org.bitfennec.lime.adapter.MenuAdapter
@@ -257,6 +258,8 @@ class SettingsContainer(context: Context, inputView: InputView) : BaseContainer(
                 val cardBg = GradientDrawable().apply {
                     setColor(theme.keyBackgroundColor)
                     cornerRadius = keyRadius
+                    val strokeAlpha = if (theme.isDark) 24 else 16
+                    setStroke(DevicesUtils.dip2px(0.5f).coerceAtLeast(1), ColorUtils.setAlphaComponent(theme.keyTextColor, strokeAlpha))
                 }
                 background = cardBg
                 setPadding(dp(10), dp(5), dp(10), dp(6))
@@ -603,9 +606,13 @@ class SettingsContainer(context: Context, inputView: InputView) : BaseContainer(
             val cardBg = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
                 cornerRadius = keyRadius
-                setColor(theme.keyBackgroundColor)
                 if (isSelected) {
+                    setColor(ColorUtils.blendARGB(theme.keyBackgroundColor, theme.accentKeyBackgroundColor, 0.12f))
                     setStroke(DevicesUtils.dip2px(1.5f), theme.accentKeyBackgroundColor)
+                } else {
+                    setColor(theme.keyBackgroundColor)
+                    val strokeAlpha = if (theme.isDark) 24 else 16
+                    setStroke(DevicesUtils.dip2px(0.5f).coerceAtLeast(1), ColorUtils.setAlphaComponent(theme.keyTextColor, strokeAlpha))
                 }
             }
             card.background = cardBg

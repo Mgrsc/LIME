@@ -12,11 +12,11 @@ import androidx.recyclerview.widget.RecyclerView
 import com.google.android.flexbox.FlexboxLayoutManager
 import android.content.res.ColorStateList
 import android.graphics.Color
-import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.RippleDrawable
 import androidx.core.graphics.ColorUtils
 import org.bitfennec.lime.utils.DevicesUtils.dip2px
+import org.bitfennec.lime.utils.LimeTypefaces
 import org.bitfennec.lime.R
 import org.bitfennec.lime.candidate.CandidateText
 import org.bitfennec.lime.core.CandidateListItem
@@ -83,17 +83,22 @@ class CandidatesAdapter(context: Context?) :
         val currentTextColor = activeTheme.keyTextColor
         val isError = InputModeSwitcher.isNumberSkb && cand.comment == COMMENT_ERROR
         val isPrime = (position == 0) && !isError
+        val primeTextColor = if (activeTheme.isDark) {
+            ColorUtils.blendARGB(activeTheme.accentKeyBackgroundColor, Color.WHITE, 0.22f)
+        } else {
+            activeTheme.accentKeyBackgroundColor
+        }
         val mainColor = when {
             isError -> ColorUtils.setAlphaComponent(currentTextColor, 110)
-            isPrime -> activeTheme.accentKeyBackgroundColor
+            isPrime -> primeTextColor
             else -> currentTextColor
         }
         holder.textView.setTextColor(mainColor)
         holder.itemView.minimumWidth = dip2px(if (isPrime) 64f else 56f)
         holder.textView.typeface = if (isPrime) {
-            Typeface.create("sans-serif-medium", Typeface.NORMAL)
+            LimeTypefaces.medium
         } else {
-            Typeface.DEFAULT
+            LimeTypefaces.regular
         }
 
         val isBorder = ThemeManager.prefs.keyBorder.getValue()

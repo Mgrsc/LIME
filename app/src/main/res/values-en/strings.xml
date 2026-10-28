@@ -425,6 +425,7 @@
     <string name="accessibility_key_delete">Delete</string>
     <string name="accessibility_key_enter">Enter</string>
     <string name="accessibility_key_shift">Shift Lock</string>
+    <string name="accessibility_key_syllable_delimiter">Syllable delimiter</string>
     <string name="accessibility_key_symbol">Switch to Symbols</string>
     <string name="accessibility_key_language">Switch Language</string>
     <string name="accessibility_key_cursor_move">Move Cursor</string>

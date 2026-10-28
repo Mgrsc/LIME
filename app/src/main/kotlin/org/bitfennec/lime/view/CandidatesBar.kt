@@ -2,7 +2,9 @@ package org.bitfennec.lime.view
 
 import android.content.Context
 import android.content.res.ColorStateList
+import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.Paint
 import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.RippleDrawable
 import android.util.AttributeSet
@@ -97,6 +99,7 @@ class CandidatesBar(context: Context?, attrs: AttributeSet?) : RelativeLayout(co
     private var mOnClipboardSuggestionClick: (() -> Unit)? = null
     private var predictionDeletePopup: PopupWindow? = null
     private val loadMoreTask = Runnable { checkAndLoadMoreCandidates(mRVCandidates) }
+    private val dividerPaint = Paint(Paint.ANTI_ALIAS_FLAG)
 
     init {
         minimumHeight = ImeEnvironment.heightForCandidatesArea
@@ -486,7 +489,7 @@ class CandidatesBar(context: Context?, attrs: AttributeSet?) : RelativeLayout(co
     }
 
     // Initialize title bar
-    fun initMenuView() {
+    fun initMenuView(theme: Theme = activeTheme) {
         barMenuGeneration++
         cachedBarMenus = null
         if(!::mCandidatesMenuContainer.isInitialized) {
@@ -596,15 +599,35 @@ class CandidatesBar(context: Context?, attrs: AttributeSet?) : RelativeLayout(co
             )
         }
         val menuHeight = ImeEnvironment.heightForCandidatesArea
-        val sideButtonWidth = dp(48)
-        val sideButtonHorizontalPadding = dp(7)
-        val sideButtonVerticalPadding = dp(9)
-        mIvMenuSetting.layoutParams = LinearLayout.LayoutParams(sideButtonWidth, menuHeight)
-        mMenuRightArrowBtn.layoutParams = LinearLayout.LayoutParams(sideButtonWidth, menuHeight)
-        mIvMenuSetting.setPadding(sideButtonHorizontalPadding, sideButtonVerticalPadding, sideButtonHorizontalPadding, sideButtonVerticalPadding)
-        mMenuRightArrowBtn.setPadding(sideButtonHorizontalPadding, sideButtonVerticalPadding, sideButtonHorizontalPadding, sideButtonVerticalPadding)
-        mIvMenuSetting.drawable?.setTint(activeTheme.keyTextColor)
-        mMenuRightArrowBtn.drawable?.setTint(activeTheme.keyTextColor)
+        val pillSize = dp(34)
+        val pillPadding = dp(7)
+        val pillColor = if (theme.isDark) {
+            theme.functionKeyBackgroundColor
+        } else {
+            ColorUtils.blendARGB(theme.barColor, theme.functionKeyBackgroundColor, 0.45f)
+        }
+        mIvMenuSetting.layoutParams = LinearLayout.LayoutParams(pillSize, pillSize).apply {
+            marginStart = dp(8)
+            marginEnd = dp(10)
+        }
+        mMenuRightArrowBtn.layoutParams = LinearLayout.LayoutParams(pillSize, pillSize).apply {
+            marginStart = dp(4)
+            marginEnd = dp(8)
+        }
+        mIvMenuSetting.setPadding(pillPadding, pillPadding, pillPadding, pillPadding)
+        mMenuRightArrowBtn.setPadding(pillPadding, pillPadding, pillPadding, pillPadding)
+        mIvMenuSetting.background = GradientDrawable().apply {
+            shape = GradientDrawable.OVAL
+            setColor(pillColor)
+        }
+        mMenuRightArrowBtn.background = GradientDrawable().apply {
+            shape = GradientDrawable.OVAL
+            setColor(pillColor)
+        }
+        mIvMenuSetting.drawable?.setTint(theme.keyTextColor)
+        mMenuRightArrowBtn.drawable?.setTint(theme.keyTextColor)
+        mIvMenuSetting.imageAlpha = 225
+        mMenuRightArrowBtn.imageAlpha = 225
         mRVContainerMenu.layoutParams = LinearLayout.LayoutParams(0, menuHeight, 1f)
         mCandidatesMenuAdapter.notifyChanged()  // Refresh menu items after expanding dropdown
         mRVContainerMenu.scrollToPosition(0)
@@ -851,6 +874,16 @@ class CandidatesBar(context: Context?, attrs: AttributeSet?) : RelativeLayout(co
         }
     }
 
+    override fun dispatchDraw(canvas: Canvas) {
+        super.dispatchDraw(canvas)
+        val h = height.toFloat()
+        val w = width.toFloat()
+        if (w > 0f && h > 0f) {
+            val strokeH = DevicesUtils.dip2px(0.5f).coerceAtLeast(1).toFloat()
+            canvas.drawRect(0f, h - strokeH, w, h, dividerPaint)
+        }
+    }
+
     // Refresh theme styling
     fun updateTheme(textColor: Int) {
         initMenuView()
@@ -861,8 +894,12 @@ class CandidatesBar(context: Context?, attrs: AttributeSet?) : RelativeLayout(co
             renderClipboardSuggestionView(currentContent)
         }
         val theme = activeTheme
+        val hasCustomImage = (theme as? Theme.Custom)?.backgroundImage != null
+        setBackgroundColor(if (hasCustomImage) Color.TRANSPARENT else theme.barColor)
+        dividerPaint.color = ColorUtils.setAlphaComponent(textColor, if (theme.isDark) 20 else 18)
         mPreeditView.updateTheme(theme)
         mRightArrowBtn.drawable.setTint(textColor)
+        mRightArrowBtn.imageAlpha = 200
         mIvMenuSetting.drawable?.setTint(textColor)
         mMenuRightArrowBtn.drawable?.setTint(textColor)
         mCandidatesAdapter.notifyChanged()
@@ -877,11 +914,18 @@ class CandidatesBar(context: Context?, attrs: AttributeSet?) : RelativeLayout(co
         org.bitfennec.lime.core.CandidateListItem("yulan", "预览"),
         org.bitfennec.lime.core.CandidateListItem("waiguan", "外观")
     ), theme: Theme = activeTheme) {
-        initMenuView()
+        initMenuView(theme)
         initCandidateView()
+        val hasCustomImage = (theme as? Theme.Custom)?.backgroundImage != null
+        setBackgroundColor(if (hasCustomImage) Color.TRANSPARENT else theme.barColor)
+        dividerPaint.color = ColorUtils.setAlphaComponent(theme.keyTextColor, if (theme.isDark) 20 else 18)
         mCandidatesAdapter.previewTheme = theme
         mRightArrowBtn.drawable.setTint(theme.keyTextColor)
-        mPreeditView.updateVisibility(false, usesHandwritingCandidateLayout)
+        mRightArrowBtn.imageAlpha = 200
+        val previewPreedit = previewCandidates.firstOrNull()?.comment.orEmpty()
+        mPreeditView.composingView.text = previewPreedit
+        mPreeditView.updateTheme(theme)
+        mPreeditView.updateVisibility(previewPreedit.isNotEmpty(), usesHandwritingCandidateLayout)
         mCandidatesAdapter.previewCandidates = previewCandidates
         showViewVisibility(mCandidatesDataContainer)
         mCandidatesAdapter.notifyChanged()

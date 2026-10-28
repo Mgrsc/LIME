@@ -133,11 +133,11 @@ class KeyboardPreviewView @JvmOverloads constructor(
 
         val previewUi = mSkbRoot?.findViewById<RelativeLayout>(R.id.skb_input_keyboard_view) ?: this
         val keyBounds = android.graphics.Rect(key.mLeft, key.mTop, key.mRight, key.mBottom)
-        val balloonWidth = (keyBounds.width() * 1.2f).toInt()
-        val balloonHeight = (keyBounds.height() * 1.2f).toInt()
+        val balloonWidth = (keyBounds.width() * 1.16f).toInt()
+        val balloonHeight = (keyBounds.height() * 1.18f).toInt()
         val lp = RelativeLayout.LayoutParams(balloonWidth, balloonHeight).apply {
             leftMargin = keyBounds.centerX() - balloonWidth / 2
-            topMargin = keyBounds.top - balloonHeight - dp(6f)
+            topMargin = keyBounds.top - balloonHeight - dp(4f)
         }
         previewUi.addView(balloon.root, lp)
 

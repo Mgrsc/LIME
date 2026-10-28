@@ -463,6 +463,7 @@
     <string name="accessibility_key_delete">删除</string>
     <string name="accessibility_key_enter">回车</string>
     <string name="accessibility_key_shift">大写锁定切换</string>
+    <string name="accessibility_key_syllable_delimiter">分词</string>
     <string name="accessibility_key_symbol">符号键盘切换</string>
     <string name="accessibility_key_language">中英文切换</string>
     <string name="accessibility_key_cursor_move">移动光标</string>

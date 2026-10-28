@@ -23,6 +23,7 @@ import android.widget.LinearLayout
 import org.bitfennec.lime.keyboard.KeyboardManager
 import org.bitfennec.lime.keyboard.container.SettingsContainer
 import org.bitfennec.lime.utils.DevicesUtils
+import org.bitfennec.lime.utils.LimeTypefaces
 
 class MenuAdapter (context: Context?, val data: MutableList<SkbFunItem>) : RecyclerView.Adapter<MenuAdapter.SymbolHolder>() {
     private val inflater: LayoutInflater
@@ -83,8 +84,14 @@ class MenuAdapter (context: Context?, val data: MutableList<SkbFunItem>) : Recyc
     override fun onBindViewHolder(holder: SymbolHolder, position: Int) {
         val item = data[position]
         val isSelected = isSettingsMenuSelect(item)
+        holder.entranceNameTextView?.typeface = LimeTypefaces.regular
         holder.entranceNameTextView?.text = item.funName
-        holder.entranceIconImageView?.setImageResource(item.funImgResource)
+        val iconRes = if (item.skbMenuMode == SkbMenuMode.JianFan && isSelected) {
+            R.drawable.ic_menu_jianti
+        } else {
+            item.funImgResource
+        }
+        holder.entranceIconImageView?.setImageResource(iconRes)
 
         val keyRadius = ThemeManager.prefs.keyRadius.getValue().toFloat().coerceAtLeast(DevicesUtils.dip2px(8).toFloat())
         val cardBg = GradientDrawable().apply {

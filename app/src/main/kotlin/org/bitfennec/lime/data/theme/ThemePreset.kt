@@ -9,11 +9,11 @@ object ThemePreset {
 
     fun createMonetLight(context: Context = Launcher.instance.context): Theme.Builtin {
         return try {
-            val accent = ContextCompat.getColor(context, android.R.color.system_accent1_500)
-            val bg = ContextCompat.getColor(context, android.R.color.system_neutral1_50)
-            val bar = ContextCompat.getColor(context, android.R.color.system_neutral1_100)
-            val keyBg = ContextCompat.getColor(context, android.R.color.system_neutral1_10)
-            val funcBg = ContextCompat.getColor(context, android.R.color.system_neutral2_100)
+            val accent = ContextCompat.getColor(context, android.R.color.system_accent1_600)
+            val bg = ContextCompat.getColor(context, android.R.color.system_neutral1_100)
+            val bar = ContextCompat.getColor(context, android.R.color.system_neutral1_50)
+            val keyBg = ContextCompat.getColor(context, android.R.color.system_neutral1_0)
+            val funcBg = ContextCompat.getColor(context, android.R.color.system_neutral2_200)
             val textColor = ContextCompat.getColor(context, android.R.color.system_neutral1_900)
             Theme.Builtin(
                 name = "MonetLight",
@@ -25,10 +25,10 @@ object ThemePreset {
                 keyTextColor = textColor,
                 accentKeyBackgroundColor = accent,
                 accentKeyTextColor = 0xffffffff.toInt(),
-                keyPressHighlightColor = 0x1f000000,
-                popupBackgroundColor = bar,
+                keyPressHighlightColor = 0x1a000000,
+                popupBackgroundColor = keyBg,
                 functionKeyBackgroundColor = funcBg,
-                functionKeyPressHighlightColor = 0x1f000000
+                functionKeyPressHighlightColor = 0x1a000000
             )
         } catch (_: Throwable) {
             MaterialLight.copy(name = "MonetLight")
@@ -37,12 +37,13 @@ object ThemePreset {
 
     fun createMonetDark(context: Context = Launcher.instance.context): Theme.Builtin {
         return try {
-            val accent = ContextCompat.getColor(context, android.R.color.system_accent1_300)
+            val accent = ContextCompat.getColor(context, android.R.color.system_accent1_200)
             val bg = ContextCompat.getColor(context, android.R.color.system_neutral1_900)
-            val bar = ContextCompat.getColor(context, android.R.color.system_neutral1_800)
+            val bar = ContextCompat.getColor(context, android.R.color.system_neutral1_900)
             val keyBg = ContextCompat.getColor(context, android.R.color.system_neutral1_700)
-            val funcBg = ContextCompat.getColor(context, android.R.color.system_neutral2_700)
+            val funcBg = ContextCompat.getColor(context, android.R.color.system_neutral2_800)
             val textColor = ContextCompat.getColor(context, android.R.color.system_neutral1_50)
+            val darkAccentText = ContextCompat.getColor(context, android.R.color.system_accent1_900)
             Theme.Builtin(
                 name = "MonetDark",
                 isDark = true,
@@ -52,11 +53,11 @@ object ThemePreset {
                 keyBackgroundColor = keyBg,
                 keyTextColor = textColor,
                 accentKeyBackgroundColor = accent,
-                accentKeyTextColor = 0xff000000.toInt(),
-                keyPressHighlightColor = 0x33ffffff,
-                popupBackgroundColor = bar,
+                accentKeyTextColor = darkAccentText,
+                keyPressHighlightColor = 0x26ffffff,
+                popupBackgroundColor = keyBg,
                 functionKeyBackgroundColor = funcBg,
-                functionKeyPressHighlightColor = 0x1fffffff
+                functionKeyPressHighlightColor = 0x22ffffff
             )
         } catch (_: Throwable) {
             MaterialDark.copy(name = "MonetDark")
@@ -70,80 +71,80 @@ object ThemePreset {
         name = "MaterialLight",
         isDark = false,
         keyboardResources = 0x0,
-        keyboardColor = 0xffeceff1,
-        barColor = 0xffe4e7e9,
-        keyBackgroundColor = 0xfffbfbfc,
-        keyTextColor = 0xff37474f,
-        accentKeyBackgroundColor = 0xff5cb5ab,
-        accentKeyTextColor = 0xffffffff,
-        keyPressHighlightColor = 0x1f000000,
-        popupBackgroundColor = 0xffd9dbdd,
-        functionKeyBackgroundColor = 0xffc9ced1,
-        functionKeyPressHighlightColor = 0x1f000000,
+        keyboardColor = 0xffD4D7DE,
+        barColor = 0xffDFE2E8,
+        keyBackgroundColor = 0xffFFFFFF,
+        keyTextColor = 0xff111827,
+        accentKeyBackgroundColor = 0xff0F8A77,
+        accentKeyTextColor = 0xffFFFFFF,
+        keyPressHighlightColor = 0x1A000000,
+        popupBackgroundColor = 0xffFFFFFF,
+        functionKeyBackgroundColor = 0xffB8BEC9,
+        functionKeyPressHighlightColor = 0x1A000000,
     )
 
     val MaterialDark = Theme.Builtin(
         name = "MaterialDark",
         isDark = true,
         keyboardResources = 0x0,
-        barColor = 0xff21272b,
-        keyboardColor = 0xff263238,
-        keyBackgroundColor = 0xff404a50,
-        keyTextColor = 0xffd9dbdc,
-        accentKeyBackgroundColor = 0xff6eaca8,
-        accentKeyTextColor = 0xffffffff,
-        keyPressHighlightColor = 0x33ffffff,
-        popupBackgroundColor = 0xff3c474c,
-        functionKeyBackgroundColor = 0xff3b464c,
-        functionKeyPressHighlightColor = 0x1fffffff,
+        barColor = 0xff1B1B1D,
+        keyboardColor = 0xff1B1B1D,
+        keyBackgroundColor = 0xff424246,
+        keyTextColor = 0xffF5F5F7,
+        accentKeyBackgroundColor = 0xff15A892,
+        accentKeyTextColor = 0xffFFFFFF,
+        keyPressHighlightColor = 0x26FFFFFF,
+        popupBackgroundColor = 0xff525257,
+        functionKeyBackgroundColor = 0xff2B2B2F,
+        functionKeyPressHighlightColor = 0x22FFFFFF,
     )
 
     val PixelLight = Theme.Builtin(
         name = "PixelLight",
         isDark = false,
         keyboardResources = 0x0,
-        barColor = 0xffeeeeee,
-        keyboardColor = 0xffE3E4EA,
-        keyBackgroundColor = 0xffFCFCFC,
-        keyTextColor = 0xff212121,
-        accentKeyBackgroundColor = 0xff4285f4,
-        accentKeyTextColor = 0xffffffff,
-        keyPressHighlightColor = 0x1f000000,
-        popupBackgroundColor = 0xffeeeeee,
-        functionKeyBackgroundColor = 0xffB7BDC4,
-        functionKeyPressHighlightColor = 0x1f000000,
+        barColor = 0xffEEF0F6,
+        keyboardColor = 0xffE1E3EC,
+        keyBackgroundColor = 0xffFFFFFF,
+        keyTextColor = 0xff1B1B1F,
+        accentKeyBackgroundColor = 0xff2563EB,
+        accentKeyTextColor = 0xffFFFFFF,
+        keyPressHighlightColor = 0x1A000000,
+        popupBackgroundColor = 0xffFFFFFF,
+        functionKeyBackgroundColor = 0xffC4C9D6,
+        functionKeyPressHighlightColor = 0x1A000000,
     )
 
     val PixelDark = Theme.Builtin(
         name = "PixelDark",
         isDark = true,
         keyboardResources = 0x0,
-        barColor = 0xff373737,
-        keyboardColor = 0xff2d2d2d,
-        keyBackgroundColor = 0xff464646,
-        keyTextColor = 0xfffafafa,
-        accentKeyBackgroundColor = 0xff5e97f6,
-        accentKeyTextColor = 0xffffffff,
-        keyPressHighlightColor = 0x33ffffff,
-        popupBackgroundColor = 0xff373737,
-        functionKeyBackgroundColor = 0xff4a4a4a,
-        functionKeyPressHighlightColor = 0x1fffffff,
+        barColor = 0xff18191C,
+        keyboardColor = 0xff1A1B1E,
+        keyBackgroundColor = 0xff3E4047,
+        keyTextColor = 0xffF4F4F6,
+        accentKeyBackgroundColor = 0xff8AB4F8,
+        accentKeyTextColor = 0xff0B1933,
+        keyPressHighlightColor = 0x26FFFFFF,
+        popupBackgroundColor = 0xff4B4E57,
+        functionKeyBackgroundColor = 0xff282A2F,
+        functionKeyPressHighlightColor = 0x22FFFFFF,
     )
 
     val AMOLEDBlack = Theme.Builtin(
         name = "AMOLEDBlack",
         isDark = true,
         keyboardResources = 0x0,
-        barColor = 0xff373737,
+        barColor = 0xff050505,
         keyboardColor = 0xff000000,
-        keyBackgroundColor = 0xff2e2e2e,
-        keyTextColor = 0xffffffff,
-        accentKeyBackgroundColor = 0xff80cbc4,
-        accentKeyTextColor = 0xffffffff,
-        keyPressHighlightColor = 0x33ffffff,
-        popupBackgroundColor = 0xff373737,
-        functionKeyBackgroundColor = 0xff727272,
-        functionKeyPressHighlightColor = 0x1fffffff,
+        keyBackgroundColor = 0xff1F1F23,
+        keyTextColor = 0xffFAFAFA,
+        accentKeyBackgroundColor = 0xffEDEDED,
+        accentKeyTextColor = 0xff09090B,
+        keyPressHighlightColor = 0x2EFFFFFF,
+        popupBackgroundColor = 0xff2A2A30,
+        functionKeyBackgroundColor = 0xff121215,
+        functionKeyPressHighlightColor = 0x24FFFFFF,
     )
 
     val NordLight = Theme.Builtin(
@@ -151,47 +152,47 @@ object ThemePreset {
         isDark = false,
         keyboardResources = 0x0,
         barColor = 0xffE5E9F0,
-        keyboardColor = 0xffECEFF4,
-        keyBackgroundColor = 0xfffbfbfc,
+        keyboardColor = 0xffD8DEE9,
+        keyBackgroundColor = 0xffFFFFFF,
         keyTextColor = 0xff2E3440,
         accentKeyBackgroundColor = 0xff5E81AC,
         accentKeyTextColor = 0xffECEFF4,
-        keyPressHighlightColor = 0x1f000000,
-        popupBackgroundColor = 0xffE5E9F0,
-        functionKeyBackgroundColor = 0xffD8DEE9,
-        functionKeyPressHighlightColor = 0x1f000000,
+        keyPressHighlightColor = 0x1A000000,
+        popupBackgroundColor = 0xffFFFFFF,
+        functionKeyBackgroundColor = 0xffC2CAD8,
+        functionKeyPressHighlightColor = 0x1A000000,
     )
 
     val NordDark = Theme.Builtin(
         name = "NordDark",
         isDark = true,
         keyboardResources = 0x0,
-        barColor = 0xff434C5E,
+        barColor = 0xff242933,
         keyboardColor = 0xff2E3440,
-        keyBackgroundColor = 0xff4C566A,
+        keyBackgroundColor = 0xff434C5E,
         keyTextColor = 0xffECEFF4,
         accentKeyBackgroundColor = 0xff88C0D0,
-        accentKeyTextColor = 0xff2E3440,
-        keyPressHighlightColor = 0x33ffffff,
-        popupBackgroundColor = 0xff434C5E,
-        functionKeyBackgroundColor = 0xff4C566A,
-        functionKeyPressHighlightColor = 0x1fffffff,
+        accentKeyTextColor = 0xff1D2430,
+        keyPressHighlightColor = 0x26FFFFFF,
+        popupBackgroundColor = 0xff4C566A,
+        functionKeyBackgroundColor = 0xff363E4D,
+        functionKeyPressHighlightColor = 0x22FFFFFF,
     )
 
     val Monokai = Theme.Builtin(
         name = "Monokai",
         isDark = true,
         keyboardResources = 0x0,
-        barColor = 0xff1f201b,
-        keyboardColor = 0xff272822,
-        keyBackgroundColor = 0xff33342c,
-        keyTextColor = 0xffd6d6d6,
-        accentKeyBackgroundColor = 0xffb05279,
-        accentKeyTextColor = 0xffd6d6d6,
-        keyPressHighlightColor = 0x33ffffff,
-        popupBackgroundColor = 0xff1f201b,
-        functionKeyBackgroundColor = 0xff373830,
-        functionKeyPressHighlightColor = 0x1fffffff,
+        barColor = 0xff191A16,
+        keyboardColor = 0xff22231E,
+        keyBackgroundColor = 0xff383A32,
+        keyTextColor = 0xffF8F8F2,
+        accentKeyBackgroundColor = 0xffF92672,
+        accentKeyTextColor = 0xffFFFFFF,
+        keyPressHighlightColor = 0x26FFFFFF,
+        popupBackgroundColor = 0xff44463C,
+        functionKeyBackgroundColor = 0xff2B2C26,
+        functionKeyPressHighlightColor = 0x22FFFFFF,
     )
 
     /**

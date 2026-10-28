@@ -6,6 +6,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
+import androidx.core.graphics.ColorUtils
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.RecyclerView
 import androidx.core.view.updateLayoutParams
@@ -106,18 +107,23 @@ class CandidatesMenuAdapter(val context: Context) : RecyclerView.Adapter<Candida
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
         val data = mItems[position]
+        val isSelect = isSettingsMenuSelect(data)
         holder.entranceIconImageView?.updateLayoutParams {
             height = itemHeight
             width = itemHeight
         }
         holder.entranceIconImageView?.setPadding(mMenuPadding, mMenuPadding, mMenuPadding, mMenuPadding)
-        holder.entranceIconImageView?.setImageResource(data.funImgResource)
+        val iconRes = if (data.skbMenuMode == SkbMenuMode.JianFan && isSelect) {
+            R.drawable.ic_menu_jianti
+        } else {
+            data.funImgResource
+        }
+        holder.entranceIconImageView?.setImageResource(iconRes)
         holder.itemView.contentDescription = if (isEditMode) {
             context.getString(R.string.menu_remove_shortcut, data.funName)
         } else {
             data.funName
         }
-        val isSelect = isSettingsMenuSelect(data)
         holder.itemView.stateDescription = if (isSelect && !isEditMode) {
             context.getString(R.string.accessibility_candidate_selected)
         } else {
@@ -125,12 +131,25 @@ class CandidatesMenuAdapter(val context: Context) : RecyclerView.Adapter<Candida
         }
         if (!isSelect) {
             holder.entranceIconImageView?.drawable?.setTint(activeTheme.keyTextColor)
-            holder.entranceIconImageView?.background = null
+            holder.entranceIconImageView?.imageAlpha = 225
+            val pillColor = if (activeTheme.isDark) {
+                activeTheme.functionKeyBackgroundColor
+            } else {
+                ColorUtils.blendARGB(activeTheme.barColor, activeTheme.functionKeyBackgroundColor, 0.45f)
+            }
+            val bg = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(pillColor)
+            }
+            holder.entranceIconImageView?.background = bg
         } else {
             holder.entranceIconImageView?.drawable?.setTint(activeTheme.accentKeyBackgroundColor)
-            val bg = GradientDrawable()
-            bg.setColor(activeTheme.keyBackgroundColor)
-            bg.shape = GradientDrawable.OVAL
+            holder.entranceIconImageView?.imageAlpha = 255
+            val bg = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(ColorUtils.setAlphaComponent(activeTheme.accentKeyBackgroundColor, 42))
+                setStroke(dip2px(1f).coerceAtLeast(1), ColorUtils.setAlphaComponent(activeTheme.accentKeyBackgroundColor, 96))
+            }
             holder.entranceIconImageView?.background = bg
         }
 
@@ -203,9 +222,9 @@ class CandidatesMenuAdapter(val context: Context) : RecyclerView.Adapter<Candida
         notifyItemRangeChanged(0, itemCount)
     }
 
-    private fun menuItemHeight(): Int = dip2px(40f)
+    private fun menuItemHeight(): Int = dip2px(34f)
 
-    private fun menuItemPadding(): Int = dip2px(3f)
+    private fun menuItemPadding(): Int = dip2px(7f)
 
     inner class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
         var entranceIconImageView: ImageView? = view.findViewById(R.id.candidates_menu_item)

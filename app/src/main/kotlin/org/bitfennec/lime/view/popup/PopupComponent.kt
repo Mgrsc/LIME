@@ -47,27 +47,27 @@ class PopupComponent private constructor() {
     }
 
     fun showPopup(content: String, bounds: Rect) {
-        showingEntryUi?.apply {
-            lastShowTime = System.currentTimeMillis()
-            setText(content)
-            return
-        }
         val popup = entryUi.apply {
             lastShowTime = System.currentTimeMillis()
             setBackground(ThemeManager.activeTheme, popupRadius)
             setText(content)
         }
-        val lp = FrameLayout.LayoutParams(bounds.width(), bounds.height()).apply {
-            bottomMargin = ImeEnvironment.skbAreaHeight - (bounds.top + bounds.bottom) / 2
+        val balloonWidth = (bounds.width() * 1.16f).toInt().coerceAtLeast(dp(44f))
+        val balloonHeight = (bounds.height() * 1.18f).toInt().coerceAtLeast(dp(52f))
+        val keyTopFromBottom = ImeEnvironment.skbAreaHeight - ImeEnvironment.heightForCandidatesArea - bounds.top
+        val targetBottomMargin = (keyTopFromBottom + dp(4f)).coerceAtLeast(0)
+        val lp = FrameLayout.LayoutParams(balloonWidth, balloonHeight, Gravity.BOTTOM or Gravity.START).apply {
+            bottomMargin = targetBottomMargin
         }
-        popup.root.translationX = (ImeEnvironment.leftMarginWidth + bounds.left).toFloat()
+        val minX = (ImeEnvironment.leftMarginWidth + dp(4f)).toFloat()
+        val maxX = (ImeEnvironment.leftMarginWidth + ImeEnvironment.skbWidth - balloonWidth - dp(4f)).coerceAtLeast(minX.toInt()).toFloat()
+        val rawX = (ImeEnvironment.leftMarginWidth + bounds.centerX() - balloonWidth / 2f)
+        popup.root.translationX = rawX.coerceIn(minX, maxX)
         if (popup.root.parent == null) {
             root.addView(popup.root, lp)
         } else {
             val current = popup.root.layoutParams as FrameLayout.LayoutParams
-            if (current.width != lp.width || current.height != lp.height ||
-                current.bottomMargin != lp.bottomMargin
-            ) {
+            if (current.width != lp.width || current.height != lp.height || current.bottomMargin != lp.bottomMargin) {
                 popup.root.layoutParams = lp
             }
         }

@@ -25,6 +25,10 @@ open class InputBaseContainer(
         mMajorView?.updateStates()
     }
 
+    fun refreshCompositionState() {
+        mMajorView?.refreshCompositionState()
+    }
+
     fun cancelActiveTouch() {
         mMajorView?.cancelActiveTouch()
     }

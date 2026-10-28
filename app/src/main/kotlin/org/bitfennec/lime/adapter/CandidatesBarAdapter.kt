@@ -11,12 +11,12 @@ import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.RecyclerView
 import android.content.res.ColorStateList
 import android.graphics.Color
-import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.InsetDrawable
 import android.graphics.drawable.RippleDrawable
 import androidx.core.graphics.ColorUtils
 import org.bitfennec.lime.utils.DevicesUtils.dip2px
+import org.bitfennec.lime.utils.LimeTypefaces
 import org.bitfennec.lime.R
 import org.bitfennec.lime.candidate.CandidateText
 import org.bitfennec.lime.data.theme.Theme
@@ -131,17 +131,22 @@ class CandidatesBarAdapter(context: Context?) :
         val cand = (previewCandidates ?: mCandidatesList).getOrNull(position) ?: return
         val isError = InputModeSwitcher.isNumberSkb && cand.comment == COMMENT_ERROR
         val isSelected = !isError && ((mActiveCandNo - 1 == position) || (previewCandidates != null && position == 0) || (mActiveCandNo <= 0 && position == 0))
+        val selectedTextColor = if (theme.isDark) {
+            ColorUtils.blendARGB(theme.accentKeyBackgroundColor, Color.WHITE, 0.22f)
+        } else {
+            theme.accentKeyBackgroundColor
+        }
         val mainColor = when {
             isError -> ColorUtils.setAlphaComponent(theme.keyTextColor, 110)
-            isSelected -> theme.accentKeyBackgroundColor
+            isSelected -> selectedTextColor
             else -> theme.keyTextColor
         }
         holder.textView.setTextColor(mainColor)
         holder.itemView.minimumWidth = dip2px(if (isSelected) 52f else 44f)
         holder.textView.typeface = if (isSelected) {
-            Typeface.create("sans-serif-medium", Typeface.NORMAL)
+            LimeTypefaces.medium
         } else {
-            Typeface.DEFAULT
+            LimeTypefaces.regular
         }
 
         holder.updateBackground(isSelected)
@@ -233,18 +238,20 @@ class CandidatesBarAdapter(context: Context?) :
         val pinyinView: TextView = itemRoot.findViewById(R.id.tv_candidate_bar_pinyin)
         val textView: EmojiTextView = itemRoot.findViewById(R.id.gv_candidates_bar_item)
         private val baseBg = GradientDrawable().apply {
-            cornerRadius = dip2px(6f).toFloat()
+            cornerRadius = dip2px(10f).toFloat()
         }
         private val mask = GradientDrawable().apply {
             setColor(Color.WHITE)
-            cornerRadius = dip2px(6f).toFloat()
+            cornerRadius = dip2px(10f).toFloat()
         }
 
         private val ripple = RippleDrawable(ColorStateList.valueOf(theme.keyPressHighlightColor), baseBg, mask)
 
         init {
-            itemRoot.background = InsetDrawable(ripple, 0, dip2px(2f), 0, dip2px(2f))
-            textView.includeFontPadding = true
+            itemRoot.background = InsetDrawable(ripple, dip2px(3f), dip2px(4.5f), dip2px(3f), dip2px(4.5f))
+            textView.includeFontPadding = false
+            textView.isFallbackLineSpacing = false
+            textView.setPadding(0, dip2px(1.5f), 0, 0)
             pinyinView.includeFontPadding = false
             textView.setTextColor(theme.keyTextColor)
             updateBackground(isSelected = false)
@@ -252,9 +259,11 @@ class CandidatesBarAdapter(context: Context?) :
 
         fun updateBackground(isSelected: Boolean) {
             if (isSelected) {
-                baseBg.setColor(ColorUtils.setAlphaComponent(theme.accentKeyBackgroundColor, 36))
+                baseBg.setColor(ColorUtils.setAlphaComponent(theme.accentKeyBackgroundColor, 32))
+                baseBg.setStroke(dip2px(1f).coerceAtLeast(1), ColorUtils.setAlphaComponent(theme.accentKeyBackgroundColor, 64))
             } else {
                 baseBg.setColor(Color.TRANSPARENT)
+                baseBg.setStroke(0, Color.TRANSPARENT)
             }
             ripple.setColor(ColorStateList.valueOf(theme.keyPressHighlightColor))
         }

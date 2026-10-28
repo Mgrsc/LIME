@@ -275,20 +275,20 @@ class KeyboardLoaderUtil private constructor() {
             }
         }
         if (t9Keys.size == 6) {
-            softKeyToggle.widthF = 0.147f
-            t9Keys[0].widthF = 0.147f
-            t9Keys[1].widthF = 0.11f
-            t9Keys[2].widthF = 0.10f
-            t9Keys[3].widthF = 0.296f
-            t9Keys[4].widthF = 0.10f
-            t9Keys[5].widthF = 0.10f
+            softKeyToggle.widthF = 0.135f
+            t9Keys[0].widthF = 0.135f
+            t9Keys[1].widthF = 0.105f
+            t9Keys[2].widthF = 0.095f
+            t9Keys[3].widthF = 0.330f
+            t9Keys[4].widthF = 0.095f
+            t9Keys[5].widthF = 0.105f
         } else if (t9Keys.size == 5) {
-            softKeyToggle.widthF = 0.147f
-            t9Keys[0].widthF = 0.147f
-            t9Keys[1].widthF = 0.099f
-            t9Keys[2].widthF = 0.099f
-            t9Keys[3].widthF = 0.396f
-            t9Keys[4].widthF = 0.099f
+            softKeyToggle.widthF = 0.145f
+            t9Keys[0].widthF = 0.145f
+            t9Keys[1].widthF = 0.100f
+            t9Keys[2].widthF = 0.100f
+            t9Keys[3].widthF = 0.410f
+            t9Keys[4].widthF = 0.100f
         } else if (skbValue == InputModeSwitcher.MASK_SKB_LAYOUT_NUMBER) {
             softKeyToggle.widthF = 0.15f
             t9Keys[0].widthF = 0.15f
@@ -398,7 +398,7 @@ class KeyboardLoaderUtil private constructor() {
         for(code in codes){
             val labels = keyPreset[code]
             softKeys.add(SoftKey(code = code, label = labels?.getOrNull(0) ?: "", labelSmall = labels?.getOrNull(1) ?: "", keyMnemonic = keyMnemonicPreset[code] ?: "").apply {
-                widthF = 0.099f
+                widthF = 0.10f
             })
         }
         return softKeys.toTypedArray()
@@ -410,7 +410,7 @@ class KeyboardLoaderUtil private constructor() {
         for(code in codes){
             val labels = keyPreset[code]
             softKeys.add(SoftKey(code = code, label = labels?.getOrNull(0) ?: "", labelSmall = labels?.getOrNull(1) ?: "", keyMnemonic = labels?.getOrNull(2) ?: "").apply {
-                widthF = 0.099f
+                widthF = 0.10f
             })
         }
         return softKeys.toTypedArray()
@@ -426,7 +426,7 @@ class KeyboardLoaderUtil private constructor() {
         val softKeys = mutableListOf<SoftKey>()
         for(code in codes) {
             val softKey = SoftKey(label = code.toString()).apply {
-                widthF = 0.099f
+                widthF = 0.10f
                 heightF = 0.2f
             }
             softKeys.add(softKey)
@@ -458,9 +458,14 @@ class KeyboardLoaderUtil private constructor() {
             }
             row3Keys.last().widthF = 0.150f
         } else {
-            row2Keys.first().mLeftF = 0.06f
-            shiftToggle.widthF = 0.147f
-            row3Keys.last().widthF = 0.147f
+            val row2Span = row2Keys.sumOf { it.widthF.toDouble() }.toFloat()
+            row2Keys.first().mLeftF = ((1f - row2Span) / 2f).coerceAtLeast(0f)
+            val funcWidth = 0.135f
+            shiftToggle.widthF = funcWidth
+            row3Keys.last().widthF = funcWidth
+            val row3LetterSpan = row3Keys.dropLast(1).sumOf { it.widthF.toDouble() }.toFloat()
+            row3Keys.first().mLeftF = (1f - row3LetterSpan) / 2f
+            row3Keys.last().mLeftF = 1f - funcWidth
         }
     }
 
