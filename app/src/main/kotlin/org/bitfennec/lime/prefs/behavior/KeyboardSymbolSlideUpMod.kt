@@ -7,18 +7,11 @@ enum class KeyboardSymbolSlideUpMod {
     MEDIUM,
     LONG;
 
-    val triggerRatio: Float
+    val distanceScale: Float
         get() = when (this) {
-            SHORT -> 0.15f
-            MEDIUM -> 0.40f
-            LONG -> 0.65f
-        }
-
-    val minSwipeDp: Int
-        get() = when (this) {
-            SHORT -> 10
-            MEDIUM -> 20
-            LONG -> 30
+            SHORT -> 0.8f
+            MEDIUM -> 1.0f
+            LONG -> 1.3f
         }
 
     companion object : ManagedPreference.StringLikeCodec<KeyboardSymbolSlideUpMod> {

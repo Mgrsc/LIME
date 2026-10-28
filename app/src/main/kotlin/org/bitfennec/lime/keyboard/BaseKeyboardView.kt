@@ -204,8 +204,6 @@ open class BaseKeyboardView(context: Context?) : View(context) {
             return
         }
         val slideMod = ThemeManager.prefs.symbolSlideUpMod.getValue()
-        val symbolSlideUpRatio = slideMod.triggerRatio
-        val symbolMinSwipePx = DevicesUtils.dip2px(slideMod.minSwipeDp).toFloat()
         val pxPerMm = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_MM, 1f, resources.displayMetrics)
         val keyboardSetting = AppPrefs.getInstance().keyboardSetting
         val commands = pointerPipeline.onScroll(
@@ -213,8 +211,7 @@ open class BaseKeyboardView(context: Context?) : View(context) {
             currentX = currentX,
             currentY = currentY,
             context = PointerPipeline.MoveContext(
-                symbolSlideUpRatio = symbolSlideUpRatio,
-                symbolMinSwipePx = symbolMinSwipePx,
+                symbolSlideScale = slideMod.distanceScale,
                 keyboardSymbolEnabled = ThemeManager.prefs.keyboardSymbol.getValue(),
                 pxPerMm = pxPerMm,
                 deleteSwipeTriggerPx = DevicesUtils.dip2px(16).toFloat(),

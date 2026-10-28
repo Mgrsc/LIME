@@ -29,9 +29,7 @@ class PointerPipeline {
     )
 
     data class MoveContext(
-        val symbolSlideUpRatio: Float = 0.40f,
-        /** Minimum swipe displacement floor in pixels; defaults to 0f (no floor constraint). */
-        val symbolMinSwipePx: Float = 0f,
+        val symbolSlideScale: Float = 1f,
         val keyboardSymbolEnabled: Boolean,
         val pxPerMm: Float,
         val deleteSwipeTriggerPx: Float,
@@ -351,7 +349,7 @@ class PointerPipeline {
                 emptyList()
             }
         } else if (capsEligible && (state.isDownFlickArmed || (!state.isFlickArmed && !state.longPressKey && totalDeltaY > 0))) {
-            val isDownwardCone = totalDeltaY > 0 && absTotalX * FLICK_CONE_FACTOR < totalDeltaY
+            val isDownwardCone = totalDeltaY > 0 && absTotalX * CAPS_FLICK_CONE_FACTOR < totalDeltaY
             val isDownFlickCandidate = isDownwardCone && totalDeltaY >= triggerDistance
 
             if (isDownFlickCandidate) {
@@ -368,7 +366,7 @@ class PointerPipeline {
                     emptyList()
                 }
             } else if (state.isDownFlickArmed) {
-                val isDownPulledBack = totalDeltaY < triggerDistance * FLICK_PULLBACK_RATIO || totalDeltaY <= 0
+                val isDownPulledBack = totalDeltaY < triggerDistance * CAPS_FLICK_PULLBACK_RATIO || totalDeltaY <= 0
                 if (isDownPulledBack) {
                     state.isDownFlickArmed = false
                     listOf(
@@ -384,18 +382,14 @@ class PointerPipeline {
             if (state.longPressKey) {
                 emptyList()
             } else {
-                // Tighten symbol flicks without changing downward caps or popup gestures.
-                val upRatio = context.symbolSlideUpRatio + if (isBottomRow) {
-                    if (isSpaceAdjacentBottomKey(key)) {
-                        BOTTOM_ROW_SPACE_ADJACENT_RATIO_BONUS
-                    } else {
-                        BOTTOM_ROW_RATIO_BONUS
-                    }
+                val upRatio = SYMBOL_FLICK_TRIGGER_RATIO + if (isBottomRow && isSpaceAdjacentBottomKey(key)) {
+                    BOTTOM_ROW_SPACE_ADJACENT_RATIO_BONUS
                 } else {
-                    NON_BOTTOM_ROW_UP_RATIO_BONUS
+                    0f
                 }
-                val upTriggerDistance = (keyHeight * upRatio).coerceAtLeast(context.symbolMinSwipePx)
-                val isUpwardCone = totalDeltaY < 0 && absTotalX * FLICK_CONE_FACTOR < -totalDeltaY
+                val upTriggerDistance = (keyHeight * upRatio)
+                    .coerceAtLeast(SYMBOL_FLICK_MIN_TRIGGER_MM * context.pxPerMm) * context.symbolSlideScale
+                val isUpwardCone = totalDeltaY < 0 && absTotalX * SYMBOL_FLICK_ENTRY_CONE_FACTOR < -totalDeltaY
                 val isCrossedTop = !isBottomRow || key.height() <= 0 || (key.mTop - currentY >= keyHeight * BOTTOM_ROW_TOP_EXIT_RATIO)
                 val isFlickCandidate = isUpwardCone && -totalDeltaY >= upTriggerDistance && isCrossedTop
 
@@ -411,7 +405,7 @@ class PointerPipeline {
                         emptyList()
                     }
                 } else if (state.isFlickArmed) {
-                    val isPulledBack = -totalDeltaY < upTriggerDistance * FLICK_PULLBACK_RATIO ||
+                    val isPulledBack = -totalDeltaY < upTriggerDistance * SYMBOL_FLICK_PULLBACK_RATIO ||
                         totalDeltaY >= 0
                     // A wider exit cone keeps small direction changes from flickering.
                     val isSideways = absTotalX > -totalDeltaY
@@ -431,7 +425,7 @@ class PointerPipeline {
         } else if (smallLabel.isNotBlank()) {
             emptyList()
         } else {
-            val popupTriggerDistance = keyHeight * context.symbolSlideUpRatio
+            val popupTriggerDistance = keyHeight * POPUP_GESTURE_TRIGGER_RATIO
             if (isVertical && relDiffY > popupTriggerDistance * 2f) {
                 state.longPressKey = true
                 listOf(PointerCommand.PopupGesture(effDistanceY))
@@ -741,17 +735,19 @@ class PointerPipeline {
     companion object {
         const val DELETE_TEXT_LOOKUP_LIMIT = 1000
         const val VOICE_ARM_TIMEOUT_MS = 180L
-        const val DEFAULT_SYMBOL_MIN_SWIPE_DP = 20
         private const val DEFAULT_KEY_DIMENSION = 100f
-        private const val FLICK_CONE_FACTOR = 1.19f // cot(40°) ≈ 1.19 => |Δx| * 1.19 < -Δy (±40° cone, balances thumb arc with mis-touch protection)
-        private const val FLICK_PULLBACK_RATIO = 0.50f
+        private const val CAPS_FLICK_CONE_FACTOR = 1.19f // cot(40°) ≈ 1.19 => |Δx| * 1.19 < Δy (±40° downward cone for caps flick)
+        private const val CAPS_FLICK_PULLBACK_RATIO = 0.50f
         // yagni: caps flick threshold is intentionally decoupled from symbol slide-up sensitivity tiers; upgrade when caps flick sensitivity needs user tuning
         private const val CAPS_DEFAULT_TRIGGER_RATIO = 0.40f
         private const val BOTTOM_ROW_DEFAULT_TRIGGER_RATIO = 0.55f
         private const val BOTTOM_ROW_SPACE_ADJACENT_TRIGGER_RATIO = 0.70f
-        private const val NON_BOTTOM_ROW_UP_RATIO_BONUS = 0.15f
-        private const val BOTTOM_ROW_RATIO_BONUS = 0.15f
-        private const val BOTTOM_ROW_SPACE_ADJACENT_RATIO_BONUS = 0.30f
+        private const val SYMBOL_FLICK_TRIGGER_RATIO = 0.75f
+        private const val SYMBOL_FLICK_MIN_TRIGGER_MM = 6f
+        private const val SYMBOL_FLICK_ENTRY_CONE_FACTOR = 1.73f // cot(30°)
+        private const val SYMBOL_FLICK_PULLBACK_RATIO = 0.80f
+        private const val POPUP_GESTURE_TRIGGER_RATIO = 0.40f
+        private const val BOTTOM_ROW_SPACE_ADJACENT_RATIO_BONUS = 0.15f
         private const val BOTTOM_ROW_TOP_EXIT_RATIO = 0.10f
 
         internal const val DELETE_ACCEL_TIER1_UNITS = 5f

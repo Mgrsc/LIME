@@ -434,7 +434,7 @@ class PointerPipelineTest {
 
         pipeline.onDown(key, 50f, 50f, 0, downContext())
         pipeline.onScroll(0, 50f, 49f, 0f, 1f, moveContext())
-        val moveCommands = pipeline.onScroll(0, 50f, -10f, 0f, 59f, moveContext())
+        val moveCommands = pipeline.onScroll(0, 50f, -30f, 0f, 79f, moveContext())
 
         assertTrue(pipeline.isFlickArmed())
         assertTrue(moveCommands.any { it is PointerCommand.CancelTimers })
@@ -488,11 +488,11 @@ class PointerPipelineTest {
 
         pipeline.onDown(key, 50f, 50f, 0, downContext())
         pipeline.onScroll(0, 50f, 49f, 0f, 1f, moveContext())
-        // Swipe up 60px -> armed
-        pipeline.onScroll(0, 50f, -10f, 0f, 59f, moveContext())
+        // Swipe up 80px -> armed
+        pipeline.onScroll(0, 50f, -30f, 0f, 79f, moveContext())
         assertTrue(pipeline.isFlickArmed())
 
-        // Pull back to 10px from origin -> pullback threshold (< 55 * 0.5 = 27.5px)
+        // Pull back to 10px from origin -> below pullback threshold (< 75 * 0.8 = 60px)
         val pullBackCommands = pipeline.onScroll(0, 50f, 40f, 0f, -50f, moveContext())
         assertFalse(pipeline.isFlickArmed())
         assertTrue(pullBackCommands.any { it is PointerCommand.PopupShowText && it.text == "q" })
@@ -552,7 +552,7 @@ class PointerPipelineTest {
         )
 
         // Down at (50, 190). Inside key bounds [100, 200].
-        pipeline.onDown(key, 50f, 190f, 0, downContext())
+        pipeline.onDown(key, 50f, 105f, 0, downContext())
         pipeline.onScroll(0, 50f, 189f, 0f, 1f, moveContext())
         // Roll up 50px to currentY = 140. Displacement is 50% (< 55%), AND currentY (140) inside key
         val moveCommands = pipeline.onScroll(0, 50f, 140f, 0f, 49f, moveContext())
@@ -607,9 +607,9 @@ class PointerPipelineTest {
 
         // Down at (50, 150).
         pipeline.onDown(key, 50f, 150f, 0, downContext())
-        // Swipe up 60px with natural ~38° thumb arc (dx = 46px, dy = -60px => currentX = 96, currentY = 90)
-        // Displacement is 60% (>= 55%) and currentY (90) exits top border by 10px (>= 0.10 * keyHeight)
-        val moveCommands = pipeline.onScroll(0, 96f, 90f, -46f, 60f, moveContext())
+        // Swipe up 80px with ~20° thumb arc (dx = 30px, dy = -80px => currentX = 80, currentY = 70)
+        // Displacement is 80% (>= 75%) and currentY (70) exits top border by 30px (>= 0.10 * keyHeight)
+        val moveCommands = pipeline.onScroll(0, 80f, 70f, -30f, 80f, moveContext())
 
         assertTrue(pipeline.isFlickArmed())
         assertTrue(moveCommands.any { it is PointerCommand.PopupShowText && it.text == "," })
@@ -659,8 +659,8 @@ class PointerPipelineTest {
         )
 
         pipeline.onDown(key, 50f, 150f, 0, downContext())
-        // Fast swipe with only 1 move event reaching 75px (>= 70px)
-        val moveCommands = pipeline.onScroll(0, 50f, 75f, 0f, 75f, moveContext())
+        // Fast swipe with only 1 move event reaching 95px (>= 90px)
+        val moveCommands = pipeline.onScroll(0, 50f, 55f, 0f, 95f, moveContext())
 
         assertTrue(pipeline.isFlickArmed())
         assertTrue(moveCommands.any { it is PointerCommand.PopupShowText && it.text == "！" })
@@ -683,10 +683,10 @@ class PointerPipelineTest {
             isBottomRow = true,
         )
 
-        // Down at (50, 150). Large fast fling: dy = -200px (to -50), dx = +120px (to 170)
-        // Angle is ~31° (within 40° cone: 120 * 1.19 = 142.8 < 200). Exceeds 1.0 key width.
+        // Down at (50, 150). Large fast fling: dy = -200px (to -50), dx = +100px (to 150)
+        // Angle is ~27° (within 30° entry cone: 100 * 1.73 = 173 < 200). Exceeds 1.0 key width.
         pipeline.onDown(key, 50f, 150f, 0, downContext())
-        val moveCommands = pipeline.onScroll(0, 170f, -50f, -120f, 200f, moveContext())
+        val moveCommands = pipeline.onScroll(0, 150f, -50f, -100f, 200f, moveContext())
 
         assertTrue(pipeline.isFlickArmed())
         assertTrue(moveCommands.any { it is PointerCommand.PopupShowText && it.text == ":" })
@@ -711,7 +711,7 @@ class PointerPipelineTest {
         // 1. Single pointer onCancel(pointerId) branch
         val pipeline1 = PointerPipeline()
         pipeline1.onDown(key, 50f, 150f, 0, downContext())
-        pipeline1.onScroll(0, 90f, 80f, -40f, 70f, moveContext())
+        pipeline1.onScroll(0, 70f, 70f, -20f, 80f, moveContext())
         assertTrue(pipeline1.isFlickArmed())
 
         val cancelCommandsSingle = pipeline1.onCancel(0)
@@ -723,7 +723,7 @@ class PointerPipelineTest {
         // 2. Global / multi-pointer onCancel(null) branch
         val pipeline2 = PointerPipeline()
         pipeline2.onDown(key, 50f, 150f, 0, downContext())
-        pipeline2.onScroll(0, 90f, 80f, -40f, 70f, moveContext())
+        pipeline2.onScroll(0, 70f, 70f, -20f, 80f, moveContext())
         assertTrue(pipeline2.isFlickArmed())
 
         val cancelCommandsGlobal = pipeline2.onCancel(null)
@@ -843,7 +843,7 @@ class PointerPipelineTest {
         // Pointer 0 flicks on 'Q'
         pipeline.onDown(key = keyQ, x = 50f, y = 50f, pointerId = 0, context = downContext())
         pipeline.onScroll(pointerId = 0, currentX = 50f, currentY = 49f, distanceX = 0f, distanceY = 1f, context = moveContext())
-        val flickMove = pipeline.onScroll(pointerId = 0, currentX = 50f, currentY = -10f, distanceX = 0f, distanceY = 59f, context = moveContext())
+        val flickMove = pipeline.onScroll(pointerId = 0, currentX = 50f, currentY = -30f, distanceX = 0f, distanceY = 79f, context = moveContext())
         assertTrue(pipeline.isFlickArmed(pointerId = 0))
         assertTrue(flickMove.any { it is PointerCommand.PopupShowText && it.text == "1" })
 
@@ -1158,9 +1158,9 @@ class PointerPipelineTest {
         val upMove = pipeline.onScroll(
             0,
             currentX = 50f,
-            currentY = -10f,
+            currentY = -30f,
             distanceX = 0f,
-            distanceY = 60f,
+            distanceY = 80f,
             moveContext(swipeDownCapsEnabled = true, englishLetterCapsEnabled = true)
         )
         assertTrue(upMove.any { it is PointerCommand.PopupShowText && it.text == "@" })
@@ -1186,9 +1186,9 @@ class PointerPipelineTest {
         val move = pipeline.onScroll(
             0,
             currentX = 50f,
-            currentY = 180f,
+            currentY = 170f,
             distanceX = 0f,
-            distanceY = 70f,
+            distanceY = 80f,
             moveContext(swipeDownCapsEnabled = true, englishLetterCapsEnabled = true)
         )
         assertTrue(move.any { it is PointerCommand.PopupShowText && it.text == "1" })
@@ -1200,31 +1200,28 @@ class PointerPipelineTest {
 
     @Test
     fun flickDistanceFloorAndReleaseRevalidation() {
-        for (scale in listOf(1f, 2f)) {
-            val pipeline = PointerPipeline()
-            val key = testKey(height = (20 * scale).toInt())
-            val context = moveContext().copy(symbolMinSwipePx = 20 * scale)
-            pipeline.onDown(key, 0f, 0f, 0, downContext())
-            pipeline.onScroll(currentX = 0f, currentY = -15 * scale, context = context)
-            assertFalse(pipeline.isFlickArmed())
-            pipeline.onScroll(currentX = 0f, currentY = -25 * scale, context = context)
-            assertTrue(pipeline.isFlickArmed())
-            val cancel = pipeline.onCancel(0)
-            assertFalse(cancel.any { it is PointerCommand.FlickSymbol || it is PointerCommand.Tap })
-            assertFalse(pipeline.onUp(0).any { it is PointerCommand.FlickSymbol || it is PointerCommand.Tap })
-        }
+        val floorKey = testKey(height = 20)
+        val floorContext = moveContext(pxPerMm = 4f)
+        val floorPipeline = PointerPipeline()
+        floorPipeline.onDown(floorKey, 0f, 0f, 0, downContext())
+        floorPipeline.onScroll(currentX = 0f, currentY = -20f, context = floorContext)
+        assertFalse(floorPipeline.isFlickArmed())
+        floorPipeline.onScroll(currentX = 0f, currentY = -30f, context = floorContext)
+        assertTrue(floorPipeline.isFlickArmed())
+        assertFalse(floorPipeline.onCancel(0).any { it is PointerCommand.FlickSymbol || it is PointerCommand.Tap })
+        assertFalse(floorPipeline.onUp(0).any { it is PointerCommand.FlickSymbol || it is PointerCommand.Tap })
 
         // The view sends the final UP position through onScroll before onUp.
         for ((x, y, emitsSymbol) in listOf(
-            Triple(50f, -10f, true), // A single deliberate fast stroke still commits.
-            Triple(98f, -5f, true), // Between the entry and exit cones: retain preview.
-            Triple(108f, -5f, false), // Beyond the wider exit cone: restore tap.
+            Triple(50f, -30f, true), // A single deliberate fast stroke still commits.
+            Triple(98f, -25f, true), // Between the entry and exit cones: retain preview.
+            Triple(108f, -5f, false), // Pulled back below the retention threshold: restore tap.
             Triple(50f, 40f, false), // Pullback arriving at release: restore tap.
         )) {
             val pipeline = PointerPipeline()
             val key = testKey()
             pipeline.onDown(key, 50f, 50f, 0, downContext())
-            pipeline.onScroll(currentX = 50f, currentY = -10f, context = moveContext())
+            pipeline.onScroll(currentX = 50f, currentY = -30f, context = moveContext())
             assertTrue(pipeline.isFlickArmed())
             pipeline.onScroll(currentX = x, currentY = y, context = moveContext())
             val up = pipeline.onUp()
@@ -1252,45 +1249,67 @@ class PointerPipelineTest {
     }
 
     @Test
-    fun symbolSlideUpSensitivityTiersDifferentiateFlickThresholds() {
-        val key = testKey(top = 100, height = 100, isBottomRow = true)
-        // SHORT (0.15 + 0.15 = 0.30 => 30px threshold)
-        val shortContext = moveContext().copy(symbolSlideUpRatio = 0.15f, symbolMinSwipePx = 10f)
-        val shortPipeline = PointerPipeline()
-        shortPipeline.onDown(key, 50f, 150f, 0, downContext())
-        shortPipeline.onScroll(currentX = 50f, currentY = 85f, context = shortContext) // 65px displacement >= 30px threshold, crosses top (15px > 10px)
-        assertTrue(shortPipeline.isFlickArmed())
-
-        // LONG (0.65 + 0.15 = 0.80 => 80px threshold)
-        val longContext = moveContext().copy(symbolSlideUpRatio = 0.65f, symbolMinSwipePx = 30f)
-        val longPipeline = PointerPipeline()
-        longPipeline.onDown(key, 50f, 150f, 0, downContext())
-        longPipeline.onScroll(currentX = 50f, currentY = 85f, context = longContext) // 65px displacement < 80px threshold
-        assertFalse(longPipeline.isFlickArmed())
-        longPipeline.onScroll(currentX = 50f, currentY = 50f, context = longContext) // 100px displacement >= 80px threshold
-        assertTrue(longPipeline.isFlickArmed())
+    fun symbolSlideUpSensitivityTiersScaleFlickThreshold() {
+        val key = testKey(top = 0, height = 100)
+        for ((scale, armedAt) in listOf(0.8f to 60f, 1f to 75f, 1.3f to 97.5f)) {
+            val context = moveContext().copy(symbolSlideScale = scale)
+            val pipeline = PointerPipeline()
+            pipeline.onDown(key, 50f, 100f, 0, downContext())
+            pipeline.onScroll(currentX = 50f, currentY = 100f - armedAt + 2f, context = context)
+            assertFalse(pipeline.isFlickArmed())
+            pipeline.onScroll(currentX = 50f, currentY = 100f - armedAt - 1f, context = context)
+            assertTrue(pipeline.isFlickArmed())
+        }
     }
 
     @Test
-    fun nonBottomRowKeyUsesSlideUpTiersAndDecoupledCapsThreshold() {
-        val key = testKey(top = 0, height = 100, isBottomRow = false)
-        // Non-bottom row upRatio = symbolSlideUpRatio + 0.15f
-        // SHORT tier: 0.15 + 0.15 = 0.30 => 30px threshold
-        val shortContext = moveContext().copy(symbolSlideUpRatio = 0.15f, symbolMinSwipePx = 10f)
-        val pipeline = PointerPipeline()
-        pipeline.onDown(key, 50f, 50f, 0, downContext())
-        pipeline.onScroll(currentX = 50f, currentY = 15f, context = shortContext) // -35px swipe >= 30px
-        assertTrue(pipeline.isFlickArmed())
+    fun spaceAdjacentBottomRowKeyScalesWithSlideTier() {
+        val key = testKey(code = KeyEvent.KEYCODE_N, label = "n", smallLabel = "!", top = 100, height = 100, isBottomRow = true)
+        for ((scale, armedAt) in listOf(0.8f to 72f, 1f to 90f, 1.3f to 117f)) {
+            val context = moveContext().copy(symbolSlideScale = scale)
+            val pipeline = PointerPipeline()
+            pipeline.onDown(key, 50f, 105f, 0, downContext())
+            pipeline.onScroll(currentX = 50f, currentY = 105f - armedAt + 2f, context = context)
+            assertFalse(pipeline.isFlickArmed())
+            pipeline.onScroll(currentX = 50f, currentY = 105f - armedAt - 1f, context = context)
+            assertTrue(pipeline.isFlickArmed())
+        }
+    }
 
-        // Caps downward flick is decoupled to fixed 0.40f threshold (40px) regardless of symbolSlideUpRatio
+    @Test
+    fun popupGestureThresholdIgnoresSymbolSlideScale() {
+        val key = testKey(code = KeyEvent.KEYCODE_ENTER, label = "", smallLabel = "")
+        for (scale in listOf(0.8f, 1f, 1.3f)) {
+            val pipeline = PointerPipeline()
+            pipeline.onDown(key, 50f, 50f, 0, downContext())
+            val fired = pipeline.onScroll(0, 50f, -40f, 0f, 90f, moveContext().copy(symbolSlideScale = scale))
+                .any { it is PointerCommand.PopupGesture }
+            assertTrue("scale=$scale", fired)
+        }
+    }
+
+    @Test
+    fun flickEntryConeRejectsWideDiagonalAndPullbackKeepsHighRetention() {
+        val key = testKey(top = 0, height = 100)
+        val pipeline = PointerPipeline()
+        pipeline.onDown(key, 50f, 100f, 0, downContext())
+        pipeline.onScroll(currentX = 100f, currentY = 20f, context = moveContext())
+        assertFalse(pipeline.isFlickArmed())
+        pipeline.onScroll(currentX = 50f, currentY = 20f, context = moveContext())
+        assertTrue(pipeline.isFlickArmed())
+        pipeline.onScroll(currentX = 50f, currentY = 50f, context = moveContext())
+        assertFalse(pipeline.isFlickArmed())
+    }
+
+    @Test
+    fun capsDownwardFlickThresholdIsIndependentOfSymbolSlideScale() {
         val capsKey = testKey(code = KeyEvent.KEYCODE_A, label = "a", smallLabel = "", height = 100, isBottomRow = false)
-        val capsContext = shortContext.copy(swipeDownCapsEnabled = true, englishLetterCapsEnabled = true)
+        val capsContext = moveContext(swipeDownCapsEnabled = true, englishLetterCapsEnabled = true)
+            .copy(symbolSlideScale = 0.8f)
         val capsPipeline = PointerPipeline()
         capsPipeline.onDown(capsKey, 50f, 50f, 0, downContext())
-        // Downward swipe of 35px: under 40px caps threshold => not armed
         capsPipeline.onScroll(currentX = 50f, currentY = 85f, context = capsContext)
         assertFalse(capsPipeline.isDownFlickArmed())
-        // Downward swipe of 45px: exceeds 40px caps threshold => armed
         capsPipeline.onScroll(currentX = 50f, currentY = 95f, context = capsContext)
         assertTrue(capsPipeline.isDownFlickArmed())
     }
@@ -1306,8 +1325,6 @@ class PointerPipelineTest {
         swipeDownCapsEnabled: Boolean = false,
         englishLetterCapsEnabled: Boolean = false,
     ) = PointerPipeline.MoveContext(
-        symbolSlideUpRatio = 0.40f,
-        symbolMinSwipePx = PointerPipeline.DEFAULT_SYMBOL_MIN_SWIPE_DP.toFloat(),
         keyboardSymbolEnabled = true,
         pxPerMm = pxPerMm,
         deleteSwipeTriggerPx = 16f,

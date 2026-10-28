@@ -27,7 +27,6 @@ class DeleteGestureContractTest {
         leftAction: DeleteGestureAction = DeleteGestureAction.SWIPE_SELECT,
         downAction: DeleteGestureAction = DeleteGestureAction.UNDO_REVERT,
     ) = PointerPipeline.MoveContext(
-        symbolSlideUpRatio = 0.40f,
         keyboardSymbolEnabled = true,
         pxPerMm = 1f,
         deleteSwipeTriggerPx = 16f,
