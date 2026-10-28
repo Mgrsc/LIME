@@ -455,11 +455,16 @@ class InputView(context: Context, val service: ImeService) : RelativeLayout(cont
         when (mode) {
             PopupMenuMode.Text -> commitSymbolText(value)
             PopupMenuMode.SwitchIME -> {
+                // Limit: commit is best-effort; revisit when IME switch loses composition under load
+                commitPendingComposition()
                 if (!service.switchToNextIme()) {
                     InputMethodUtil.showPicker()
                 }
             }
-            PopupMenuMode.EMOJI -> onSettingsMenuClick(SkbMenuMode.Emojicon)
+            PopupMenuMode.EMOJI -> {
+                commitPendingComposition()
+                onSettingsMenuClick(SkbMenuMode.Emojicon)
+            }
             PopupMenuMode.EnglishCell -> {
                 val pref = appPrefs.input.abcSearchEnglishCell
                 pref.setValue(!pref.getValue())
@@ -1102,6 +1107,7 @@ class InputView(context: Context, val service: ImeService) : RelativeLayout(cont
         when (val keyCode = event.keyCode) {
             KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_SPACE -> {
                 if (keyCode == KeyEvent.KEYCODE_SPACE && event.isCtrlPressed) {
+                    commitPendingComposition()
                     InputModeSwitcher.switchModeForUserKey(InputModeSwitcher.USER_KEYCODE_LANG)
                     resetToIdleState(resetEngine = false)
                     Toast.makeText(context, if (InputModeSwitcher.isEnglish) context.getString(R.string.ime_mode_english) else context.getString(R.string.ime_mode_pinyin), Toast.LENGTH_LONG).show()
@@ -1137,15 +1143,21 @@ class InputView(context: Context, val service: ImeService) : RelativeLayout(cont
     }
 
 
+    private fun commitPendingComposition() {
+        if (!DecodingInfo.isAssociate && !DecodingInfo.hasExternalCandidateSource && !DecodingInfo.isCandidatesEmpty &&
+            (InputModeSwitcher.isChinese || InputModeSwitcher.isEnglish)
+        ) {
+            chooseAndUpdate()
+        }
+    }
+
     private fun processUserDefKey(keyCode: Int, label: String) {
         when {
             keyCode == InputModeSwitcher.USER_KEYCODE_CURSOR_DIRECTION -> {
                 resetToIdleState()
                 return
             }
-            label.isEmpty() && !DecodingInfo.isAssociate && !DecodingInfo.isCandidatesEmpty -> {
-                if (InputModeSwitcher.isChinese || InputModeSwitcher.isEnglish) chooseAndUpdate()
-            }
+            label.isEmpty() || keyCode in PANEL_SWITCH_KEYCODES -> commitPendingComposition()
         }
 
         when (keyCode) {
@@ -1976,6 +1988,9 @@ class InputView(context: Context, val service: ImeService) : RelativeLayout(cont
     }
 
     companion object {
+        private val PANEL_SWITCH_KEYCODES =
+            InputModeSwitcher.USER_KEYCODE_RETURN..InputModeSwitcher.USER_KEYCODE_LANG
+
         private val PUNCTUATION_SET = setOf(
             // Chinese punctuation
             '，', '。', '！', '？', '；', '：', '、', '“', '”', '‘', '’',
