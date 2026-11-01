@@ -24,6 +24,7 @@ import kotlinx.coroutines.launch
 import org.bitfennec.lime.R
 import org.bitfennec.lime.core.runtime.AiBlobDownloader
 import org.bitfennec.lime.core.runtime.AiPackageInstaller
+import org.bitfennec.lime.core.runtime.AiPackageSpec
 import org.bitfennec.lime.data.theme.ThemeManager
 import org.bitfennec.lime.keyboard.InputView
 import org.bitfennec.lime.keyboard.KeyboardManager
@@ -285,7 +286,7 @@ class VoiceDownloadContainer(
         }
 
         btnDownload = Button(context).apply {
-            text = context.getString(R.string.voice_download_container_btn_download_format)
+            text = getDownloadButtonLabel()
             setTextColor(Color.WHITE)
             textSize = 13.5f
             paint.isFakeBoldText = true
@@ -401,7 +402,9 @@ class VoiceDownloadContainer(
                         if (wasDownloading) {
                             wasDownloading = false
                             Toast.makeText(context, context.getString(R.string.voice_download_container_toast_ready), Toast.LENGTH_SHORT).show()
-                            VoiceRecognitionEngine.reload(context)
+                            if (!VoiceRecognitionEngine.hasActiveLease()) {
+                                VoiceRecognitionEngine.reload(context)
+                            }
                             launch {
                                 delay(1000)
                                 if (isAttachedToWindow && isShown && windowVisibility == VISIBLE &&
@@ -427,7 +430,7 @@ class VoiceDownloadContainer(
                     is AiPackageInstaller.PackageStatus.Missing -> {
                         btnDownload.isEnabled = true
                         btnDownload.alpha = 1.0f
-                        btnDownload.text = context.getString(R.string.voice_download_container_btn_download_format)
+                        btnDownload.text = getDownloadButtonLabel()
                         progressBar.visibility = View.GONE
                         progressBar.progress = 0
                         tvSpeed.visibility = View.GONE
@@ -444,6 +447,11 @@ class VoiceDownloadContainer(
             }
         }
     }
+
+    private fun getDownloadButtonLabel(): String = context.getString(
+        R.string.voice_model_download_button,
+        AiPackageSpec.voicePackage.artifacts.sumOf { it.expectedBytes } / 1_000_000L,
+    )
 
     private fun startDownload(force: Boolean) {
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU &&

@@ -21,7 +21,9 @@ class BaselineProfileGenerator {
         packageName = TARGET_PACKAGE,
         includeInStartupProfile = true,
     ) {
-        showKeyboard()
+        withTemporaryInputMethod {
+            showKeyboard()
+        }
     }
 
     @Test
@@ -29,16 +31,36 @@ class BaselineProfileGenerator {
         packageName = TARGET_PACKAGE,
         includeInStartupProfile = false,
     ) {
-        showKeyboard()
-        type("ni")
-        val candidate = device.wait(
-            Until.findObject(
-                By.res(TARGET_PACKAGE, "gv_candidates_bar_item").text(Pattern.compile("\\S+")),
-            ),
-            CANDIDATE_TIMEOUT_MS,
-        )
-        checkNotNull(candidate) { "candidate not shown" }
-        candidate.click()
+        withTemporaryInputMethod {
+            showKeyboard()
+            type("ni")
+            val candidate = device.wait(
+                Until.findObject(
+                    By.res(TARGET_PACKAGE, "gv_candidates_bar_item").text(Pattern.compile("\\S+")),
+                ),
+                CANDIDATE_TIMEOUT_MS,
+            )
+            checkNotNull(candidate) { "candidate not shown" }
+            candidate.click()
+        }
+    }
+
+    private fun MacrobenchmarkScope.withTemporaryInputMethod(block: () -> Unit) {
+        val originalInputMethod = device.executeShellCommand(
+            "settings get secure default_input_method",
+        ).trim()
+        check(originalInputMethod.contains('/')) { "default input method not found" }
+        check(originalInputMethod.substringBefore('/') != TARGET_PACKAGE) {
+            "Select another input method before collecting baseline profiles"
+        }
+        try {
+            block()
+        } finally {
+            val restored = device.executeShellCommand("ime set $originalInputMethod").trim()
+            check(!restored.contains("Error", ignoreCase = true) && !restored.contains("Unknown", ignoreCase = true)) {
+                restored
+            }
+        }
     }
 
     private fun MacrobenchmarkScope.showKeyboard() {

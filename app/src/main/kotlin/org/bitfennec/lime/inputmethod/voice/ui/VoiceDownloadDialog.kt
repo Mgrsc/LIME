@@ -24,6 +24,7 @@ import kotlinx.coroutines.launch
 import org.bitfennec.lime.R
 import org.bitfennec.lime.core.runtime.AiBlobDownloader
 import org.bitfennec.lime.core.runtime.AiPackageInstaller
+import org.bitfennec.lime.core.runtime.AiPackageSpec
 import org.bitfennec.lime.data.theme.ThemeManager
 import org.bitfennec.lime.service.ImeService
 import org.bitfennec.lime.inputmethod.voice.VoiceModelManager
@@ -84,7 +85,10 @@ class VoiceDownloadDialog(
 
         // Description and model size
         val tvDesc = TextView(context).apply {
-            text = context.getString(R.string.voice_download_dialog_desc)
+            text = context.getString(
+                R.string.voice_download_dialog_desc,
+                AiPackageSpec.voicePackage.artifacts.sumOf { it.expectedBytes } / 1_000_000L,
+            )
             textSize = 13.5f
             setTextColor("#CFD8DC".toColorInt())
             setLineSpacing(dp2px(3f), 1f)
@@ -260,7 +264,9 @@ class VoiceDownloadDialog(
                             btnDownload.isEnabled = false
                             progressBar.visibility = View.GONE
                             tvSpeed.visibility = View.GONE
-                            VoiceRecognitionEngine.reload(context) {
+                            if (!VoiceRecognitionEngine.hasActiveLease()) {
+                                VoiceRecognitionEngine.reload(context) { onDownloadCompleted?.invoke() }
+                            } else {
                                 onDownloadCompleted?.invoke()
                             }
                             dismiss()

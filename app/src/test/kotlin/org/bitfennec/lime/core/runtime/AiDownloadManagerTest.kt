@@ -8,27 +8,26 @@ import java.net.URL
 
 class AiDownloadManagerTest {
 
+    private fun nestedAsset(fileName: String) = AiPackageSpec.voiceTokensArtifact.copy(
+        fileName = fileName,
+        pinnedUrls = AiPackageSpec.VOICE_PREFIXES.map { "$it$fileName" },
+    )
+
     @Test
     fun testDownloadGuardArtifactUrlValidation() {
-        val ortArtifact = AiPackageSpec.ortArtifact
+        val ortArtifact = AiPackageSpec.ortArtifact.downloadArtifact
         val hwArtifact = AiPackageSpec.hwModelArtifact
 
-        val approvedOrtUrl = URL(ortArtifact.pinnedUrls[0])
-        val approvedMirrorUrl = URL(ortArtifact.pinnedUrls[1])
         val approvedHwUrl = URL(hwArtifact.pinnedUrls[0])
 
-        assertTrue(AiDownloadGuard.isAllowedArtifactUrl(
-            url = approvedOrtUrl,
-            fileName = ortArtifact.fileName,
-            sha256 = ortArtifact.sha256,
-            allowedPrefixes = ortArtifact.pinnedUrls
-        ))
-        assertTrue(AiDownloadGuard.isAllowedArtifactUrl(
-            url = approvedMirrorUrl,
-            fileName = ortArtifact.fileName,
-            sha256 = ortArtifact.sha256,
-            allowedPrefixes = ortArtifact.pinnedUrls
-        ))
+        for (url in ortArtifact.pinnedUrls) {
+            assertTrue(AiDownloadGuard.isAllowedArtifactUrl(
+                url = URL(url),
+                fileName = ortArtifact.fileName,
+                sha256 = ortArtifact.sha256,
+                allowedPrefixes = ortArtifact.pinnedUrls
+            ))
+        }
         assertTrue(AiDownloadGuard.isAllowedArtifactUrl(
             url = approvedHwUrl,
             fileName = hwArtifact.fileName,
@@ -67,6 +66,63 @@ class AiDownloadManagerTest {
         assertFalse(AiDownloadGuard.isAllowedArtifactUrl(traversalUrl, ortArtifact.fileName, ortArtifact.sha256, ortArtifact.pinnedUrls))
         assertFalse(AiDownloadGuard.isAllowedArtifactUrl(encodedTraversalUrl, ortArtifact.fileName, ortArtifact.sha256, ortArtifact.pinnedUrls))
         assertFalse(AiDownloadGuard.isAllowedArtifactUrl(httpUrl, ortArtifact.fileName, ortArtifact.sha256, ortArtifact.pinnedUrls))
+    }
+
+    @Test
+    fun permitsEncodedAssetSeparatorsInBoundHuggingFaceCacheRedirects() {
+        val revision = "6f16bd378457e13f36ccf3910df9017f96c346fb"
+        val prefix = "https://huggingface.co/api/resolve-cache/models/csukuangfj/${AiPackageSpec.VOICE_VERSION}/$revision/"
+        val artifacts = listOf(
+            nestedAsset("tokenizer/vocab.json"),
+            nestedAsset("tokenizer/merges.txt"),
+            nestedAsset("tokenizer/tokenizer.json"),
+        )
+        for (artifact in artifacts) {
+            for (separator in listOf("/", "%2F", "%2f")) {
+                val url = URL(prefix + artifact.fileName.replace("/", separator) + "?etag=test")
+                assertTrue(url.toString(), AiDownloadGuard.isAllowedArtifactUrl(
+                    url = url,
+                    fileName = artifact.fileName,
+                    sha256 = artifact.sha256,
+                    allowedPrefixes = artifact.pinnedUrls,
+                    modelRepoDirectory = AiPackageSpec.VOICE_VERSION,
+                ))
+            }
+        }
+    }
+
+    @Test
+    fun rejectsUnboundOrUnsafeEncodedCacheRedirects() {
+        val artifact = nestedAsset("tokenizer/merges.txt")
+        val revision = "6f16bd378457e13f36ccf3910df9017f96c346fb"
+        val prefix = "https://huggingface.co/api/resolve-cache/models/csukuangfj/${AiPackageSpec.VOICE_VERSION}/$revision/"
+        val encodedFile = artifact.fileName.replace("/", "%2F")
+        val rejected = listOf(
+            prefix.replace("https://", "http://") + encodedFile,
+            prefix.replace("huggingface.co", "user@huggingface.co") + encodedFile,
+            prefix.replace("huggingface.co", "huggingface.co:444") + encodedFile,
+            prefix.replace("huggingface.co", "huggingface.co.attacker.example") + encodedFile,
+            prefix.replace(AiPackageSpec.VOICE_VERSION, "another-model") + encodedFile,
+            prefix.replace("csukuangfj/", "another-owner/") + encodedFile,
+            prefix.replace(revision, "invalid-revision") + encodedFile,
+            prefix + "tokenizer%2Ftokenizer.json",
+            prefix + "tokenizer%2F..%2Fmerges.txt",
+            prefix + "tokenizer%2F%2e%2e%2Fmerges.txt",
+            prefix + "tokenizer%252Fmerges.txt",
+            prefix + "tokenizer%5Cmerges.txt",
+            prefix + "tokenizer%2F%2Fmerges.txt",
+            prefix.replace("huggingface.co", "hf-mirror.com") + encodedFile,
+            "https://huggingface.co/csukuangfj/${AiPackageSpec.VOICE_VERSION}/resolve/main/$encodedFile",
+        )
+        for (url in rejected) {
+            assertFalse(url, AiDownloadGuard.isAllowedArtifactUrl(
+                url = URL(url),
+                fileName = artifact.fileName,
+                sha256 = artifact.sha256,
+                allowedPrefixes = artifact.pinnedUrls,
+                modelRepoDirectory = AiPackageSpec.VOICE_VERSION,
+            ))
+        }
     }
 
     @Test

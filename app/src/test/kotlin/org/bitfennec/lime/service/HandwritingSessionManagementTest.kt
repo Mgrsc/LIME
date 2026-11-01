@@ -4,6 +4,7 @@ import android.content.SharedPreferences
 import org.bitfennec.lime.core.CandidateListItem
 import org.bitfennec.lime.inputmethod.EngineEvent
 import org.bitfennec.lime.inputmethod.EnginePipeline
+import org.bitfennec.lime.inputmethod.voice.VoiceModelManager
 import org.bitfennec.lime.prefs.AppPrefs
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -244,10 +245,10 @@ class HandwritingSessionManagementTest {
 
     @Test
     fun testVoiceModalSessionQueuesClearCompositionAndActivates() {
-        val field = org.bitfennec.lime.core.runtime.AiModuleManager::class.java.getDeclaredField("cachedVoiceReady").apply {
+        val field = VoiceModelManager::class.java.getDeclaredField("cachedIsReady").apply {
             isAccessible = true
         }
-        field.set(org.bitfennec.lime.core.runtime.AiModuleManager, true)
+        field.setBoolean(VoiceModelManager, true)
 
         var readySessionId = 0L
         val accepted = service.requestModalSession(

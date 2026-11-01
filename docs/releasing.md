@@ -14,7 +14,7 @@ An active network connection is required on the initial build. Native source dep
 
 ## Signing and Artifacts
 
-0. Before modifying core input latency paths (key dispatch, candidate rendering, pinyin decoding) or cutting a release, connect a physical Android 13+ (API 33+) arm64 device and run `./gradlew :app:generateReleaseBaselineProfile` to refresh the authoritative baseline profiles in `app/src/release/generated/baselineProfiles/`. Routine builds do not need to repeat this step.
+0. Before modifying core input latency paths (key dispatch, candidate rendering, pinyin decoding) or cutting a release, connect a physical Android 13+ (API 33+) arm64 device and run `./gradlew :app:generateReleaseBaselineProfile` to refresh the authoritative baseline profiles in `app/src/release/generated/baselineProfiles/`. Select a different input method before starting collection; each profile block temporarily selects LIME and restores the original input method to prevent automatic rebinding between collection iterations. Routine builds do not need to repeat this step.
 1. **GitHub CI Automated Release (Recommended)**: In GitHub repository Settings -> Secrets and variables -> Actions, set `RELEASE_KEYSTORE_BASE64` (base64 of the keystore file; the workflow decodes it into `RELEASE_STORE_FILE`), `RELEASE_STORE_PASSWORD`, `RELEASE_KEY_ALIAS`, and `RELEASE_KEY_PASSWORD`. Pushing a tag that matches `versionName` (for example `v0.9.0`) runs `.github/workflows/release.yml`, which builds, signs, verifies, and publishes the GitHub Release. Runtime tags such as `v3.0.4-runtime` do not trigger it.
 2. **Local Signing**: Maintainers are responsible for securely storing and backing up the production signing key. Copy `keystore/keystore.properties.example` to `keystore/keystore.properties` in the same directory and fill in actual credentials; never commit private keys or properties. Credentials can also be supplied via environment variables (`RELEASE_STORE_FILE`, `RELEASE_STORE_PASSWORD`, `RELEASE_KEY_ALIAS`, `RELEASE_KEY_PASSWORD`). Never write passwords into shell history or command output.
 3. Run `./gradlew assembleRelease --no-daemon --max-workers=1`. Inspect `app/build/outputs/apk/release/`: when valid signing credentials are not configured, an unsigned APK is produced; never rename an unsigned APK and distribute it as a production package.
@@ -57,16 +57,21 @@ Repository files do not automatically configure GitHub settings. Maintainers mus
 - Enable CodeQL / Code scanning and verify Kotlin/Java and C++ coverage and successful runs; a toggle alone does not guarantee completion.
 - Issue intake currently allows general bug reports and feature requests; only link Discussions once actually enabled.
 
-Before pushing to a public remote, audit the entire Git history for credentials, user data, and oversized binaries; `.gitignore` only prevents future additions and cannot purge historical commits. If credentials are found, revoke and rotate them immediately before deciding on history rewriting. Never mirror-push all refs blindly.
+Before pushing to a public remote, audit the intended public history for credentials, user data, and oversized binaries; `.gitignore` only prevents future additions and cannot purge historical commits. If credentials are found, revoke and rotate them immediately before deciding on history rewriting. Never mirror-push all refs blindly. The private `main` branch retains development history; the local `github` branch preserves the separate public history rooted at `1cfd1ff` (v0.9.0). Never push private `main` directly to GitHub.
 
-Once local changes are reviewed and committed, add the explicit GitHub remote (retaining other hosting providers):
+After reviewing and committing on `main`, push to the private remotes, then synchronize only commits after the existing `last-github-sync` anchor onto the public branch:
 
 ```sh
-git remote add github git@github.com:Mgrsc/LIME.git
-git push github main
+git push origin main
+git push gitea main
+git checkout github
+git cherry-pick last-github-sync..main
+git push github HEAD:main
+git tag -f last-github-sync main
+git checkout main
 ```
 
-Execute these commands only after confirming the release branch and commit history. Wait for GitHub CI to pass before tagging and publishing the production Release.
+Verify that the private and public branch trees match and the public history root remains unchanged. Wait for CI on the new public commit to pass, then create the release tag on that public commit and push only that tag to GitHub.
 
 ## Official References
 

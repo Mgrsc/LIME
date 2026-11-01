@@ -170,7 +170,7 @@ class VoiceInputOverlayView @JvmOverloads constructor(
             strLiveTranscribing = "● Transcribing..."
             strListeningHint = "Speak now..."
             strFinish = "Done"
-            strEnginePreparing = "Preparing offline voice engine..."
+            strEnginePreparing = "Preparing engine; you can speak..."
             strModeStandard = "Standard capture"
             strModeWhisper = "Whisper · enhanced"
         }
@@ -218,6 +218,9 @@ class VoiceInputOverlayView @JvmOverloads constructor(
 
     fun updateLiveText(text: String) {
         liveTranscribeText = text
+        if (text.isNotEmpty()) {
+            isEnginePreparing = false
+        }
         invalidate()
     }
 

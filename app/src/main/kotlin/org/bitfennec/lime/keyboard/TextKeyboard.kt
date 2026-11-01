@@ -78,7 +78,7 @@ open class TextKeyboard(context: Context?) : BaseKeyboardView(context){
         mActiveTheme = activeTheme
         mPaint.color = mActiveTheme.keyTextColor
         mKeyboardChanged = true
-        invalidateView()
+        updateStates()
     }
 
     /** Refreshes key state. */

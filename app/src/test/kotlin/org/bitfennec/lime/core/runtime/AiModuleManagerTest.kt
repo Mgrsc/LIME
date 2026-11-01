@@ -118,6 +118,11 @@ class AiModuleManagerTest {
 
             assertTrue(AiModuleManager.isVoiceReady(fakeContext))
             assertTrue(VoiceModelManager.isModelReady(fakeContext))
+
+            AiBlobStore.deletePackage(fakeContext, "voice")
+            AiModuleManager.invalidateCache()
+            assertFalse(AiModuleManager.isVoiceReady(fakeContext))
+            assertFalse(VoiceModelManager.isModelReady(fakeContext))
         } finally {
             tempDir.deleteRecursively()
             VoiceModelManager.invalidateCache()

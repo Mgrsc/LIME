@@ -9,7 +9,7 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
 }
 
-val appVersionName = "0.9.2"
+val appVersionName = "0.9.5"
 
 fun versionCodeDate(): Int {
     return (System.currentTimeMillis() / 1000).toInt()
@@ -179,7 +179,7 @@ androidComponents {
 
 dependencies {
     // Explicit vendored pure-Java classes jar (native .so files are stripped and downloaded on-demand)
-    implementation(files("libs/sherpa-onnx-1.13.7.jar"))
+    implementation(files("libs/sherpa-onnx-2.0.1.jar"))
     implementation(libs.appcompat)
     implementation(libs.constraintlayout)
     implementation(libs.material)

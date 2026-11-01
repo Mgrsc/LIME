@@ -2,6 +2,7 @@ package org.bitfennec.lime.core.runtime
 
 import android.content.Context
 import android.util.Log
+import org.bitfennec.lime.inputmethod.voice.VoiceModelManager
 import java.io.File
 
 /**
@@ -15,13 +16,11 @@ object AiModuleManager {
     private var cachedOrtReady: Boolean? = null
     @Volatile
     private var cachedHwReady: Boolean? = null
-    @Volatile
-    private var cachedVoiceReady: Boolean? = null
 
     fun invalidateCache() {
         cachedOrtReady = null
         cachedHwReady = null
-        cachedVoiceReady = null
+        VoiceModelManager.invalidateReadyCache()
     }
 
     fun getOrtFile(context: Context): File =
@@ -70,15 +69,7 @@ object AiModuleManager {
         return ready
     }
 
-    /**
-     * Checks if voice recognition module (ORT + sherpa-jni + SenseVoice weights) is fully ready.
-     */
-    fun isVoiceReady(context: Context): Boolean {
-        cachedVoiceReady?.let { return it }
-        val ready = AiPackageInstaller.isPackageReady(context, "voice")
-        if (ready) cachedVoiceReady = true
-        return ready
-    }
+    fun isVoiceReady(context: Context): Boolean = VoiceModelManager.isModelReady(context)
 
     /**
      * Prepares and loads underlying ORT runtime required for handwriting.

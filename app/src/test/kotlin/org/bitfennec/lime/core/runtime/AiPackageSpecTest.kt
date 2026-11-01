@@ -1,6 +1,8 @@
 package org.bitfennec.lime.core.runtime
 
+import org.bitfennec.lime.R
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.net.URL
@@ -19,12 +21,61 @@ class AiPackageSpecTest {
     }
 
     @Test
+    fun localPackageGraphResolvesWithoutChangingRegisteredPackages() {
+        val registered = AiPackageSpec.ALL_PACKAGES.toMap()
+        val dependency = AiPackageSpec.ortPackage.copy(id = "local-dependency", dependencies = emptyList())
+        val root = AiPackageSpec.voicePackage.copy(id = "local-root", dependencies = listOf(dependency.id))
+        val packages = java.util.Collections.unmodifiableMap(mapOf(root.id to root, dependency.id to dependency))
+
+        assertEquals(listOf(dependency, root), AiPackageSpec.resolveDependencies(root.id, packages))
+        assertEquals(emptyList<AiPackageSpec.Package>(), AiPackageSpec.resolveDependencies(root.id))
+        assertEquals(null, AiPackageSpec.getPackage(root.id))
+        assertEquals(registered, AiPackageSpec.ALL_PACKAGES)
+    }
+
+    @Test
+    fun senseVoiceIsTheOnlyRegisteredVoiceModel() {
+        assertEquals(setOf("ort", "ort-jni", "sherpa-jni", "handwriting", "voice"), AiPackageSpec.ALL_PACKAGES.keys)
+        assertEquals(
+            listOf(AiPackageSpec.voiceModelArtifact, AiPackageSpec.voiceTokensArtifact),
+            AiPackageSpec.voicePackage.artifacts,
+        )
+        assertFalse(AiPackageSpec.isVoicePackage("voice-funasr-nano"))
+        assertEquals(null, AiPackageSpec.getPackage("voice-funasr-nano"))
+    }
+
+    @Test
+    fun voiceModelMirrorsRemainSeparateFromSharedRuntimeSources() {
+        assertEquals(0, AiPackageSpec.resolveMirrorIndex("voice", "ort", 3))
+        assertEquals(0, AiPackageSpec.resolveMirrorIndex("voice", "sherpa-jni", 2))
+        for (mirror in 0..3) {
+            assertEquals(mirror, AiPackageSpec.resolveMirrorIndex("voice", "voice", mirror))
+        }
+    }
+
+    @Test
+    fun runtimeLibrariesShareOneVersionMatchedArchive() {
+        val libraries = listOf(AiPackageSpec.ortArtifact, AiPackageSpec.ortJniArtifact, AiPackageSpec.sherpaJniArtifact)
+        assertEquals(listOf(AiPackageSpec.runtimeArchiveArtifact), libraries.map { it.downloadArtifact }.distinct())
+        for (artifact in libraries) {
+            assertEquals("jni/arm64-v8a/${artifact.fileName}", artifact.archiveSource!!.entryName)
+        }
+    }
+
+    @Test
+    fun runtimeArchiveHasItsOwnTransferDisplayName() {
+        assertEquals(R.string.ai_artifact_runtime_archive, AiPackageSpec.runtimeArchiveArtifact.displayNameRes)
+        assertEquals(R.string.ai_artifact_ort_so, AiPackageSpec.ortArtifact.displayNameRes)
+        assertEquals(R.string.ai_artifact_ort_jni, AiPackageSpec.ortJniArtifact.displayNameRes)
+    }
+
+    @Test
     fun testAllArtifactsHaveValidShaAndUrls() {
         val shaRegex = Regex("^[0-9a-fA-F]{64}$")
         for ((pkgId, pkg) in AiPackageSpec.ALL_PACKAGES) {
             assertTrue("Package $pkgId must have version", pkg.version.isNotBlank())
             assertTrue("Package $pkgId must have artifacts", pkg.artifacts.isNotEmpty())
-            for (artifact in pkg.artifacts) {
+            for (artifact in pkg.artifacts.flatMap { listOfNotNull(it, it.archiveSource?.archive) }.distinctBy { it.sha256 }) {
                 assertTrue("Artifact ${artifact.id} must have valid SHA-256", shaRegex.matches(artifact.sha256))
                 assertTrue("Artifact ${artifact.id} minExpectedBytes must be > 0", artifact.minExpectedBytes > 0)
                 assertTrue("Artifact ${artifact.id} must have pinned URLs", artifact.pinnedUrls.isNotEmpty())
@@ -32,7 +83,7 @@ class AiPackageSpecTest {
                 for (urlStr in artifact.pinnedUrls) {
                     val url = URL(urlStr)
                     assertEquals("URL must use HTTPS", "https", url.protocol)
-                    assertTrue("URL must point to artifact filename", urlStr.endsWith(artifact.fileName))
+                    assertTrue("URL must point to download filename", urlStr.endsWith(artifact.downloadArtifact.fileName))
                 }
             }
         }

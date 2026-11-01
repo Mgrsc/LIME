@@ -32,11 +32,21 @@ object AiPackageSpec {
         val kind: ArtifactKind,
         val pinnedUrls: List<String>,
         @StringRes val displayNameRes: Int,
+        val archiveSource: ArchiveSource? = null,
     ) {
+        val downloadArtifact: Artifact
+            get() = archiveSource?.archive ?: this
+
         fun getDisplayName(context: Context): String = try {
             context.getString(displayNameRes)
         } catch (_: Exception) {
             fileName
+        }
+    }
+
+    data class ArchiveSource(val archive: Artifact, val entryName: String) {
+        init {
+            require(archive.archiveSource == null)
         }
     }
 
@@ -55,8 +65,8 @@ object AiPackageSpec {
     }
 
     // Version definitions
-    const val RUNTIME_VERSION = "1.29.0"
-    const val SHERPA_VERSION = "1.13.7-ort1.29.0"
+    const val RUNTIME_VERSION = "1.31.1"
+    const val SHERPA_VERSION = "2.0.1-ort1.31.1"
     const val HW_VERSION = "ppocrv6-v1.1"
     const val VOICE_VERSION = "sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17"
 
@@ -73,20 +83,6 @@ object AiPackageSpec {
     const val VOICE_TOKENS_NAME = "tokens.txt"
 
     // URL Prefixes
-    private const val PREFIX_RUNTIME_GHPROXY_304 = "https://ghproxy.net/https://github.com/Mgrsc/LIME/releases/download/v3.0.4-runtime/"
-    private const val PREFIX_RUNTIME_GH_304 = "https://github.com/Mgrsc/LIME/releases/download/v3.0.4-runtime/"
-    private const val PREFIX_RUNTIME_GHPROXY_304_BITFENNEC = "https://ghproxy.net/https://github.com/bitfennec/LIME/releases/download/v3.0.4-runtime/"
-    private const val PREFIX_RUNTIME_GH_304_BITFENNEC = "https://github.com/bitfennec/LIME/releases/download/v3.0.4-runtime/"
-
-    val RUNTIME_PREFIXES = listOf(
-        PREFIX_RUNTIME_GHPROXY_304,
-        PREFIX_RUNTIME_GH_304,
-        PREFIX_RUNTIME_GHPROXY_304_BITFENNEC,
-        PREFIX_RUNTIME_GH_304_BITFENNEC,
-        "https://ghproxy.net/https://github.com/Mgrsc/LIME/releases/download/v3.0.3-runtime/",
-        "https://github.com/Mgrsc/LIME/releases/download/v3.0.3-runtime/",
-    )
-
     private const val PREFIX_HW_GHPROXY_304 = "https://ghproxy.net/https://github.com/Mgrsc/LIME/releases/download/v3.0.4-runtime/"
     private const val PREFIX_HW_GH_304 = "https://github.com/Mgrsc/LIME/releases/download/v3.0.4-runtime/"
     private const val PREFIX_HW_GHPROXY_304_BITFENNEC = "https://ghproxy.net/https://github.com/bitfennec/LIME/releases/download/v3.0.4-runtime/"
@@ -112,37 +108,56 @@ object AiPackageSpec {
     )
 
     // Artifacts
+    private const val RUNTIME_ARCHIVE_NAME = "lime-ai-runtime-sherpa2.0.1-ort1.31.1-arm64-v8a.aar"
+
+    val runtimeArchiveArtifact = Artifact(
+        id = "ai-runtime-archive",
+        fileName = RUNTIME_ARCHIVE_NAME,
+        sha256 = "05241cba418a3705f38a6716c678a071cbe0b578d70e99a7bb0d0e3146e135fd",
+        expectedBytes = 14_543_609L,
+        minExpectedBytes = 14_543_609L,
+        kind = ArtifactKind.ASSET,
+        pinnedUrls = listOf(
+            "https://github.com/Mgrsc/LIME/releases/download/v3.0.4-runtime/$RUNTIME_ARCHIVE_NAME",
+            "https://ghproxy.net/https://github.com/Mgrsc/LIME/releases/download/v3.0.4-runtime/$RUNTIME_ARCHIVE_NAME",
+        ),
+        displayNameRes = R.string.ai_artifact_runtime_archive,
+    )
+
     val ortArtifact = Artifact(
         id = "ort-so",
         fileName = ORT_SO_NAME,
-        sha256 = "3a602b463d434d20fbf69cd1b8bdfd2f86a2cb67d08de97aec8f62476fa4ab87",
-        expectedBytes = 32_120_992L,
-        minExpectedBytes = 32_120_992L,
+        sha256 = "46e0c16cd515c62a1dd6c5994448b5413705478354bc20a756a5a82634c3ca03",
+        expectedBytes = 34_208_680L,
+        minExpectedBytes = 34_208_680L,
         kind = ArtifactKind.ELF_SO,
-        pinnedUrls = RUNTIME_PREFIXES.map { "$it$ORT_SO_NAME" },
+        pinnedUrls = runtimeArchiveArtifact.pinnedUrls,
         displayNameRes = R.string.ai_artifact_ort_so,
+        archiveSource = ArchiveSource(runtimeArchiveArtifact, "jni/arm64-v8a/$ORT_SO_NAME"),
     )
 
     val ortJniArtifact = Artifact(
         id = "ort-jni",
         fileName = ORT_JNI_SO_NAME,
-        sha256 = "45673d7fba377fe0555892460766051b5993d65c9f65e528dc9d515c07c9f683",
-        expectedBytes = 111_648L,
-        minExpectedBytes = 111_648L,
+        sha256 = "c80ab74a6ff66f04943e509a7824742ea2dfe8c6aa1d9dfdaf86c31f8cebdcfc",
+        expectedBytes = 122_576L,
+        minExpectedBytes = 122_576L,
         kind = ArtifactKind.ELF_SO,
-        pinnedUrls = RUNTIME_PREFIXES.map { "$it$ORT_JNI_SO_NAME" },
+        pinnedUrls = runtimeArchiveArtifact.pinnedUrls,
         displayNameRes = R.string.ai_artifact_ort_jni,
+        archiveSource = ArchiveSource(runtimeArchiveArtifact, "jni/arm64-v8a/$ORT_JNI_SO_NAME"),
     )
 
     val sherpaJniArtifact = Artifact(
         id = "sherpa-jni",
         fileName = SHERPA_JNI_SO_NAME,
-        sha256 = "07fe4c91a64c8c71f461fada26de95caf32ee24799731670343b69eb19877f1a",
-        expectedBytes = 3_442_400L,
-        minExpectedBytes = 3_442_400L,
+        sha256 = "fd30bc93e982974c02baa52555d2b2385f03f03ebaac278937b230721b762213",
+        expectedBytes = 3_888_264L,
+        minExpectedBytes = 3_888_264L,
         kind = ArtifactKind.ELF_SO,
-        pinnedUrls = RUNTIME_PREFIXES.map { "$it$SHERPA_JNI_SO_NAME" },
+        pinnedUrls = runtimeArchiveArtifact.pinnedUrls,
         displayNameRes = R.string.ai_artifact_sherpa_jni,
+        archiveSource = ArchiveSource(runtimeArchiveArtifact, "jni/arm64-v8a/$SHERPA_JNI_SO_NAME"),
     )
 
     val hwModelArtifact = Artifact(
@@ -241,6 +256,14 @@ object AiPackageSpec {
         displayNameRes = R.string.ai_download_notif_title_voice,
     )
 
+    fun isVoicePackage(packageId: String): Boolean =
+        packageId == voicePackage.id
+
+    internal fun resolveMirrorIndex(rootPackageId: String, packageId: String, mirrorIndex: Int): Int = when {
+        isVoicePackage(rootPackageId) && !isVoicePackage(packageId) -> 0
+        else -> mirrorIndex
+    }
+
     val ALL_PACKAGES: Map<String, Package> = mapOf(
         ortPackage.id to ortPackage,
         ortJniPackage.id to ortJniPackage,
@@ -254,13 +277,15 @@ object AiPackageSpec {
     /**
      * Resolves topological order of dependencies (depth-first, dependencies first, deduplicated).
      */
-    fun resolveDependencies(packageId: String): List<Package> {
+    fun resolveDependencies(packageId: String): List<Package> = resolveDependencies(packageId, ALL_PACKAGES)
+
+    internal fun resolveDependencies(packageId: String, packages: Map<String, Package>): List<Package> {
         val result = mutableListOf<Package>()
         val visited = mutableSetOf<String>()
 
         fun dfs(id: String) {
             if (id in visited) return
-            val pkg = ALL_PACKAGES[id] ?: return
+            val pkg = packages[id] ?: return
             for (dep in pkg.dependencies) {
                 dfs(dep)
             }

@@ -2,12 +2,30 @@ package org.bitfennec.lime.inputmethod.voice
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
+import org.bitfennec.lime.core.runtime.AiPackageSpec
 import org.junit.Test
 import java.io.File
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 
 class VoiceRecognitionEngineTest {
+
+    @Test
+    fun senseVoiceConfigPreservesRecognitionDefaults() {
+        val blobs = File("sense-voice-config-fixture")
+        val config = VoiceRecognitionEngine.createRecognizerConfig(blobs)
+
+        assertEquals(16_000, config.featConfig.sampleRate)
+        assertEquals(80, config.featConfig.featureDim)
+        assertEquals(2, config.modelConfig.numThreads)
+        assertEquals("cpu", config.modelConfig.provider)
+        assertFalse(config.modelConfig.debug)
+        assertEquals(File(blobs, AiPackageSpec.voiceModelArtifact.sha256).absolutePath, config.modelConfig.senseVoice.model)
+        assertEquals(File(blobs, AiPackageSpec.voiceTokensArtifact.sha256).absolutePath, config.modelConfig.tokens)
+        assertEquals("", config.modelConfig.senseVoice.language)
+        assertTrue(config.modelConfig.senseVoice.useInverseTextNormalization)
+    }
 
     @Test
     fun testVoiceRecognitionEngineHandlesMissingModelsGracefully() {

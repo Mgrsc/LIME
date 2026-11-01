@@ -214,7 +214,7 @@ class AiDownloadService : Service() {
         percent: Int,
         isFinished: Boolean
     ): Notification {
-        val title = if (packageId == "voice") {
+        val title = if (AiPackageSpec.isVoicePackage(packageId)) {
             getString(R.string.ai_download_notif_title_voice)
         } else {
             getString(R.string.ai_download_notif_title_handwriting)

@@ -83,4 +83,24 @@ class VoiceModelSpecTest {
             modelRepoDirectory = AiPackageSpec.VOICE_VERSION,
         ))
     }
+
+    @Test
+    fun nestedAssetRedirectRequiresExactRepositoryAndRelativePath() {
+        val fileName = "assets/vocabulary.json"
+        val artifact = tokensArtifact.copy(
+            fileName = fileName,
+            pinnedUrls = AiPackageSpec.VOICE_PREFIXES.map { "$it$fileName" },
+        )
+        val repository = AiPackageSpec.VOICE_VERSION
+        val prefix = "https://huggingface.co/api/resolve-cache/models/csukuangfj/$repository/0123456789abcdef/"
+        fun allowed(url: String) = AiDownloadGuard.isAllowedArtifactUrl(
+            URL(url), artifact.fileName, artifact.sha256, artifact.pinnedUrls, repository,
+        )
+
+        assertTrue(allowed(prefix + artifact.fileName))
+        assertFalse(allowed(prefix + "vocabulary.json"))
+        assertFalse(allowed(prefix + "other/" + artifact.fileName))
+        assertFalse(allowed(prefix.replace(repository, "another-model") + artifact.fileName))
+        assertFalse(allowed(prefix + "assets/../vocabulary.json"))
+    }
 }

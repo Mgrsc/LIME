@@ -403,4 +403,84 @@ class AiPackageInstallerTest {
         }
     }
 
+    @Test
+    fun testLocalPackageGraphSurvivesCancelledAttemptCleanup() = kotlinx.coroutines.runBlocking {
+        val tempDir = File.createTempFile("ai_local_graph", "").apply { delete(); mkdirs() }
+        val context = createMockContext(tempDir)
+        val content = "local graph fixture".toByteArray()
+        val artifact = AiPackageSpec.voiceTokensArtifact.copy(
+            id = "local-asset",
+            fileName = "fixture.txt",
+            sha256 = java.security.MessageDigest.getInstance("SHA-256").digest(content)
+                .joinToString("") { "%02x".format(it) },
+            expectedBytes = content.size.toLong(),
+            minExpectedBytes = content.size.toLong(),
+            pinnedUrls = listOf("https://github.com:444/example/fixture.txt"),
+        )
+        val dependency = AiPackageSpec.Package(
+            id = "local-dependency-${tempDir.name}",
+            version = "fixture",
+            dependencies = emptyList(),
+            artifacts = listOf(artifact),
+            displayNameRes = 1,
+        )
+        val root = dependency.copy(id = "local-root-${tempDir.name}", dependencies = listOf(dependency.id))
+        val packages = java.util.Collections.unmodifiableMap(mapOf(root.id to root, dependency.id to dependency))
+        val registered = AiPackageSpec.ALL_PACKAGES.toMap()
+        val field = AiPackageInstaller::class.java.getDeclaredField("activePackageJobs").apply { isAccessible = true }
+        @Suppress("UNCHECKED_CAST")
+        val jobs = field.get(AiPackageInstaller) as MutableMap<String, kotlinx.coroutines.Deferred<Boolean>>
+        val started = kotlinx.coroutines.CompletableDeferred<Unit>()
+        val cleaning = kotlinx.coroutines.CompletableDeferred<Unit>()
+        val releaseCleanup = kotlinx.coroutines.CompletableDeferred<Unit>()
+        val cancelling = async<Boolean>(kotlinx.coroutines.Dispatchers.Default) {
+            try {
+                started.complete(Unit)
+                kotlinx.coroutines.awaitCancellation()
+            } finally {
+                kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) {
+                    cleaning.complete(Unit)
+                    releaseCleanup.await()
+                }
+            }
+        }
+        var retry: kotlinx.coroutines.Deferred<Boolean>? = null
+        try {
+            val blob = AiBlobStore.getBlobFile(context, artifact.sha256, artifact.fileName)
+            blob.parentFile!!.mkdirs()
+            blob.writeBytes(content)
+            kotlinx.coroutines.withTimeout(5_000) { started.await() }
+            cancelling.cancel()
+            kotlinx.coroutines.withTimeout(5_000) { cleaning.await() }
+            jobs[root.id] = cancelling
+            cancelling.invokeOnCompletion { jobs.remove(root.id, cancelling) }
+            val attempt = async(kotlinx.coroutines.Dispatchers.IO, start = kotlinx.coroutines.CoroutineStart.UNDISPATCHED) {
+                AiPackageInstaller.ensure(context, root.id, packages, mirrorIndex = 1)
+            }
+            retry = attempt
+
+            assertTrue(attempt.isActive)
+            org.junit.Assert.assertSame(cancelling, jobs[root.id])
+            assertEquals(null, AiPackageSpec.getPackage(root.id))
+            assertEquals(registered, AiPackageSpec.ALL_PACKAGES)
+
+            releaseCleanup.complete(Unit)
+            assertTrue(kotlinx.coroutines.withTimeout(5_000) { attempt.await() })
+            assertEquals(dependency.version, AiBlobStore.getActiveVersion(context, dependency.id))
+            assertEquals(root.version, AiBlobStore.getActiveVersion(context, root.id))
+            assertTrue(AiPackageInstaller.getStatusFlow(root.id).value is AiPackageInstaller.PackageStatus.Ready)
+            assertTrue(AiPackageInstaller.ensure(context, root.id, packages, mirrorIndex = 1))
+            assertFalse(AiPackageInstaller.isPackageReady(context, root.id))
+            assertEquals(registered, AiPackageSpec.ALL_PACKAGES)
+        } finally {
+            releaseCleanup.complete(Unit)
+            cancelling.cancelAndJoin()
+            jobs.remove(root.id, cancelling)
+            AiPackageInstaller.cancel(root.id)
+            jobs[root.id]?.join()
+            retry?.cancelAndJoin()
+            tempDir.deleteRecursively()
+        }
+    }
+
 }

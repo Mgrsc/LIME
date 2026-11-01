@@ -91,8 +91,12 @@ class AudioRecordHelper {
         const val FRAME_SIZE = 512 // 32ms @ 16kHz
         private const val FRAME_DURATION_MS = (FRAME_SIZE * 1000L) / SAMPLE_RATE
         private const val PRE_SPEECH_FRAMES = 12 // ~384ms; trial net lookback ~224ms after 5-frame onset
-        private const val MAX_SESSION_SAMPLES = 15 * SAMPLE_RATE // 15s fallback buffer cap (~480KB primitive)
+        private const val MAX_FALLBACK_SAMPLES = 10 * SAMPLE_RATE
         private const val MAX_PREVIEW_SAMPLES = 12 * SAMPLE_RATE // 12s window cap covering full 10s max utterance + preroll/tail
+        private const val MIN_SILENCE_DURATION_MS = 700L
+        private const val TAIL_SAFETY_MARGIN_MS = 150L
+        private const val MIN_POST_SENTENCE_AUDIBLE_FRAMES =
+            ((MIN_SILENCE_DURATION_MS + FRAME_DURATION_MS - 1) / FRAME_DURATION_MS).toInt()
         private const val CHANNEL_CONFIG = AudioFormat.CHANNEL_IN_MONO
         private const val AUDIO_FORMAT = AudioFormat.ENCODING_PCM_16BIT
 
@@ -126,6 +130,8 @@ class AudioRecordHelper {
     private var currentGain = 1.0f
     private var sentenceGeneration = 0
     private var sessionAudibleFrames = 0
+    private var sessionTailSilenceMs = 0L
+    private var fallbackContinuation = false
 
     private var statsTotalFrames = 0
     private var statsSpeechFrames = 0
@@ -170,6 +176,14 @@ class AudioRecordHelper {
         statsNoiseMax = 0.0f
         statsMaxWhisperStreak = 0
         statsMaxStandardStreak = 0
+    }
+
+    private fun resetSentenceAcoustics() {
+        speechRmsEma = 0.0f
+        consecutiveWhisperFrames = 0
+        consecutiveStandardFrames = 0
+        whisperSilenceHangover = 0
+        resetAcousticStats()
     }
 
     private fun formatAcousticSummaryJson(): String {
@@ -224,7 +238,7 @@ class AudioRecordHelper {
 
     /** Starts audio recording. */
     @SuppressLint("MissingPermission")
-    fun startRecording(listener: AudioCaptureListener): Boolean {
+    fun startRecording(listener: AudioCaptureListener, diagnosticTraceId: Long = 0L): Boolean {
         val minBufferSize = AudioRecord.getMinBufferSize(SAMPLE_RATE, CHANNEL_CONFIG, AUDIO_FORMAT)
         if (minBufferSize <= 0) return false
         val bufferSize = max(minBufferSize, SAMPLE_RATE / 5)
@@ -279,7 +293,7 @@ class AudioRecordHelper {
             if (record == null || record.state != AudioRecord.STATE_INITIALIZED) {
                 android.util.Log.e("AudioRecordHelper", """{"event":"voice.record_init_failed","error":"no initialized AudioRecord"}""")
                 isRecording.set(false)
-                finishCaptureThread(ownedRecord = null, frame = ShortArray(0), pendingCount = 0)
+                finishCaptureThread(ownedRecord = null, frame = ShortArray(0), pendingCount = 0, diagnosticTraceId = diagnosticTraceId)
                 return@Thread
             }
 
@@ -289,11 +303,11 @@ class AudioRecordHelper {
             } catch (e: Throwable) {
                 android.util.Log.e("AudioRecordHelper", """{"event":"voice.record_start_error","error":"${e.message}"}""", e)
                 isRecording.set(false)
-                finishCaptureThread(ownedRecord = record, frame = ShortArray(0), pendingCount = 0)
+                finishCaptureThread(ownedRecord = record, frame = ShortArray(0), pendingCount = 0, diagnosticTraceId = diagnosticTraceId)
                 return@Thread
             }
             if (isAborted.get() || !isRecording.get()) {
-                finishCaptureThread(ownedRecord = record, frame = ShortArray(0), pendingCount = 0)
+                finishCaptureThread(ownedRecord = record, frame = ShortArray(0), pendingCount = 0, diagnosticTraceId = diagnosticTraceId)
                 return@Thread
             }
 
@@ -332,7 +346,7 @@ class AudioRecordHelper {
                 if (!isRecording.get()) break
             }
 
-            finishCaptureThread(ownedRecord = record, frame = frame, pendingCount = pendingCount)
+            finishCaptureThread(ownedRecord = record, frame = frame, pendingCount = pendingCount, diagnosticTraceId = diagnosticTraceId)
         }, "Voice-AudioRecord-Thread").apply {
             priority = Thread.NORM_PRIORITY + 1
             start()
@@ -356,27 +370,19 @@ class AudioRecordHelper {
     internal fun prepareCaptureSession(listener: AudioCaptureListener, notifyAsync: Boolean = false) {
         captureListener = listener
         currentMode = VoiceCaptureMode.STANDARD
-        speechRmsEma = 0.0f
-        consecutiveWhisperFrames = 0
-        consecutiveStandardFrames = 0
-        whisperSilenceHangover = 0
+        resetSentenceAcoustics()
         standardLocked = false
         currentGain = 1.0f
         sentenceGeneration = 0
-        sessionAudibleFrames = 0
-        resetAcousticStats()
         synchronized(sentenceLock) {
-            sentenceSamples.clear()
-            sessionSamples.clear()
-            preSpeechIndex = 0
-            preSpeechCount = 0
+            clearPendingSamples()
         }
         if (!notifyAsync) {
             isAborted.set(false)
             isRecording.set(true)
         }
         vadDetector = VadDetector(
-            minSilenceDurationMs = 700L,
+            minSilenceDurationMs = MIN_SILENCE_DURATION_MS,
             maxSpeechDurationMs = 10000L,
             silenceTimeoutMs = 12000L,
             minSpeechDurationMs = 150L,
@@ -419,16 +425,12 @@ class AudioRecordHelper {
                         rawSessionCount = sessionSamples.size
                     }
                     val finalSentence = extractSentenceSamples(tailSilenceMs)
-                    val dropReason = if (finalSentence.isEmpty()) "below_min_400ms" else "none"
+                    val dropReason = if (finalSentence.isEmpty()) "insufficient_audible_audio" else "none"
                     android.util.Log.i(
                         "AudioRecordHelper",
                         """{"event":"voice.speech_end","sample_count":${finalSentence.size},"raw_sentence_samples":$rawSentenceCount,"raw_session_samples":$rawSessionCount,"tail_silence_ms":$tailSilenceMs,"sentence_gen":$sentenceGeneration,"drop_reason":"$dropReason",${formatAcousticSummaryJson()}}"""
                     )
-                    speechRmsEma = 0.0f
-                    consecutiveWhisperFrames = 0
-                    consecutiveStandardFrames = 0
-                    whisperSilenceHangover = 0
-                    resetAcousticStats()
+                    resetSentenceAcoustics()
                     if (finalSentence.isNotEmpty() && !isAborted.get()) {
                         listener.onSentenceFinal(finalSentence)
                     }
@@ -571,14 +573,43 @@ class AudioRecordHelper {
                 sessionAudibleFrames++
             }
             if (sessionAudibleFrames > 0) {
-                appendGainedSamples(sessionSamples, frame, FRAME_SIZE, respectSessionCap = true)
+                appendGainedSamples(sessionSamples, frame, FRAME_SIZE)
+                sessionTailSilenceMs = if (hasAudibleSignal) 0L else sessionTailSilenceMs + FRAME_DURATION_MS
             }
             if (inSpeech) {
-                appendGainedSamples(sentenceSamples, frame, FRAME_SIZE, respectSessionCap = false)
+                appendGainedSamples(sentenceSamples, frame, FRAME_SIZE)
             } else {
                 System.arraycopy(frame, 0, preSpeechRingBuffer[preSpeechIndex], 0, FRAME_SIZE)
                 preSpeechIndex = (preSpeechIndex + 1) % PRE_SPEECH_FRAMES
                 if (preSpeechCount < PRE_SPEECH_FRAMES) preSpeechCount++
+            }
+        }
+
+        if (!inSpeech) {
+            val fallbackSentence = synchronized(sentenceLock) {
+                val maxDurationReached = sessionSamples.size >= MAX_FALLBACK_SAMPLES
+                val silenceReached = sessionTailSilenceMs >= MIN_SILENCE_DURATION_MS
+                if (maxDurationReached || silenceReached) {
+                    val result = if (hasSufficientFallbackAudio()) {
+                        sessionSamples.toFloatArray(count = trimTailSilence(sessionSamples.size, sessionTailSilenceMs))
+                    } else {
+                        FloatArray(0)
+                    }
+                    clearPendingSamples()
+                    if (result.isNotEmpty()) {
+                        sentenceGeneration++
+                        fallbackContinuation = maxDurationReached && !silenceReached
+                    }
+                    result
+                } else {
+                    null
+                }
+            }
+            if (fallbackSentence != null) {
+                resetSentenceAcoustics()
+                if (fallbackSentence.isNotEmpty() && !isAborted.get()) {
+                    listener.onSentenceFinal(fallbackSentence)
+                }
             }
         }
 
@@ -598,7 +629,7 @@ class AudioRecordHelper {
                 val offset = sentenceSamples.size - count
                 return sentenceSamples.toFloatArray(count = count, startOffset = offset)
             }
-            if (sessionAudibleFrames >= MIN_SESSION_AUDIBLE_FRAMES && sessionSamples.isNotEmpty()) {
+            if (hasSufficientFallbackAudio() && sessionSamples.isNotEmpty()) {
                 val count = min(sessionSamples.size, MAX_PREVIEW_SAMPLES)
                 val offset = sessionSamples.size - count
                 return sessionSamples.toFloatArray(count = count, startOffset = offset)
@@ -607,59 +638,61 @@ class AudioRecordHelper {
         }
     }
 
-    /** Computes sample count after trimming trailing silence (preserves 150ms tail, min 400ms threshold). */
     private fun trimTailSilence(size: Int, tailSilenceMs: Long): Int {
-        val minValidSamples = 400 * (SAMPLE_RATE / 1000)
-        val safetyMarginMs = 150L
-        val trimMs = if (tailSilenceMs > safetyMarginMs) tailSilenceMs - safetyMarginMs else 0L
+        val trimMs = (tailSilenceMs - TAIL_SAFETY_MARGIN_MS).coerceAtLeast(0L)
         val trimSamples = (trimMs * (SAMPLE_RATE / 1000)).toInt()
-        return max(minValidSamples, size - trimSamples)
+        return (size - trimSamples).coerceIn(0, size)
     }
 
-    /** Extracts and resets current utterance audio (trims trailing silence, preserves 150ms tail). */
     private fun extractSentenceSamples(tailSilenceMs: Long = 0L): FloatArray {
         synchronized(sentenceLock) {
             val size = sentenceSamples.size
-            val minValidSamples = 400 * (SAMPLE_RATE / 1000)
-            val result = if (size >= minValidSamples) {
+            val result = if (size > 0 && sessionAudibleFrames >= MIN_SESSION_AUDIBLE_FRAMES) {
                 sentenceGeneration++
-                val extracted = sentenceSamples.toFloatArray(count = trimTailSilence(size, tailSilenceMs))
-                sessionSamples.clear()
-                sessionAudibleFrames = 0
-                extracted
+                sentenceSamples.toFloatArray(count = trimTailSilence(size, tailSilenceMs))
             } else {
                 FloatArray(0)
             }
-            sentenceSamples.clear()
-            preSpeechIndex = 0
-            preSpeechCount = 0
+            clearPendingSamples()
+            fallbackContinuation = result.isNotEmpty() && tailSilenceMs == 0L
             return result
         }
     }
 
+    private fun hasSufficientFallbackAudio(): Boolean {
+        val minAudibleFrames = if (sentenceGeneration == 0 || fallbackContinuation) {
+            MIN_SESSION_AUDIBLE_FRAMES
+        } else {
+            MIN_POST_SENTENCE_AUDIBLE_FRAMES
+        }
+        return sessionAudibleFrames >= minAudibleFrames
+    }
+
+    private fun clearPendingSamples() {
+        sentenceSamples.clear()
+        sessionSamples.clear()
+        sessionAudibleFrames = 0
+        sessionTailSilenceMs = 0L
+        fallbackContinuation = false
+        preSpeechIndex = 0
+        preSpeechCount = 0
+    }
+
     internal fun extractRemainingForStop(tailSilenceMs: Long = vadDetector?.getCurrentTailSilenceMs() ?: 0L): FloatArray? {
         synchronized(sentenceLock) {
-            preSpeechIndex = 0
-            preSpeechCount = 0
             val size = sentenceSamples.size
-            val minValidSamples = 400 * (SAMPLE_RATE / 1000)
-            val result = if (size >= minValidSamples) {
+            val result = if (size > 0 && sessionAudibleFrames >= MIN_SESSION_AUDIBLE_FRAMES) {
                 sentenceSamples.toFloatArray(count = trimTailSilence(size, tailSilenceMs))
-            } else if (sentenceGeneration == 0 &&
-                sessionAudibleFrames >= MIN_SESSION_AUDIBLE_FRAMES &&
-                sessionSamples.size >= minValidSamples
-            ) {
+            } else if (hasSufficientFallbackAudio() && sessionSamples.isNotEmpty()) {
                 val sessionSize = sessionSamples.size
-                val targetSize = trimTailSilence(sessionSize, tailSilenceMs)
+                val targetSize = trimTailSilence(sessionSize, max(tailSilenceMs, sessionTailSilenceMs))
                 android.util.Log.i("AudioRecordHelper", """{"event":"voice.fallback_session_audio","samples":$targetSize,"raw_session":$sessionSize,"audible_frames":$sessionAudibleFrames,"sentence_gen":$sentenceGeneration}""")
                 sessionSamples.toFloatArray(count = targetSize)
             } else {
                 null
             }
-            sentenceSamples.clear()
-            sessionSamples.clear()
+            clearPendingSamples()
             sentenceGeneration = 0
-            sessionAudibleFrames = 0
             whisperSilenceHangover = 0
             return result
         }
@@ -669,9 +702,7 @@ class AudioRecordHelper {
         dest: ShortSampleBuffer,
         src: ShortArray,
         count: Int,
-        respectSessionCap: Boolean,
     ) {
-        if (respectSessionCap && dest.size + count > MAX_SESSION_SAMPLES) return
         if (currentGain > 1.02f) {
             for (i in 0 until count) {
                 dest.add((src[i] * currentGain).toInt().coerceIn(-32768, 32767).toShort())
@@ -685,22 +716,18 @@ class AudioRecordHelper {
         if (count <= 0) return
         synchronized(sentenceLock) {
             if (sessionAudibleFrames > 0) {
-                appendGainedSamples(sessionSamples, frame, count, respectSessionCap = true)
+                appendGainedSamples(sessionSamples, frame, count)
             }
             if (vadDetector?.isInSpeech() == true) {
-                appendGainedSamples(sentenceSamples, frame, count, respectSessionCap = false)
+                appendGainedSamples(sentenceSamples, frame, count)
             }
         }
     }
 
     private fun discardBuffers() {
         synchronized(sentenceLock) {
-            preSpeechIndex = 0
-            preSpeechCount = 0
-            sentenceSamples.clear()
-            sessionSamples.clear()
+            clearPendingSamples()
             sentenceGeneration = 0
-            sessionAudibleFrames = 0
             whisperSilenceHangover = 0
         }
     }
@@ -719,7 +746,12 @@ class AudioRecordHelper {
         }
     }
 
-    private fun finishCaptureThread(ownedRecord: AudioRecord?, frame: ShortArray, pendingCount: Int) {
+    private fun finishCaptureThread(
+        ownedRecord: AudioRecord?,
+        frame: ShortArray,
+        pendingCount: Int,
+        diagnosticTraceId: Long,
+    ) {
         val aborted = isAborted.get()
         if (!aborted && pendingCount > 0) {
             appendRemainder(frame, pendingCount)
@@ -763,6 +795,11 @@ class AudioRecordHelper {
                 recordingThread = null
             }
         }
+        VoiceLatencyTrace.record(
+            VoiceLatencyTrace.Event.CAPTURE_STOPPED, diagnosticTraceId,
+            sampleCount = remaining?.size ?: 0,
+            status = if (isAborted.get()) VoiceLatencyTrace.Status.CANCELLED else VoiceLatencyTrace.Status.SUCCESS,
+        )
         if (!aborted) {
             android.util.Log.i(
                 "AudioRecordHelper",

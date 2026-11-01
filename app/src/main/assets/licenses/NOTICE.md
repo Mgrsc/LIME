@@ -17,8 +17,8 @@
 
 Lua 文本摘自 `librime-lua-thirdparty-fa40fad/lua5.4/lua.h` 文件末尾版权块（Lua 5.4.8）。
 
-- sherpa-onnx 1.13.7：[原始许可](https://github.com/k2-fsa/sherpa-onnx/blob/v1.13.7/LICENSE)。随仓库 Java JAR 使用此文本。
-- ONNX Runtime 1.29.0：[原始许可](https://github.com/microsoft/onnxruntime/blob/v1.29.0/LICENSE)。此处覆盖 ONNX Runtime 自身，不代替定制运行库实际链接组件的 notices。
+- sherpa-onnx 2.0.1：[原始许可](https://github.com/k2-fsa/sherpa-onnx/blob/v2.0.1/LICENSE)。随仓库 Java JAR 使用此文本。
+- ONNX Runtime 1.31.1：[原始许可](https://github.com/microsoft/onnxruntime/blob/v1.31.1/LICENSE)。此处覆盖 ONNX Runtime 自身；动态运行库归档另附上游及传递组件许可。Sherpa JNI 使用 2.0.1 源码针对 ORT 1.31.1 重编译，构建入口为 `tools/runtime/build_ai_runtime.py`。
 - `LIME.txt`：项目 BSD-3-Clause 及第三方声明。
 
 这不是完整传递依赖 SBOM。正式分发仍需核对定制运行库、模型与 Android 依赖的版权及 NOTICE，尤其不能用一个 Apache-2.0 通用文本替代各组件要求保留的声明。操作清单见 `docs/releasing.md`。

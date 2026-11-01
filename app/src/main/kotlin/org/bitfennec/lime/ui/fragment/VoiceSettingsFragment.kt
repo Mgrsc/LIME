@@ -18,8 +18,8 @@ import kotlinx.coroutines.launch
 import org.bitfennec.lime.R
 import org.bitfennec.lime.core.runtime.AiBlobDownloader
 import org.bitfennec.lime.core.runtime.AiPackageInstaller.PackageStatus
+import org.bitfennec.lime.core.runtime.AiPackageSpec
 import org.bitfennec.lime.inputmethod.voice.VoiceModelManager
-import org.bitfennec.lime.inputmethod.voice.VoiceRecognitionEngine
 import org.bitfennec.lime.inputmethod.voice.ui.VoiceDownloadDialog
 import org.bitfennec.lime.prefs.AppPrefs
 
@@ -146,7 +146,7 @@ class VoiceSettingsFragment : Fragment() {
         val isReady = VoiceModelManager.isModelReady(context)
 
         if (isReady) {
-            val sizeMb = VoiceModelManager.getModelFile(context).length() / 1_000_000L
+            val sizeMb = AiPackageSpec.voicePackage.artifacts.sumOf { it.expectedBytes } / 1_000_000L
             tvModelBadge.text = getString(R.string.voice_model_ready)
             tvModelBadge.setTextColor(ContextCompat.getColor(requireContext(), R.color.settings_badge_active_text))
             tvModelBadge.backgroundTintList = ColorStateList.valueOf(ContextCompat.getColor(requireContext(), R.color.settings_badge_active_bg))
@@ -169,10 +169,14 @@ class VoiceSettingsFragment : Fragment() {
             .setTitle(R.string.voice_delete_model_title)
             .setMessage(R.string.voice_delete_model_message)
             .setPositiveButton(R.string.voice_delete_model_confirm) { _, _ ->
-                VoiceModelManager.deleteModel(context)
-                VoiceRecognitionEngine.release()
-                updateModelCardUi()
-                Toast.makeText(context, R.string.voice_model_deleted_toast, Toast.LENGTH_SHORT).show()
+                viewLifecycleOwner.lifecycleScope.launch {
+                    if (VoiceModelManager.deleteModel(context)) {
+                        updateModelCardUi()
+                        Toast.makeText(context, R.string.voice_model_deleted_toast, Toast.LENGTH_SHORT).show()
+                    } else {
+                        Toast.makeText(context, R.string.voice_model_busy, Toast.LENGTH_SHORT).show()
+                    }
+                }
             }
             .setNegativeButton(R.string.voice_btn_cancel, null)
             .show()
@@ -185,7 +189,6 @@ class VoiceSettingsFragment : Fragment() {
             org.bitfennec.lime.inputmethod.voice.ui.VoicePermissionActivity.requestNotificationPermission(context)
         }
         val dialog = VoiceDownloadDialog(context) {
-            VoiceRecognitionEngine.init(context)
             updateModelCardUi()
         }
         dialog.show()
@@ -200,12 +203,7 @@ class VoiceSettingsFragment : Fragment() {
     }
 
     private fun showMirrorsDialog() {
-        val mirrors = arrayOf(
-            getString(R.string.voice_mirror_auto),
-            getString(R.string.voice_mirror_modelscope),
-            getString(R.string.voice_mirror_hf_mirror),
-            getString(R.string.voice_mirror_huggingface)
-        )
+        val mirrors = (0..3).map { getMirrorName(it) }.toTypedArray()
 
         val currentSelected = try {
             AppPrefs.getInstance().voice.mirrorSource.getValue().coerceIn(0, 3)

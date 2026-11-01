@@ -50,6 +50,7 @@ import org.bitfennec.lime.inputmethod.predict.CandidateStripMode
 import org.bitfennec.lime.inputmethod.voice.AudioRecordHelper
 import org.bitfennec.lime.inputmethod.voice.AsrWorker
 import org.bitfennec.lime.inputmethod.voice.VoiceRecognitionEngine
+import org.bitfennec.lime.inputmethod.voice.VoiceLatencyTrace
 import org.bitfennec.lime.inputmethod.voice.ui.VoiceInputOverlayView
 import org.bitfennec.lime.keyboard.ui.HeightAdjustBar
 import org.bitfennec.lime.environment.ImeEnvironment
@@ -71,6 +72,7 @@ import org.bitfennec.lime.utils.rightPadding
 import kotlin.math.absoluteValue
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
+import java.util.concurrent.TimeUnit
 
 /**
  * Main IME view containing composition display, candidate bar, and keyboard layouts.
@@ -617,19 +619,20 @@ class InputView(context: Context, val service: ImeService) : RelativeLayout(cont
     @Volatile
     private var isStreamingActive = false
     private var asrWorker: AsrWorker? = null
+    private var voiceDiagnosticTraceId = 0L
 
     private fun startLiveStreaming(sessionId: Long) {
         isStreamingActive = true
         streamingThread = Thread({
             while (isStreamingActive && audioRecordHelper.isRecording() && sessionId == currentVoiceSessionId && isVoiceSessionActive) {
                 try {
-                    Thread.sleep(500)
+                    Thread.sleep(VOICE_PREVIEW_INTERVAL_MS)
                 } catch (_: InterruptedException) {
                     break
                 }
                 if (!isStreamingActive || !audioRecordHelper.isRecording() || sessionId != currentVoiceSessionId || !isVoiceSessionActive) break
 
-                if (VoiceRecognitionEngine.isReady()) {
+                if (VoiceRecognitionEngine.isReady() && asrWorker?.canSubmitPreview() == true) {
                     try {
                         val snapshot = audioRecordHelper.getCurrentSentenceSnapshot()
                         if (snapshot.size >= 400 * (AudioRecordHelper.SAMPLE_RATE / 1000) &&
@@ -711,18 +714,32 @@ class InputView(context: Context, val service: ImeService) : RelativeLayout(cont
         isVoiceSessionActive = true
         val resultGen = voiceResultGeneration.get()
 
+        val diagnosticTraceId = VoiceLatencyTrace.startSession(
+            context, VoiceRecognitionEngine.isReady(),
+        )
+        voiceDiagnosticTraceId = diagnosticTraceId
+
         var lastShownInterimLength = 0
         asrWorker = AsrWorker(
+            diagnosticTraceId = diagnosticTraceId,
             onInterimResult = { interimText ->
+                val receivedAtNanos = System.nanoTime()
                 post {
                     if (resultGen != voiceResultGeneration.get()) return@post
                     if (sessionId == currentVoiceSessionId && isVoiceSessionActive) {
                         lastShownInterimLength = interimText.length
                         mVoiceOverlay?.updateLiveText(interimText)
+                        VoiceLatencyTrace.record(
+                            VoiceLatencyTrace.Event.PREVIEW_UPDATED, diagnosticTraceId,
+                            status = if (mVoiceOverlay?.isShown == true) VoiceLatencyTrace.Status.SUCCESS else VoiceLatencyTrace.Status.DROPPED,
+                            queueMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - receivedAtNanos),
+                        )
                     }
                 }
             },
             onFinalResult = { finalText ->
+                val receivedAtNanos = System.nanoTime()
+                VoiceLatencyTrace.record(VoiceLatencyTrace.Event.RESULT_RECEIVED, diagnosticTraceId)
                 post {
                     // Do not gate on voiceResultGeneration: active_reused keeps the same
                     // sessionId, and bumping generation on restart would drop the previous
@@ -730,30 +747,48 @@ class InputView(context: Context, val service: ImeService) : RelativeLayout(cont
                     val curSessionId = currentVoiceSessionId
                     val curActive = isVoiceSessionActive
                     val curGen = voiceResultGeneration.get()
-                    if (sessionId == curSessionId && curActive) {
-                        if (finalText.isNotEmpty()) {
-                            val committed = service.commitModalText(sessionId, finalText)
-                            android.util.Log.i(
-                                "InputView",
-                                """{"event":"voice.commit_final","session_id":$sessionId,"result_gen":$resultGen,"current_gen":$curGen,"success":$committed,"text_length":${finalText.length},"last_interim_length":$lastShownInterimLength}"""
-                            )
-                            lastShownInterimLength = 0
-                            // May clear a newer session's interim preview when sessionId is reused;
-                            // the next preview (~500ms) restores it.
-                            mVoiceOverlay?.updateLiveText("")
+                    val commitStartedAtNanos = System.nanoTime()
+                    VoiceLatencyTrace.record(
+                        VoiceLatencyTrace.Event.RESULT_HANDLING_STARTED, diagnosticTraceId,
+                        queueMs = TimeUnit.NANOSECONDS.toMillis(commitStartedAtNanos - receivedAtNanos),
+                    )
+                    var commitStatus = VoiceLatencyTrace.Status.DROPPED
+                    try {
+                        if (sessionId == curSessionId && curActive) {
+                            if (finalText.isNotEmpty()) {
+                                commitStatus = VoiceLatencyTrace.Status.FAILED
+                                val committed = service.commitModalText(sessionId, finalText)
+                                commitStatus = if (committed) VoiceLatencyTrace.Status.SUCCESS else VoiceLatencyTrace.Status.FAILED
+                                android.util.Log.i(
+                                    "InputView",
+                                    """{"event":"voice.commit_final","session_id":$sessionId,"result_gen":$resultGen,"current_gen":$curGen,"success":$committed,"text_length":${finalText.length},"last_interim_length":$lastShownInterimLength}"""
+                                )
+                                lastShownInterimLength = 0
+                                // May clear a newer session's interim preview when sessionId is reused;
+                                // the next preview (~500ms) restores it.
+                                mVoiceOverlay?.updateLiveText("")
+                            } else {
+                                commitStatus = VoiceLatencyTrace.Status.EMPTY
+                                android.util.Log.i(
+                                    "InputView",
+                                    """{"event":"voice.commit_final","session_id":$sessionId,"result_gen":$resultGen,"current_gen":$curGen,"success":false,"reason":"empty_final_text","text_length":0,"last_interim_length":$lastShownInterimLength}"""
+                                )
+                                lastShownInterimLength = 0
+                                mVoiceOverlay?.updateLiveText("")
+                                Toast.makeText(context, R.string.voice_retry_hint, Toast.LENGTH_SHORT).show()
+                            }
                         } else {
                             android.util.Log.i(
                                 "InputView",
-                                """{"event":"voice.commit_final","session_id":$sessionId,"result_gen":$resultGen,"current_gen":$curGen,"success":false,"reason":"empty_final_text","text_length":0,"last_interim_length":$lastShownInterimLength}"""
+                                """{"event":"voice.commit_final","session_id":$sessionId,"current_session_id":$curSessionId,"is_session_active":$curActive,"result_gen":$resultGen,"current_gen":$curGen,"success":false,"reason":"session_inactive_or_mismatch","text_length":${finalText.length},"last_interim_length":$lastShownInterimLength}"""
                             )
-                            lastShownInterimLength = 0
-                            mVoiceOverlay?.updateLiveText("")
-                            Toast.makeText(context, R.string.voice_retry_hint, Toast.LENGTH_SHORT).show()
                         }
-                    } else {
-                        android.util.Log.i(
-                            "InputView",
-                            """{"event":"voice.commit_final","session_id":$sessionId,"current_session_id":$curSessionId,"is_session_active":$curActive,"result_gen":$resultGen,"current_gen":$curGen,"success":false,"reason":"session_inactive_or_mismatch","text_length":${finalText.length},"last_interim_length":$lastShownInterimLength}"""
+                    } finally {
+                        VoiceLatencyTrace.record(
+                            VoiceLatencyTrace.Event.COMMIT_COMPLETED, diagnosticTraceId,
+                            status = commitStatus,
+                            queueMs = TimeUnit.NANOSECONDS.toMillis(commitStartedAtNanos - receivedAtNanos),
+                            durationMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - commitStartedAtNanos),
                         )
                     }
                 }
@@ -828,7 +863,7 @@ class InputView(context: Context, val service: ImeService) : RelativeLayout(cont
                     }
                 }
             }
-        })
+        }, diagnosticTraceId = diagnosticTraceId)
 
         if (!success) {
             invalidateVoiceSession()
@@ -874,8 +909,11 @@ class InputView(context: Context, val service: ImeService) : RelativeLayout(cont
 
         stopLiveStreaming()
 
+        val diagnosticTraceId = voiceDiagnosticTraceId
+
         when (state) {
             VoiceInputOverlayView.VoiceActionState.CANCEL -> {
+                VoiceLatencyTrace.record(VoiceLatencyTrace.Event.SESSION_CANCELLED, diagnosticTraceId)
                 invalidateVoiceSession()
                 audioRecordHelper.abortRecording()
                 DevicesUtils.tryVibrate(this)
@@ -895,10 +933,15 @@ class InputView(context: Context, val service: ImeService) : RelativeLayout(cont
                 if (!voiceStopRequested.compareAndSet(false, true)) {
                     return
                 }
+                VoiceLatencyTrace.record(VoiceLatencyTrace.Event.STOP_REQUESTED, diagnosticTraceId)
                 val resultGen = voiceResultGeneration.get()
                 val worker = asrWorker
                 audioRecordHelper.stopRecording { remainingSamples ->
                     post {
+                        VoiceLatencyTrace.record(
+                            VoiceLatencyTrace.Event.STOP_HANDOFF, diagnosticTraceId,
+                            sampleCount = remainingSamples?.size ?: 0,
+                        )
                         val curGen = voiceResultGeneration.get()
                         val curSessionId = currentVoiceSessionId
                         val curActive = isVoiceSessionActive
@@ -925,6 +968,14 @@ class InputView(context: Context, val service: ImeService) : RelativeLayout(cont
                         }
                         worker.finishSession(remainingSamples) {
                             post {
+                                VoiceLatencyTrace.record(
+                                    VoiceLatencyTrace.Event.SESSION_FINISHED, diagnosticTraceId,
+                                    status = if (resultGen == voiceResultGeneration.get() && sessionId == currentVoiceSessionId) {
+                                        VoiceLatencyTrace.Status.SUCCESS
+                                    } else {
+                                        VoiceLatencyTrace.Status.DROPPED
+                                    },
+                                )
                                 if (resultGen != voiceResultGeneration.get()) return@post
                                 if (sessionId == currentVoiceSessionId) {
                                     if (isColdPreparing) {
@@ -943,6 +994,9 @@ class InputView(context: Context, val service: ImeService) : RelativeLayout(cont
     }
 
     override fun onVoiceCancel() {
+        if (isVoiceSessionActive) {
+            VoiceLatencyTrace.record(VoiceLatencyTrace.Event.SESSION_CANCELLED, voiceDiagnosticTraceId)
+        }
         accessibleVoiceStart = false
         val sessionId = currentVoiceSessionId
         isVoiceStartPending = false
@@ -1653,7 +1707,7 @@ class InputView(context: Context, val service: ImeService) : RelativeLayout(cont
         expectedSelStart = -1
         expectedSelEnd = -1
         InputModeSwitcher.requestInputWithSkb(editorInfo, restarting)
-        if (restarting) {
+        if (restarting || KeyboardManager.instance.currentContainer is InputBaseContainer) {
             KeyboardManager.instance.currentContainer?.updateSkbLayout()
         }
         if (KeyboardManager.instance.currentContainer == null) {
@@ -2027,6 +2081,7 @@ class InputView(context: Context, val service: ImeService) : RelativeLayout(cont
     }
 
     companion object {
+        private const val VOICE_PREVIEW_INTERVAL_MS = 500L
         private val PANEL_SWITCH_KEYCODES =
             InputModeSwitcher.USER_KEYCODE_RETURN..InputModeSwitcher.USER_KEYCODE_LANG
 

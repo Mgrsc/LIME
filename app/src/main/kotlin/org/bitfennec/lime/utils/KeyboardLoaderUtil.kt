@@ -38,9 +38,7 @@ class KeyboardLoaderUtil private constructor() {
 
         val softKeyboard: SoftKeyboard?
         numberLine = AppPrefs.getInstance().keyboardSetting.abcNumberLine.getValue()
-        val isHandwritingOrNumber = skbValue == InputModeSwitcher.MASK_SKB_LAYOUT_HANDWRITING ||
-            skbValue == InputModeSwitcher.MASK_SKB_LAYOUT_NUMBER
-        val effectiveNumberLine = numberLine && !isHandwritingOrNumber
+        val effectiveNumberLine = usesNumberRow(skbValue)
         val rows: MutableList<List<SoftKey>> = ArrayList()
         if (effectiveNumberLine) {
             val qwertyKeys = createNumberLineKeys(arrayOf(1, 2, 3, 4, 5, 6, 7, 8, 9, 0))
@@ -308,12 +306,21 @@ class KeyboardLoaderUtil private constructor() {
     }
 
     fun getSoftKeyboard(skbValue: Int): SoftKeyboard {
-        var softKeyboard = mSoftKeyboardMap[skbValue]
-        if (softKeyboard == null) {
-            softKeyboard = loadBaseSkb(skbValue)
+        numberLine = AppPrefs.getInstance().keyboardSetting.abcNumberLine.getValue()
+        val softKeyboard = mSoftKeyboardMap[skbValue]
+        if (softKeyboard != null &&
+            softKeyboard.layoutId == buildLayoutId(skbValue, usesNumberRow(skbValue)) &&
+            softKeyboard.keyXMargin == ImeEnvironment.keyXMargin &&
+            softKeyboard.keyYMargin == ImeEnvironment.keyYMargin
+        ) {
+            return softKeyboard
         }
-        return softKeyboard
+        return loadBaseSkb(skbValue)
     }
+
+    private fun usesNumberRow(skbValue: Int): Boolean =
+        numberLine && skbValue != InputModeSwitcher.MASK_SKB_LAYOUT_HANDWRITING &&
+            skbValue != InputModeSwitcher.MASK_SKB_LAYOUT_NUMBER
 
     fun changeSKBNumberRow() {
         val keys = mSoftKeyboardMap.keys.toList()

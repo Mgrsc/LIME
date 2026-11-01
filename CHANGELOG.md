@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.9.5] - 2026-11-01
+
+### Changed
+- **Keyboard Presentation**: Refined keyboard visual hierarchy, typography, key spacing, and press feedback.
+- **AI Runtime Upgrade**: Updated sherpa-onnx to 2.0.1 and ONNX Runtime to 1.31.1, with a matching rebuilt Sherpa JNI bridge and a checksum-verified shared runtime archive. Runtime libraries remain separate from the APK.
+- **Voice Preview Cadence**: Added decode-duration cooldown and identical-snapshot suppression to offline previews, skipping new preview requests while a decode is in flight instead of coalescing them.
+- **Voice Preparation Guidance**: Clarified that recording can begin while the offline engine loads and cleared the preparing indicator when a valid preview arrives.
+- **Download Presentation**: Added a distinct name for shared runtime transfers and clearer model-file wording in voice settings.
+
+### Fixed
+- **Keyboard Geometry Refresh**: Rebuilt stale cached key geometry when dimensions or margins change and refreshed existing input layouts on ordinary opens, keeping keycaps and touch bounds aligned with the measured keyboard area while preserving current editor actions and Shift state.
+- **Keyboard Gestures**: Tightened symbol slide-up activation and stabilized swipe-delete acceleration and selection anchoring.
+- **Composition Handoffs**: Committed pending composition before switching panels and input modes.
+- **Quiet and Short Voice Input**: Preserved short audible utterances and quiet speech beyond the previous fallback buffer limit, with bounded segmentation and decode-boundary padding for short final audio.
+- **Voice Task Lifecycle**: Preserved valid in-flight previews, invalidated stale results on cancellation, and prevented preview work from being admitted after session finalization.
+- **Shared Runtime Downloads**: Preserved shared transfers when one consumer cancels, verified archive entries before installation, and prevented cached libraries from prematurely crediting an archive still needed by another library.
+
+### Known Limitations
+- The shared runtime archive is published and verified from both pinned sources. Voice download, runtime loading, and model initialization have been verified in the Debug app; production upgrade and handwriting acceptance remain unverified in this release cycle.
+- SenseVoice previews use repeated offline decoding; they are not native streaming recognition. Model initialization latency remains unchanged.
+- Short audible fragments are retained using energy-based admission; noise-induced false recognition has not been quantified on-device.
+
+---
+
 ## [0.9.2] - 2026-10-12
 
 ### Security

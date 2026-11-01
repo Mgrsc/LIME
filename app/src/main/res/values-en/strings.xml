@@ -78,6 +78,7 @@
     <string name="ai_download_notif_cancel">Cancel</string>
     <string name="ai_download_notif_title_voice">Offline Voice Recognition Model</string>
     <string name="ai_download_notif_title_handwriting">Offline Handwriting Recognition Engine</string>
+    <string name="ai_artifact_runtime_archive">Shared AI Runtime Package</string>
     <string name="ai_artifact_ort_so">ONNX Runtime Library</string>
     <string name="ai_artifact_ort_jni">ONNX JNI Library</string>
     <string name="ai_artifact_sherpa_jni">Sherpa Inference Engine</string>
@@ -91,6 +92,8 @@
     <string name="voice_remove_trailing_punctuation_summary">Automatically remove ending periods or punctuation from speech output</string>
     <string name="voice_group_prefs">Preferences</string>
     <string name="voice_group_model">Offline Model</string>
+    <string name="voice_model_busy">Recording or final recognition is still active. Finish before clearing the model.</string>
+    <string name="voice_model_download_button">Download model (about %1$d MB)</string>
     <string name="voice_group_about">About &amp; Technical Specs</string>
     <string name="voice_btn_delete_model">Delete Model</string>
     <string name="voice_mirror_source">Model Download Mirror</string>
@@ -100,14 +103,15 @@
     <string name="voice_mirror_huggingface">Hugging Face (Official Source)</string>
     <string name="voice_model_ready">● Ready</string>
     <string name="voice_model_not_ready">○ Not Ready</string>
-    <string name="voice_model_desc_ready">Occupied space: %1$d MB · INT8 Quantized</string>
-    <string name="voice_model_desc_not_ready">Model not downloaded · ~239 MB (~275 MB on first install)</string>
+    <string name="voice_model_desc_ready">Model files: %1$d MB · INT8 quantized\nMandarin / Cantonese / English / Japanese / Korean · Live previews</string>
+    <string name="voice_model_desc_not_ready">Model not downloaded · About 239 MB; shared runtimes are also required on first use</string>
     <string name="voice_delete_model_title">Delete Offline Model</string>
-    <string name="voice_delete_model_message">Are you sure you want to delete the SenseVoice-Small model? Voice input will be unavailable until redownloaded.</string>
     <string name="voice_delete_model_confirm">Delete</string>
     <string name="voice_model_deleted_toast">Offline voice model deleted</string>
+    <string name="voice_delete_model_message">Clear the local SenseVoice offline speech model? You will need to download it again to use voice input.</string>
     <string name="voice_download_dialog_title">Offline Voice Input (SenseVoice)</string>
-    <string name="voice_download_dialog_desc">Multi-language on-device speech recognition after model installation.\n\nFirst use requires your confirmation to download a fixed HTTPS model package (~239 MB, ~275 MB with runtime libraries). SHA-256 is verified and audio or recognized text is never uploaded.</string>
+    <string name="voice_download_dialog_desc">Supports Chinese, English, Cantonese, Japanese and Korean with live previews. Recognition runs locally after downloading.\n\nModel files are about %1$d MB; shared runtimes are also required on first use. HTTPS downloads start only after your confirmation and are verified with SHA-256. Audio and recognized text are never uploaded.</string>
+    <string name="voice_download_container_tag_multilang">Mandarin/Cantonese/English</string>
     <string name="voice_btn_download_now">Download Now</string>
     <string name="voice_btn_redownload">Redownload</string>
     <string name="voice_btn_cancel">Cancel</string>
@@ -127,7 +131,7 @@
     <string name="voice_status_cancelled">Download cancelled</string>
     <string name="voice_error_mic_permission">Cannot start recording, please check microphone permission</string>
     <string name="voice_tech_specs_title">Engine Specifications &amp; Architecture</string>
-    <string name="voice_tech_specs_content" formatted="false">• On-device model: SenseVoice-Small (Alibaba Tongyi Lab)\n• Inference engine: Sherpa-ONNX (v1.13.7) + ONNX Runtime\n• Native libraries: 16 KB page-aligned (ELF 16KB compatible)\n• Audio format: 16 kHz PCM mono · 80-dim Filter-Bank\n• Quantization: INT8 quantized (~239 MB)\n• Supported languages: Mandarin · English · Cantonese · Japanese · Korean\n• Text features: Built-in ITN text normalization and smart punctuation\n• Delivery: Downloaded via HTTPS whitelist only upon user confirmation with SHA-256 verification\n• Privacy &amp; security: 100% on-device inference, no audio or recognized text is uploaded</string>
+    <string name="voice_tech_specs_content" formatted="false">• Model: SenseVoice-Small INT8, about 239 MB; Mandarin, English, Cantonese, Japanese, Korean and live previews\n• Engine: Sherpa-ONNX v2.0.1 + ONNX Runtime v1.31.1, CPU with 2 threads\n• Native runtimes: Compatible with 16 KB memory pages\n• Audio: 16 kHz mono PCM, 80-dimensional Filter-Bank\n• Text: ITN and automatic punctuation\n• Delivery: User-confirmed HTTPS download with SHA-256 verification\n• Audio and recognized text stay on-device; recordings are not saved</string>
     <string name="voice_overlay_hold_to_speak">Hold to Speak</string>
     <string name="voice_overlay_release_to_send">Release to Finish</string>
     <string name="voice_overlay_release_to_cancel">Release to Cancel</string>
@@ -137,7 +141,7 @@
     <string name="voice_overlay_live_transcribing">● Live Transcribing…</string>
     <string name="voice_overlay_listening_hint">Speak now; recognized text appears in floating panel, committed upon release</string>
     <string name="voice_overlay_finish">Done</string>
-    <string name="voice_overlay_engine_preparing">Preparing speech engine…</string>
+    <string name="voice_overlay_engine_preparing">Preparing engine; you can speak…</string>
     <string name="voice_retry_hint">No speech recognized, please speak again</string>
     <string name="voice_idle_unload_timeout">Voice Engine Idle Release Timeout</string>
     <string name="voice_overlay_max_duration_reached">Max duration (60s) reached, submitting automatically</string>
@@ -147,12 +151,10 @@
     <string name="voice_download_container_badge">SenseVoice · On-device</string>
     <string name="voice_download_container_model_title">SenseVoice-Small On-Device Model</string>
     <string name="voice_download_container_model_sub" formatted="false">User-confirmed download · 100% on-device inference</string>
-    <string name="voice_download_container_tag_multilang">Mandarin/Cantonese/English</string>
     <string name="voice_download_container_tag_punctuation">Auto Punctuation</string>
     <string name="voice_download_container_tag_offline">Fully Offline Inference</string>
     <string name="voice_download_container_btn_ready">✓ Model is Ready</string>
     <string name="voice_download_container_toast_ready">Voice input is ready, hold Spacebar to speak!</string>
-    <string name="voice_download_container_btn_download_format">Download Model (~239 MB / ~275 MB first install)</string>
     <string name="keypopup_input_settings">Key Popups</string>
     <string name="long_press_timeout">Long-Press Delay</string>
     <string name="keyboard_symbol_show">Swipe Up for Symbols</string>

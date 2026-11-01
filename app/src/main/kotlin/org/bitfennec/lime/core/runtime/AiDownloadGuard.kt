@@ -21,6 +21,9 @@ import java.security.MessageDigest
  */
 object AiDownloadGuard {
 
+    private const val HUGGING_FACE_CACHE_PREFIX = "/api/resolve-cache/models/"
+    private val ENCODED_PATH_SEPARATOR = Regex("%2[fF]")
+
     private val ALLOWED_DOMAINS = listOf(
         "aliyuncs.com",
         "hf.co",
@@ -40,15 +43,18 @@ object AiDownloadGuard {
         allowedPrefixes: List<String>,
         modelRepoDirectory: String? = null,
     ): Boolean {
-        if (!isBasicHttpsValid(url)) return false
+        val host = url.host.lowercase()
+        val path = if (host == "huggingface.co" && url.path.startsWith(HUGGING_FACE_CACHE_PREFIX)) {
+            url.path.replace(ENCODED_PATH_SEPARATOR, "/")
+        } else {
+            url.path
+        }
+        if (!isBasicHttpsValid(url, path)) return false
 
         val urlStr = url.toString()
         if (allowedPrefixes.any { urlStr.startsWith(it) && urlStr.endsWith(fileName) }) {
             return true
         }
-
-        val host = url.host.lowercase()
-        val path = url.path
 
         return when {
             host == "www.modelscope.cn" -> {
@@ -64,17 +70,16 @@ object AiDownloadGuard {
             host == "huggingface.co" -> {
                 if (modelRepoDirectory != null && path == "/csukuangfj/$modelRepoDirectory/resolve/main/$fileName") {
                     true
-                } else if (path.startsWith("/api/resolve-cache/models/")) {
+                } else if (path.startsWith(HUGGING_FACE_CACHE_PREFIX)) {
                     val prefix = if (modelRepoDirectory != null) {
                         "/api/resolve-cache/models/csukuangfj/$modelRepoDirectory/"
                     } else {
-                        "/api/resolve-cache/models/"
+                        HUGGING_FACE_CACHE_PREFIX
                     }
                     if (!path.startsWith(prefix)) return false
-                    val segments = path.removePrefix(prefix).split('/')
-                    segments.size == 2 &&
-                        segments[0].matches(Regex("[0-9a-fA-F]{7,64}")) &&
-                        segments[1] == fileName
+                    val relativePath = path.removePrefix(prefix)
+                    relativePath.substringBefore('/').matches(Regex("[0-9a-fA-F]{7,64}")) &&
+                        relativePath.substringAfter('/', "") == fileName
                 } else {
                     (path.startsWith("/csukuangfj/") || path.startsWith("/bitfennec/")) && path.endsWith("/$fileName")
                 }
@@ -84,9 +89,8 @@ object AiDownloadGuard {
         }
     }
 
-    private fun isBasicHttpsValid(url: URL): Boolean {
+    private fun isBasicHttpsValid(url: URL, path: String): Boolean {
         if (url.protocol != "https" || url.userInfo != null || (url.port != -1 && url.port != 443)) return false
-        val path = url.path
         if (path.contains("..") || path.contains('%')) {
             return false
         }

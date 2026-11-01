@@ -39,8 +39,8 @@ Production runtime dependencies use industry-standard permissive licenses (Apach
 
 | Dependency | Integration Method | License | Origin & Purpose |
 | :--- | :--- | :--- | :--- |
-| **sherpa-onnx** (1.13.7) | `app/libs/sherpa-onnx-1.13.7.jar` | Apache-2.0 | [k2-fsa/sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx) On-device offline speech recognition framework |
-| **onnxruntime-android** (1.29.0) | Gradle dependency | MIT | [Microsoft ONNX Runtime](https://github.com/microsoft/onnxruntime) Neural network inference runtime |
+| **sherpa-onnx** (2.0.1) | `app/libs/sherpa-onnx-2.0.1.jar` | Apache-2.0 | [k2-fsa/sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx) On-device offline speech recognition framework |
+| **onnxruntime-android** (1.31.1) | Gradle dependency | MIT | [Microsoft ONNX Runtime](https://github.com/microsoft/onnxruntime) Neural network inference runtime |
 | **AndroidX Core Libraries** | Gradle dependency | Apache-2.0 | Google official AndroidX architecture components (Lifecycle, Room, Navigation, etc.) |
 | **Google Material Components** | Gradle dependency | Apache-2.0 | Material 3 design system and UI widgets |
 | **Google Flexbox** | Gradle dependency | Apache-2.0 | Flexbox layout manager for keyboard keys and candidate bars |
@@ -81,7 +81,7 @@ All neural network weights and shared ELF libraries are not bundled statically i
 | :--- | :--- | :--- | :--- |
 | **SenseVoice-Small** ASR Model | FunASR Model License | Alibaba Tongyi Lab / ModelScope | Downloaded on user confirmation from official/mirror sources as quantized INT8 model with tokens |
 | **PP-OCRv6** Handwriting Recognition Model | Apache-2.0 | Based on Baidu PaddleOCR architecture | Downloaded on user confirmation from GitHub Releases mirror as ONNX weights |
-| **16KB ELF Shared Runtimes** | MIT / Apache-2.0 | Microsoft / k2-fsa | Downloaded on user confirmation as 16KB page-aligned `libonnxruntime.so` and `libsherpa-onnx-jni.so` |
+| **16KB ELF Shared Runtimes** | MIT / Apache-2.0 | Microsoft / k2-fsa | User-confirmed, SHA-256-verified runtime archive containing ORT 1.31.1, its Java JNI bridge, and Sherpa 2.0.1 JNI rebuilt against ORT 1.31.1; each extracted arm64 library is verified for SHA-256 and 16 KB page alignment. Build recipe: `tools/runtime/build_ai_runtime.py`; the archive includes upstream and dependency license texts |
 
 ---
 

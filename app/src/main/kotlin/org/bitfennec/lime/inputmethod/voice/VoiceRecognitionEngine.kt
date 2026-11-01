@@ -1,6 +1,7 @@
 package org.bitfennec.lime.inputmethod.voice
 
 import android.content.Context
+import java.util.concurrent.TimeUnit
 import android.os.Looper
 import androidx.annotation.WorkerThread
 import com.k2fsa.sherpa.onnx.FeatureConfig
@@ -11,17 +12,15 @@ import com.k2fsa.sherpa.onnx.OfflineSenseVoiceModelConfig
 import com.k2fsa.sherpa.onnx.OfflineStream
 import org.bitfennec.lime.inputmethod.ImeDispatchers
 import org.bitfennec.lime.core.runtime.AiModuleManager
+import org.bitfennec.lime.core.runtime.AiBlobStore
+import org.bitfennec.lime.core.runtime.AiPackageSpec
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.File
 
-/**
- * SenseVoice-Small offline ASR engine singleton.
- * Features: State machine (UNINITIALIZED / INITIALIZING / READY / ERROR), queuing callbacks, hot reload.
- * Bound to dedicated single-thread ImeDispatchers.asrDispatcher, main dispatch via Dispatchers.Main.immediate.
- */
 object VoiceRecognitionEngine {
 
     enum class EngineState {
@@ -49,6 +48,7 @@ object VoiceRecognitionEngine {
     private val decodeLock = Any()
     private val activeLeases = java.util.concurrent.atomic.AtomicInteger(0)
 
+    @Synchronized
     fun acquireLease() {
         activeLeases.incrementAndGet()
         cancelIdleUnload()
@@ -63,7 +63,28 @@ object VoiceRecognitionEngine {
     }
 
     fun getEngineState(): EngineState = engineState
+    fun hasActiveLease(): Boolean = activeLeases.get() > 0
     fun isReady(): Boolean = engineState == EngineState.READY && recognizer != null
+
+    internal fun createRecognizerConfig(blobsDir: File): OfflineRecognizerConfig {
+        fun blob(artifact: AiPackageSpec.Artifact): String =
+            AiBlobStore.getBlobFile(blobsDir, artifact.sha256, artifact.fileName).absolutePath
+
+        return OfflineRecognizerConfig(
+            featConfig = FeatureConfig(sampleRate = AudioRecordHelper.SAMPLE_RATE, featureDim = 80),
+            modelConfig = OfflineModelConfig(
+                senseVoice = OfflineSenseVoiceModelConfig(
+                    model = blob(AiPackageSpec.voiceModelArtifact),
+                    language = "",
+                    useInverseTextNormalization = true,
+                ),
+                tokens = blob(AiPackageSpec.voiceTokensArtifact),
+                numThreads = 2,
+                debug = false,
+                provider = "cpu",
+            ),
+        )
+    }
 
     /** Force reload model (for hot updates after re-downloading). */
     fun reload(context: Context, onComplete: ((Boolean) -> Unit)? = null) {
@@ -129,9 +150,15 @@ object VoiceRecognitionEngine {
         }
 
         val appContext = context.applicationContext
+        val initQueuedAtNanos = System.nanoTime()
         try {
             engineScope.launch {
                 val startTime = android.os.SystemClock.elapsedRealtime()
+                val initStartedAtNanos = System.nanoTime()
+                VoiceLatencyTrace.record(
+                    VoiceLatencyTrace.Event.ENGINE_INIT_STARTED,
+                    queueMs = TimeUnit.NANOSECONDS.toMillis(initStartedAtNanos - initQueuedAtNanos),
+                )
                 var createdRecognizer: OfflineRecognizer? = null
                 var success = false
                 try {
@@ -169,27 +196,9 @@ object VoiceRecognitionEngine {
                         return@launch
                     }
 
-                    val modelFile = VoiceModelManager.getModelFile(appContext)
-                    val tokensFile = VoiceModelManager.getTokensFile(appContext)
+                    val blobsDir = AiBlobStore.getBlobsDir(appContext)
+                    val config = createRecognizerConfig(blobsDir)
 
-                    val config = OfflineRecognizerConfig(
-                        featConfig = FeatureConfig(sampleRate = 16000, featureDim = 80),
-                        modelConfig = OfflineModelConfig(
-                            senseVoice = OfflineSenseVoiceModelConfig(
-                                model = modelFile.absolutePath,
-                                language = "", // Auto language identification (zh/en/yue/ja/ko)
-                                useInverseTextNormalization = true // Inverse text normalization (punctuation, numbers, quantifiers)
-                            ),
-                            tokens = tokensFile.absolutePath,
-                            // Sherpa C++ intra-op thread count (2 threads for acoustic model; Kotlin dispatch remains sequential on asrDispatcher)
-                            numThreads = 2,
-                            debug = false,
-                            provider = "cpu"
-                        )
-                    )
-
-                    // Create recognizer outside synchronized block — constructor parses 200MB ONNX model and takes 1-2s.
-                    // Holding the lock here blocks the Main thread if the user presses space while pre-warm is in flight!
                     val newRecognizer = OfflineRecognizer(config = config)
                     createdRecognizer = newRecognizer
 
@@ -208,7 +217,7 @@ object VoiceRecognitionEngine {
 
                     if (success) {
                         val durationMs = android.os.SystemClock.elapsedRealtime() - startTime
-                        android.util.Log.i("VoiceRecognitionEngine", """{"event":"voice.engine_init","result":"success","duration_ms":$durationMs}""")
+                        android.util.Log.i("VoiceRecognitionEngine", """{"event":"voice.engine_init","result":"success","model_id":"${AiPackageSpec.voicePackage.id}","duration_ms":$durationMs}""")
                         oldRecognizerToRelease?.let { oldRec ->
                             synchronized(decodeLock) {
                                 try {
@@ -245,6 +254,16 @@ object VoiceRecognitionEngine {
                         }
                     }
                     notifyInitComplete(generation, false)
+                } finally {
+                    VoiceLatencyTrace.record(
+                        VoiceLatencyTrace.Event.ENGINE_INIT_COMPLETED,
+                        status = when {
+                            generation != initGeneration -> VoiceLatencyTrace.Status.DROPPED
+                            success && engineState == EngineState.READY -> VoiceLatencyTrace.Status.SUCCESS
+                            else -> VoiceLatencyTrace.Status.FAILED
+                        },
+                        durationMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - initStartedAtNanos),
+                    )
                 }
             }
         } catch (e: Throwable) {
@@ -291,13 +310,21 @@ object VoiceRecognitionEngine {
     fun transcribeSync(
         samples: FloatArray,
         sampleRate: Int = 16000,
-        timeoutMs: Long = 6000L
+        timeoutMs: Long = 6000L,
+        diagnosticTraceId: Long = 0L,
+        diagnosticTaskId: Long = 0L,
     ): String {
         val currentLooper = Looper.myLooper()
         if (currentLooper != null && currentLooper == Looper.getMainLooper()) {
             error("transcribeSync must not be called from main thread")
         }
         if (samples.isEmpty()) return ""
+
+        val transcribeStartedAtNanos = System.nanoTime()
+        VoiceLatencyTrace.record(
+            VoiceLatencyTrace.Event.TRANSCRIBE_STARTED, diagnosticTraceId, diagnosticTaskId,
+            sampleCount = samples.size,
+        )
 
         var rec = recognizer
         if (rec == null && engineState == EngineState.INITIALIZING) {
@@ -318,6 +345,11 @@ object VoiceRecognitionEngine {
         }
 
         if (rec == null) {
+            VoiceLatencyTrace.record(
+                VoiceLatencyTrace.Event.TRANSCRIBE_COMPLETED, diagnosticTraceId, diagnosticTaskId,
+                status = VoiceLatencyTrace.Status.NOT_READY, sampleCount = samples.size,
+                durationMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - transcribeStartedAtNanos),
+            )
             android.util.Log.w("VoiceRecognitionEngine", """{"event":"voice.transcribe","result":"rejected","reason":"engine_not_ready"}""")
             return ""
         }
@@ -326,13 +358,35 @@ object VoiceRecognitionEngine {
         var stream: OfflineStream? = null
         return synchronized(decodeLock) {
             if (rec != recognizer) {
+                VoiceLatencyTrace.record(
+                    VoiceLatencyTrace.Event.TRANSCRIBE_COMPLETED, diagnosticTraceId, diagnosticTaskId,
+                    status = VoiceLatencyTrace.Status.DROPPED, sampleCount = samples.size,
+                    durationMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - transcribeStartedAtNanos),
+                )
                 android.util.Log.w("VoiceRecognitionEngine", """{"event":"voice.transcribe","result":"rejected","reason":"recognizer_stale_or_released"}""")
                 return@synchronized ""
             }
+            var status = VoiceLatencyTrace.Status.FAILED
             try {
                 stream = rec.createStream()
                 stream.acceptWaveform(samples, sampleRate)
-                rec.decode(stream)
+                VoiceLatencyTrace.record(
+                    VoiceLatencyTrace.Event.DECODE_STARTED, diagnosticTraceId, diagnosticTaskId,
+                    sampleCount = samples.size,
+                )
+                val decodeStartedAtNanos = System.nanoTime()
+                var decoded = false
+                try {
+                    rec.decode(stream)
+                    decoded = true
+                } finally {
+                    VoiceLatencyTrace.record(
+                        VoiceLatencyTrace.Event.DECODE_COMPLETED, diagnosticTraceId, diagnosticTaskId,
+                        status = if (decoded) VoiceLatencyTrace.Status.SUCCESS else VoiceLatencyTrace.Status.FAILED,
+                        sampleCount = samples.size,
+                        durationMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - decodeStartedAtNanos),
+                    )
+                }
                 val result = rec.getResult(stream)
                 val rawText = result.text
                 val durationMs = android.os.SystemClock.elapsedRealtime() - startTime
@@ -342,6 +396,7 @@ object VoiceRecognitionEngine {
                     "VoiceRecognitionEngine",
                     """{"event":"voice.transcribe","result":"success","duration_ms":$durationMs,"audio_duration_ms":$audioDurationMs,"sample_count":${samples.size},"raw_length":${rawText.length},"stripped_length":$strippedLength}"""
                 )
+                status = if (rawText.isEmpty()) VoiceLatencyTrace.Status.EMPTY else VoiceLatencyTrace.Status.SUCCESS
                 rawText
             } catch (e: Throwable) {
                 val durationMs = android.os.SystemClock.elapsedRealtime() - startTime
@@ -352,7 +407,15 @@ object VoiceRecognitionEngine {
                 )
                 ""
             } finally {
-                stream?.release()
+                try {
+                    stream?.release()
+                } finally {
+                    VoiceLatencyTrace.record(
+                        VoiceLatencyTrace.Event.TRANSCRIBE_COMPLETED, diagnosticTraceId, diagnosticTaskId,
+                        status = status, sampleCount = samples.size,
+                        durationMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - transcribeStartedAtNanos),
+                    )
+                }
             }
         }
     }

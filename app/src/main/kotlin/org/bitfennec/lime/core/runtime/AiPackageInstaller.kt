@@ -60,6 +60,33 @@ object AiPackageInstaller {
     private val activeBlobJobs = ConcurrentHashMap<String, Deferred<Boolean>>()
     private val blobUsers = ConcurrentHashMap<String, MutableSet<String>>()
 
+    internal class DownloadProgress(artifacts: List<AiPackageSpec.Artifact>) {
+        private val expectedBytes = artifacts.map { it.downloadArtifact }.distinctBy { it.sha256 }
+            .associate { it.sha256 to if (it.expectedBytes > 0) it.expectedBytes else it.minExpectedBytes }
+        private val pendingArtifacts = artifacts.groupBy { it.downloadArtifact.sha256 }
+            .mapValues { (_, consumers) -> consumers.map { it.sha256 }.toMutableSet() }
+        private val sourceBytes = HashMap<String, Long>()
+
+        val totalBytes: Long = expectedBytes.values.sum()
+        val bytesRead: Long
+            get() = sourceBytes.values.sum()
+        val percent: Int
+            get() = if (totalBytes > 0) ((bytesRead * 100) / totalBytes).toInt().coerceIn(0, 99) else 0
+
+        fun update(artifact: AiPackageSpec.Artifact, bytes: Long) {
+            val source = artifact.downloadArtifact.sha256
+            val received = bytes.coerceIn(0, expectedBytes.getValue(source))
+            sourceBytes[source] = maxOf(sourceBytes[source] ?: 0L, received)
+        }
+
+        fun complete(artifact: AiPackageSpec.Artifact) {
+            val source = artifact.downloadArtifact.sha256
+            val pending = pendingArtifacts.getValue(source)
+            pending.remove(artifact.sha256)
+            if (pending.isEmpty()) sourceBytes[source] = expectedBytes.getValue(source)
+        }
+    }
+
     fun getStatusFlow(packageId: String): StateFlow<PackageStatus> {
         return packageStatusMap.computeIfAbsent(packageId) {
             MutableStateFlow(PackageStatus.Missing)
@@ -104,14 +131,17 @@ object AiPackageInstaller {
      * Performs no disk readiness checks. The caller must continue to [ensure] on IO,
      * even when the previous memory state was Ready.
      */
-    fun prepareDownload(context: Context, packageId: String) {
+    fun prepareDownload(context: Context, packageId: String) =
+        prepareDownload(context, packageId, AiPackageSpec.ALL_PACKAGES)
+
+    private fun prepareDownload(context: Context, packageId: String, packages: Map<String, AiPackageSpec.Package>) {
         val appContext = context.applicationContext
         // Repeated preparation must preserve progress already published by this attempt.
         if (getStatusFlow(packageId).value is PackageStatus.Downloading) return
         val existing = activePackageJobs[packageId]
         if (existing != null && existing.isActive) return
 
-        val pkgSpec = AiPackageSpec.getPackage(packageId)
+        val pkgSpec = packages[packageId]
         val initialName = pkgSpec?.getDisplayName(appContext) ?: packageId
         val stageDesc = getStringSafe(appContext, R.string.ai_download_notif_preparing)
         updateStatus(packageId, PackageStatus.Downloading(
@@ -157,11 +187,14 @@ object AiPackageInstaller {
             }
             val otherArtifactSha = otherActivePackages.flatMap { other ->
                 AiPackageSpec.resolveDependencies(other.id).flatMap { p -> p.artifacts }
-            }.map { it.sha256 }.toSet()
+            }.flatMap { listOfNotNull(it, it.archiveSource?.archive) }.map { it.sha256 }.toSet()
 
-            for (artifact in pkg.artifacts) {
-                if (!otherArtifactSha.contains(artifact.sha256)) {
-                    AiBlobStore.deleteBlob(appContext, artifact.sha256, artifact.fileName)
+            for (artifact in pkg.artifacts.flatMap { listOfNotNull(it, it.archiveSource?.archive) }.distinctBy { it.sha256 }) {
+                synchronized(activeBlobJobs) {
+                    val usedByDownload = blobUsers[artifact.sha256]?.any { it != packageId } == true
+                    if (!otherArtifactSha.contains(artifact.sha256) && !usedByDownload) {
+                        AiBlobStore.deleteBlob(appContext, artifact.sha256, artifact.fileName)
+                    }
                 }
             }
         }
@@ -174,11 +207,14 @@ object AiPackageInstaller {
      * Checks active versions, manifests and blob sizes for a package and its dependencies.
      * Does not verify hashes. Only initializes Missing state; preserves download outcomes.
      */
-    fun isPackageReady(context: Context, packageId: String): Boolean {
-        val pkg = AiPackageSpec.getPackage(packageId) ?: return false
+    fun isPackageReady(context: Context, packageId: String): Boolean =
+        isPackageReady(context, packageId, AiPackageSpec.ALL_PACKAGES)
+
+    private fun isPackageReady(context: Context, packageId: String, packages: Map<String, AiPackageSpec.Package>): Boolean {
+        val pkg = packages[packageId] ?: return false
 
         // Check dependencies first: a package cannot be ready if any dependency is not ready
-        val allDepsReady = pkg.dependencies.all { isPackageReady(context, it) }
+        val allDepsReady = pkg.dependencies.all { isPackageReady(context, it, packages) }
         if (!allDepsReady) {
             return false
         }
@@ -221,8 +257,19 @@ object AiPackageInstaller {
         mirrorIndex: Int = 0,
         force: Boolean = false,
         onProgress: ((percent: Int, speedDesc: String, statusDesc: String) -> Unit)? = null,
+    ): Boolean = ensure(context, packageId, AiPackageSpec.ALL_PACKAGES, mirrorIndex, force, onProgress)
+
+    @VisibleForTesting
+    internal suspend fun ensure(
+        context: Context,
+        packageId: String,
+        packages: Map<String, AiPackageSpec.Package>,
+        mirrorIndex: Int = 0,
+        force: Boolean = false,
+        onProgress: ((percent: Int, speedDesc: String, statusDesc: String) -> Unit)? = null,
     ): Boolean = withContext(Dispatchers.IO) {
         val appContext = context.applicationContext
+        val packageSnapshot = packages.toMap()
 
         val deferred: Deferred<Boolean>?
         try {
@@ -230,14 +277,14 @@ object AiPackageInstaller {
                 val existing = activePackageJobs[packageId]
                 if (existing != null && !existing.isCompleted) {
                     existing
-                } else if (existing == null && !force && isPackageReady(appContext, packageId)) {
+                } else if (existing == null && !force && isPackageReady(appContext, packageId, packageSnapshot)) {
                     updateStatus(packageId, PackageStatus.Ready)
                     null
                 } else {
-                    prepareDownload(appContext, packageId)
+                    prepareDownload(appContext, packageId, packageSnapshot)
                     val newJob = installerScope.async(start = CoroutineStart.LAZY) {
                         currentCoroutineContext().ensureActive()
-                        executePackageDownload(appContext, packageId, mirrorIndex)
+                        executePackageDownload(appContext, packageId, mirrorIndex, packageSnapshot)
                     }
                     activePackageJobs[packageId] = newJob
                     newJob.invokeOnCompletion {
@@ -263,7 +310,7 @@ object AiPackageInstaller {
         if (deferred.isCancelled) {
             // Do not register a replacement until cancelled work has finished blob cleanup.
             deferred.join()
-            return@withContext ensure(appContext, packageId, mirrorIndex, force, onProgress)
+            return@withContext ensure(appContext, packageId, packageSnapshot, mirrorIndex, force, onProgress)
         }
 
         // Forward StateFlow progress to caller's callback so multiple callers don't lose progress
@@ -298,7 +345,8 @@ object AiPackageInstaller {
     private suspend fun executePackageDownload(
         appContext: Context,
         packageId: String,
-        mirrorIndex: Int
+        mirrorIndex: Int,
+        packages: Map<String, AiPackageSpec.Package>,
     ): Boolean {
         val owner = currentCoroutineContext()[Job]!!
         fun publish(status: PackageStatus) {
@@ -309,7 +357,7 @@ object AiPackageInstaller {
             }
         }
         try {
-            val pkgSpec = AiPackageSpec.getPackage(packageId)
+            val pkgSpec = packages[packageId]
             val initialName = pkgSpec?.getDisplayName(appContext) ?: packageId
             publish(PackageStatus.Downloading(
                 artifactName = initialName,
@@ -320,14 +368,19 @@ object AiPackageInstaller {
                 stageDesc = getStringSafe(appContext, R.string.ai_download_notif_preparing)
             ))
 
-            val topoPackages = AiPackageSpec.resolveDependencies(packageId)
-            val totalArtifacts = topoPackages.flatMap { it.artifacts }.distinctBy { it.sha256 }
-            val totalExpectedBytes = totalArtifacts.sumOf { artifact ->
-                val targetBlobFile = AiBlobStore.getBlobFile(appContext, artifact.sha256, artifact.fileName)
-                val baseExpected = if (artifact.expectedBytes > 0) artifact.expectedBytes else artifact.minExpectedBytes
-                if (targetBlobFile.isFile) maxOf(baseExpected, targetBlobFile.length()) else baseExpected
+            val topoPackages = AiPackageSpec.resolveDependencies(packageId, packages)
+            val progress = DownloadProgress(topoPackages.flatMap { it.artifacts })
+
+            fun publishProgress(name: String, stageDesc: String = "", speedBps: Long = 0L) {
+                publish(PackageStatus.Downloading(
+                    artifactName = name,
+                    bytesRead = progress.bytesRead,
+                    totalBytes = progress.totalBytes,
+                    speedBps = speedBps,
+                    percent = progress.percent,
+                    stageDesc = stageDesc,
+                ))
             }
-            var accumulatedBytesRead = 0L
 
             for (pkg in topoPackages) {
                 for (artifact in pkg.artifacts) {
@@ -338,15 +391,17 @@ object AiPackageInstaller {
                     partialBlobFile.parentFile?.mkdirs()
 
                     val artifactDisplayName = artifact.getDisplayName(appContext)
+                    val downloadDisplayName = artifact.downloadArtifact.getDisplayName(appContext)
 
-                    val effectiveMirrorIndex = if (packageId == "voice" && pkg.id != "voice") 0 else mirrorIndex
+                    val effectiveMirrorIndex = AiPackageSpec.resolveMirrorIndex(packageId, pkg.id, mirrorIndex)
                     val blobSuccess = downloadBlobSingleFlight(
                         packageId = packageId,
                         artifact = artifact,
                         targetBlobFile = targetBlobFile,
                         partialBlobFile = partialBlobFile,
                         mirrorIndex = effectiveMirrorIndex,
-                        modelRepoDirectory = if (pkg.id == "voice") pkg.version else null,
+                        modelRepoDirectory = if (AiPackageSpec.isVoicePackage(pkg.id)) pkg.version else null,
+                        blobsDir = AiBlobStore.getBlobsDir(appContext),
                         onStage = { stage, host ->
                             val stageDesc = when (stage) {
                                 AiBlobDownloader.Stage.PROBING -> appContext.getString(R.string.ai_download_probing)
@@ -358,35 +413,11 @@ object AiPackageInstaller {
                                     }
                                 }
                             }
-                            val currentPercent = if (totalExpectedBytes > 0) {
-                                ((accumulatedBytesRead * 100) / totalExpectedBytes).toInt().coerceIn(0, 100)
-                            } else {
-                                0
-                            }
-                            publish(PackageStatus.Downloading(
-                                artifactName = artifactDisplayName,
-                                bytesRead = accumulatedBytesRead,
-                                totalBytes = totalExpectedBytes,
-                                speedBps = 0L,
-                                percent = currentPercent,
-                                stageDesc = stageDesc
-                            ))
+                            publishProgress(downloadDisplayName, stageDesc = stageDesc)
                         }
                     ) { bytesRead, _, speedBps ->
-                        val currentPercent = if (totalExpectedBytes > 0) {
-                            (((accumulatedBytesRead + bytesRead) * 100) / totalExpectedBytes).toInt().coerceIn(0, 100)
-                        } else {
-                            0
-                        }
-
-                        publish(PackageStatus.Downloading(
-                            artifactName = artifactDisplayName,
-                            bytesRead = accumulatedBytesRead + bytesRead,
-                            totalBytes = totalExpectedBytes,
-                            speedBps = speedBps,
-                            percent = currentPercent,
-                            stageDesc = ""
-                        ))
+                        progress.update(artifact, bytesRead)
+                        publishProgress(downloadDisplayName, speedBps = speedBps)
                     }
 
                     if (!blobSuccess) {
@@ -401,7 +432,8 @@ object AiPackageInstaller {
                         return false
                     }
 
-                    accumulatedBytesRead += targetBlobFile.length()
+                    progress.complete(artifact)
+                    publishProgress(artifactDisplayName)
                 }
 
                 // Activate package atomically once its dependencies and artifacts are ready
@@ -430,10 +462,15 @@ object AiPackageInstaller {
         partialBlobFile: File,
         mirrorIndex: Int,
         modelRepoDirectory: String?,
+        blobsDir: File? = null,
         onStage: ((stage: AiBlobDownloader.Stage, detail: String) -> Unit)? = null,
         onProgress: ((bytesRead: Long, totalBytes: Long, speedBps: Long) -> Unit)?
     ): Boolean {
-        if (targetBlobFile.isFile && AiDownloadGuard.verifySha256(targetBlobFile, artifact.sha256)) {
+        if (targetBlobFile.isFile &&
+            (artifact.expectedBytes <= 0 || targetBlobFile.length() == artifact.expectedBytes) &&
+            AiDownloadGuard.verifySha256(targetBlobFile, artifact.sha256) &&
+            (artifact.kind != AiPackageSpec.ArtifactKind.ELF_SO || AiRuntimeLoader.isElf16KbAligned(targetBlobFile))
+        ) {
             return true
         }
 
@@ -451,16 +488,34 @@ object AiPackageInstaller {
                 } else {
                     blobUsers.computeIfAbsent(artifact.sha256) { ConcurrentHashMap.newKeySet() }.add(packageId)
                     val newJob = installerScope.async {
-                        AiBlobDownloader.downloadBlob(
-                            artifact = artifact,
-                            targetFile = targetBlobFile,
-                            partialFile = partialBlobFile,
-                            allowedPrefixes = artifact.pinnedUrls,
-                            mirrorIndex = mirrorIndex,
-                            modelRepoDirectory = modelRepoDirectory,
-                            onProgress = onProgress,
-                            onStage = onStage
-                        )
+                        val source = artifact.archiveSource
+                        if (source == null) {
+                            AiBlobDownloader.downloadBlob(
+                                artifact = artifact,
+                                targetFile = targetBlobFile,
+                                partialFile = partialBlobFile,
+                                allowedPrefixes = artifact.pinnedUrls,
+                                mirrorIndex = mirrorIndex,
+                                modelRepoDirectory = modelRepoDirectory,
+                                onProgress = onProgress,
+                                onStage = onStage
+                            )
+                        } else {
+                            val directory = requireNotNull(blobsDir)
+                            val archiveFile = AiBlobStore.getBlobFile(directory, source.archive.sha256, source.archive.fileName)
+                            val downloaded = downloadBlobSingleFlight(
+                                packageId = "artifact:${artifact.sha256}",
+                                artifact = source.archive,
+                                targetBlobFile = archiveFile,
+                                partialBlobFile = AiBlobStore.getPartialFile(directory, source.archive.sha256),
+                                mirrorIndex = mirrorIndex,
+                                modelRepoDirectory = null,
+                                blobsDir = directory,
+                                onProgress = onProgress,
+                                onStage = onStage,
+                            )
+                            downloaded && AiRuntimeArchive.extract(artifact, archiveFile, targetBlobFile, partialBlobFile)
+                        }
                     }
                     activeBlobJobs[artifact.sha256] = newJob
                     deferred = newJob

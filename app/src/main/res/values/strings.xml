@@ -88,6 +88,7 @@
     <string name="ai_download_notif_cancel">取消</string>
     <string name="ai_download_notif_title_voice">离线语音识别模型</string>
     <string name="ai_download_notif_title_handwriting">离线手写识别引擎</string>
+    <string name="ai_artifact_runtime_archive">共享 AI 运行库包</string>
     <string name="ai_artifact_ort_so">ONNX 运行时库</string>
     <string name="ai_artifact_ort_jni">ONNX JNI 动态库</string>
     <string name="ai_artifact_sherpa_jni">语音推理引擎</string>
@@ -103,6 +104,8 @@
     <string name="voice_remove_trailing_punctuation_summary">自动删除语音识别输出文本末尾的句号或标点</string>
     <string name="voice_group_prefs">偏好设置</string>
     <string name="voice_group_model">离线模型</string>
+    <string name="voice_model_busy">录音或最终识别尚未结束，请完成后再清除模型</string>
+    <string name="voice_model_download_button">下载模型（约 %1$d MB）</string>
     <string name="voice_group_about">关于与技术规格</string>
     <string name="voice_btn_delete_model">清除模型</string>
     <string name="voice_mirror_source">模型下载镜像源</string>
@@ -112,14 +115,15 @@
     <string name="voice_mirror_huggingface">Hugging Face (官方海外源)</string>
     <string name="voice_model_ready">● 已就绪</string>
     <string name="voice_model_not_ready">○ 未就绪</string>
-    <string name="voice_model_desc_ready">占用空间 %1$d MB · INT8 量化</string>
-    <string name="voice_model_desc_not_ready">尚未下载离线模型 · 模型约 239 MB (首次含依赖约 275 MB)</string>
+    <string name="voice_model_desc_ready">模型文件 %1$d MB · INT8 量化\n普通话 / 粤语 / 英语 / 日语 / 韩语 · 支持实时预览</string>
+    <string name="voice_model_desc_not_ready">尚未下载离线模型 · 模型约 239 MB，首次另需共享运行库</string>
     <string name="voice_delete_model_title">清除离线模型</string>
-    <string name="voice_delete_model_message">确定要清除本地 SenseVoice 离线语音模型吗？清除后需重新下载方可使用语音输入。</string>
     <string name="voice_delete_model_confirm">清除</string>
     <string name="voice_model_deleted_toast">离线模型已清除</string>
+    <string name="voice_delete_model_message">确定要清除本地 SenseVoice 离线语音模型吗？清除后需重新下载方可使用语音输入。</string>
     <string name="voice_download_dialog_title">离线语音输入 (SenseVoice)</string>
-    <string name="voice_download_dialog_desc">支持中、英、粤、日、韩等多语言识别，模型下载完成后在端侧本地推理。\n\n首次使用需由您确认通过 HTTPS 下载固定版本模型（约 239 MB，首次含依赖运行库约 275 MB）；下载文件会进行 SHA-256 校验，音频和识别文本不会上传。</string>
+    <string name="voice_download_dialog_desc">支持中、英、粤、日、韩多语言识别与实时预览，模型下载完成后在端侧本地推理。\n\n模型文件约 %1$d MB，首次使用还需共享运行库。仅在您确认后通过 HTTPS 下载，文件使用 SHA-256 校验。音频和识别文本不会上传。</string>
+    <string name="voice_download_container_tag_multilang">普通话/粤语/英语</string>
     <string name="voice_btn_download_now">立即下载</string>
     <string name="voice_btn_redownload">重新下载</string>
     <string name="voice_btn_cancel">取消</string>
@@ -139,7 +143,7 @@
     <string name="voice_status_cancelled">已取消下载</string>
     <string name="voice_error_mic_permission">无法启动录音设备，请检查麦克风权限</string>
     <string name="voice_tech_specs_title">引擎规格与技术架构</string>
-    <string name="voice_tech_specs_content" formatted="false">• 端侧模型：SenseVoice-Small (阿里通义实验室)\n• 推理引擎：Sherpa-ONNX (v1.13.7) + ONNX Runtime\n• 原生运行库：16 KB 页面大小兼容 (ELF 16 KB 对齐)\n• 音频规格：16 kHz PCM 单声道 · 80 维 Filter-Bank\n• 权重量化：INT8 量化 (体积约 239 MB)\n• 支持语言：普通话 · 英语 · 粤语 · 日语 · 韩语\n• 文本特性：内置 ITN 逆文本规范化与智能标点\n• 模型交付：仅用户确认后从 HTTPS 白名单下载，SHA-256 完整性校验\n• 隐私与安全：模型下载完成后纯端侧推理，不上传音频或识别文本</string>
+    <string name="voice_tech_specs_content" formatted="false">• 端侧模型：SenseVoice-Small INT8，约 239 MB；支持普通话、英语、粤语、日语、韩语与实时预览\n• 推理引擎：Sherpa-ONNX v2.0.1 + ONNX Runtime v1.31.1，CPU 2 线程\n• 原生运行库：兼容 16 KB 页面大小\n• 音频：16 kHz PCM 单声道，80 维 Filter-Bank\n• 文本：ITN 逆文本规范化与自动标点\n• 交付：用户确认后通过 HTTPS 下载，SHA-256 校验\n• 音频和识别文本仅在本地处理，不上传或保存录音文件</string>
     <string name="voice_overlay_hold_to_speak">按住说话</string>
     <string name="voice_overlay_release_to_send">松手 完成</string>
     <string name="voice_overlay_release_to_cancel">松手 取消录音</string>
@@ -149,7 +153,7 @@
     <string name="voice_overlay_live_transcribing">● 正在实时转写中…</string>
     <string name="voice_overlay_listening_hint">请说话，识别文字实时显示在浮窗，松手后上屏</string>
     <string name="voice_overlay_finish">完成</string>
-    <string name="voice_overlay_engine_preparing">离线语音引擎准备中…</string>
+    <string name="voice_overlay_engine_preparing">离线引擎准备中，可先说话…</string>
     <string name="voice_engine_init_failed">离线语音引擎初始化失败，请检查模型或重试</string>
     <string name="voice_retry_hint">未识别到有效语音，请再说一次</string>
     <string name="voice_idle_unload_timeout">语音引擎闲置释放等待时间</string>
@@ -160,12 +164,10 @@
     <string name="voice_download_container_badge">SenseVoice · 本地推理</string>
     <string name="voice_download_container_model_title">SenseVoice-Small 端侧模型</string>
     <string name="voice_download_container_model_sub" formatted="false">用户确认下载 · 100% 本地离线推理</string>
-    <string name="voice_download_container_tag_multilang">普通话/粤语/英语</string>
     <string name="voice_download_container_tag_punctuation">智能自动标点</string>
     <string name="voice_download_container_tag_offline">完全离线推理</string>
     <string name="voice_download_container_btn_ready">✓ 离线语音模型已就绪</string>
     <string name="voice_download_container_toast_ready">离线语音已就绪，长按空格即可语音输入！</string>
-    <string name="voice_download_container_btn_download_format">立即下载模型 (约 239 MB / 首次约 275 MB)</string>
     <string name="keypopup_input_settings">按键气泡</string>
     <string name="long_press_timeout">按键长按等待时间</string>
     <string name="keyboard_symbol_show">上滑选择符号</string>
@@ -456,7 +458,7 @@
     <string name="onboarding_btn_start">开始使用留青</string>
     <string name="onboarding_btn_skip">进入设置</string>
     <string name="onboarding_privacy_link">《隐私政策与本地推理承诺》</string>
-    <string name="onboarding_privacy_detail">【LIME 留青输入法隐私政策与本地推理承诺】\n\n1. 模型下载：\n仅当您主动确认下载离线 AI 模型（语音或手写）及依赖的共享运行库时，应用才通过 HTTPS 访问官方或镜像站点（语音：ModelScope、HF-Mirror、Hugging Face；手写与共享运行库：GitHub Releases、ghproxy）；模型工件以 APK 内固定版本和 SHA-256 校验，不使用远程配置或云端识别。\n\n2. 零云端信息上传：\n留青输入法文本输入、自造词学习、手写与语音识别均在设备本地离线运行，绝不上传任何击键、账户密码、词库、音频、笔迹或识别文本至任何云端服务器。\n\n3. 权限最小化使用：\n• 剪贴板：仅用于键盘本地快捷粘贴面板，数据仅保存在设备本地 SQLite 数据库中；\n• 录音/麦克风（可选）：仅在主动启动语音时用于本地 Sherpa-ONNX 识别，不保存音频文件；\n• 本地文件存储（可选）：仅用于模型、用户主动导入导出备份与自定义壁纸。\n\n4. 开源透明与致谢：\n核心输入引擎 librime 使用 BSD-3-Clause；语音引擎 Sherpa-ONNX 使用 Apache-2.0，SenseVoice 模型遵循 FunASR Model License；手写引擎 PaddleOCR PP-OCRv6 遵循 Apache-2.0，推理运行时 ONNX Runtime 遵循 MIT License；万象拼音词库遵循 CC BY 4.0。模型下载完成后，语音和手写识别均在设备本地运行。</string>
+    <string name="onboarding_privacy_detail">【LIME 留青输入法隐私政策与本地推理承诺】\n\n1. 模型下载：\n仅当您主动确认下载离线 AI 模型（语音或手写）及依赖的共享运行库时，应用才通过 HTTPS 访问官方或镜像站点（语音：ModelScope、HF-Mirror、Hugging Face；手写与共享运行库：GitHub Releases、ghproxy）；模型文件以 APK 内固定版本和 SHA-256 校验，不使用远程配置或云端识别。\n\n2. 零云端信息上传：\n留青输入法文本输入、自造词学习、手写与语音识别均在设备本地离线运行，绝不上传任何击键、账户密码、词库、音频、笔迹或识别文本至任何云端服务器。\n\n3. 权限最小化使用：\n• 剪贴板：仅用于键盘本地快捷粘贴面板，数据仅保存在设备本地 SQLite 数据库中；\n• 录音/麦克风（可选）：仅在主动启动语音时用于本地 Sherpa-ONNX 识别，不保存音频文件；\n• 本地文件存储（可选）：仅用于模型、用户主动导入导出备份与自定义壁纸。\n\n4. 开源透明与致谢：\n核心输入引擎 librime 使用 BSD-3-Clause；语音引擎 Sherpa-ONNX 使用 Apache-2.0，SenseVoice 模型遵循 FunASR Model License；手写引擎 PaddleOCR PP-OCRv6 遵循 Apache-2.0，推理运行时 ONNX Runtime 遵循 MIT License；万象拼音词库遵循 CC BY 4.0。模型下载完成后，语音和手写识别均在设备本地运行。</string>
 
     <!-- Accessibility (TalkBack) -->
     <string name="accessibility_key_space">空格</string>
