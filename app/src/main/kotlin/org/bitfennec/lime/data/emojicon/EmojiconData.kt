@@ -1,11 +1,13 @@
 package org.bitfennec.lime.data.emojicon
 
-import android.os.Looper
 import androidx.emoji2.text.EmojiCompat
-import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import org.bitfennec.lime.R
 
 /**
@@ -258,13 +260,16 @@ object EmojiconData{
         R.drawable.icon_emojibar_flags to listOf("🏁", "🚩", "🎌", "🏴", "🏳️", "🏳️‍🌈", "🏳️‍⚧️", "🏴‍☠️", "🇦🇨", "🇦🇩", "🇦🇪", "🇦🇫", "🇦🇬", "🇦🇮", "🇦🇱", "🇦🇲", "🇦🇴", "🇦🇶", "🇦🇷", "🇦🇸", "🇦🇹", "🇦🇺", "🇦🇼", "🇦🇽", "🇦🇿", "🇧🇦", "🇧🇧", "🇧🇩", "🇧🇪", "🇧🇫", "🇧🇬", "🇧🇭", "🇧🇮", "🇧🇯", "🇧🇱", "🇧🇲", "🇧🇳", "🇧🇴", "🇧🇶", "🇧🇷", "🇧🇸", "🇧🇹", "🇧🇻", "🇧🇼", "🇧🇾", "🇧🇿", "🇨🇦", "🇨🇨", "🇨🇩", "🇨🇫", "🇨🇬", "🇨🇭", "🇨🇮", "🇨🇰", "🇨🇱", "🇨🇲", "🇨🇳", "🇨🇴", "🇨🇵", "🇨🇷", "🇨🇺", "🇨🇻", "🇨🇼", "🇨🇽", "🇨🇾", "🇨🇿", "🇩🇪", "🇩🇬", "🇩🇯", "🇩🇰", "🇩🇲", "🇩🇴", "🇩🇿", "🇪🇦", "🇪🇨", "🇪🇪", "🇪🇬", "🇪🇭", "🇪🇷", "🇪🇸", "🇪🇹", "🇪🇺", "🇫🇮", "🇫🇯", "🇫🇰", "🇫🇲", "🇫🇴", "🇫🇷", "🇬🇦", "🇬🇧", "🇬🇩", "🇬🇪", "🇬🇫", "🇬🇬", "🇬🇭", "🇬🇮", "🇬🇱", "🇬🇲", "🇬🇳", "🇬🇵", "🇬🇶", "🇬🇷", "🇬🇸", "🇬🇹", "🇬🇺", "🇬🇼", "🇬🇾", "🇭🇰", "🇭🇲", "🇭🇳", "🇭🇷", "🇭🇹", "🇭🇺", "🇮🇨", "🇮🇩", "🇮🇪", "🇮🇱", "🇮🇲", "🇮🇳", "🇮🇴", "🇮🇶", "🇮🇷", "🇮🇸", "🇮🇹", "🇯🇪", "🇯🇲", "🇯🇴", "🇯🇵", "🇰🇪", "🇰🇬", "🇰🇭", "🇰🇮", "🇰🇲", "🇰🇳", "🇰🇵", "🇰🇷", "🇰🇼", "🇰🇾", "🇰🇿", "🇱🇦", "🇱🇧", "🇱🇨", "🇱🇮", "🇱🇰", "🇱🇷", "🇱🇸", "🇱🇹", "🇱🇺", "🇱🇻", "🇱🇾", "🇲🇦", "🇲🇨", "🇲🇩", "🇲🇪", "🇲🇫", "🇲🇬", "🇲🇭", "🇲🇰", "🇲🇱", "🇲🇲", "🇲🇳", "🇲🇴", "🇲🇵", "🇲🇶", "🇲🇷", "🇲🇸", "🇲🇹", "🇲🇺", "🇲🇻", "🇲🇼", "🇲🇽", "🇲🇾", "🇲🇿", "🇳🇦", "🇳🇨", "🇳🇪", "🇳🇫", "🇳🇬", "🇳🇮", "🇳🇱", "🇳🇴", "🇳🇵", "🇳🇷", "🇳🇺", "🇳🇿", "🇴🇲", "🇵🇦", "🇵🇪", "🇵🇫", "🇵🇬", "🇵🇭", "🇵🇰", "🇵🇱", "🇵🇲", "🇵🇳", "🇵🇷", "🇵🇸", "🇵🇹", "🇵🇼", "🇵🇾", "🇶🇦", "🇷🇪", "🇷🇴", "🇷🇸", "🇷🇺", "🇷🇼", "🇸🇦", "🇸🇧", "🇸🇨", "🇸🇩", "🇸🇪", "🇸🇬", "🇸🇭", "🇸🇮", "🇸🇯", "🇸🇰", "🇸🇱", "🇸🇲", "🇸🇳", "🇸🇴", "🇸🇷", "🇸🇸", "🇸🇹", "🇸🇻", "🇸🇽", "🇸🇾", "🇸🇿", "🇹🇦", "🇹🇨", "🇹🇩", "🇹🇫", "🇹🇬", "🇹🇭", "🇹🇯", "🇹🇰", "🇹🇱", "🇹🇲", "🇹🇳", "🇹🇴", "🇹🇷", "🇹🇹", "🇹🇻", "🇹🇿", "🇺🇦", "🇺🇬", "🇺🇲", "🇺🇳", "🇺🇸", "🇺🇾", "🇺🇿", "🇻🇦", "🇻🇨", "🇻🇪", "🇻🇬", "🇻🇮", "🇻🇳", "🇻🇺", "🇼🇫", "🇼🇸", "🇽🇰", "🇾🇪", "🇾🇹", "🇿🇦", "🇿🇲", "🇿🇼", "🏴󠁧󠁢󠁥󠁮󠁧󠁿", "🏴󠁧󠁢󠁳󠁣󠁴󠁿", "🏴󠁧󠁢󠁷󠁬󠁳󠁿", ),
     )
 
-    @Volatile
-    private var cachedFilteredEmojicons: Map<Int, List<String>>? = null
-    @Volatile
-    private var lastCompatInstance: EmojiCompat? = null
-    private val isPrewarming = AtomicBoolean(false)
-    @Volatile
-    private var pendingPrewarm = false
+    internal data class EmojiDataSnapshot(
+        val compat: EmojiCompat?,
+        val categories: Map<Int, List<String>>
+    )
+
+    private val prewarmLock = Any()
+    private val prewarmScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private var activePrewarm: Any? = null
+    private val filteredSnapshots = MutableStateFlow<EmojiDataSnapshot?>(null)
+    internal val snapshots: StateFlow<EmojiDataSnapshot?> = filteredSnapshots.asStateFlow()
 
     private fun filterRawEmojicons(compat: EmojiCompat?): Map<Int, List<String>> {
         return rawEmojicons.mapValues { (icon, emojiList) ->
@@ -278,53 +283,38 @@ object EmojiconData{
     }
 
     fun prewarm() {
-        val currentCompat = LimeEmojiCompat.getAsFlow().value
-        if (cachedFilteredEmojicons != null && lastCompatInstance === currentCompat) {
-            return
+        val token = synchronized(prewarmLock) {
+            val cached = filteredSnapshots.value
+            if (cached != null && cached.compat === LimeEmojiCompat.getAsFlow().value) return
+            if (activePrewarm != null) return
+            Any().also { activePrewarm = it }
         }
-        if (!isPrewarming.compareAndSet(false, true)) {
-            pendingPrewarm = true
-            return
-        }
-        CoroutineScope(Dispatchers.Default).launch {
+        prewarmScope.launch {
             try {
-                do {
-                    pendingPrewarm = false
+                while (true) {
                     val compat = LimeEmojiCompat.getAsFlow().value
                     val filtered = filterRawEmojicons(compat)
-                    synchronized(this@EmojiconData) {
-                        lastCompatInstance = compat
-                        cachedFilteredEmojicons = filtered
+                    synchronized(prewarmLock) {
+                        if (compat === LimeEmojiCompat.getAsFlow().value) {
+                            filteredSnapshots.value = EmojiDataSnapshot(compat, filtered)
+                            activePrewarm = null
+                            return@launch
+                        }
                     }
-                } while (pendingPrewarm)
+                }
             } finally {
-                isPrewarming.set(false)
+                synchronized(prewarmLock) {
+                    if (activePrewarm === token) activePrewarm = null
+                }
             }
         }
     }
 
     val emojiconData: Map<Int, List<String>>
         get() {
-            val currentCompat = LimeEmojiCompat.getAsFlow().value
-            val cached = cachedFilteredEmojicons
-            if (cached != null && lastCompatInstance === currentCompat) {
-                return cached
-            }
-            val isMainThread = try {
-                Looper.myLooper() == Looper.getMainLooper()
-            } catch (_: Throwable) {
-                false
-            }
-            if (isMainThread) {
-                prewarm()
-                return cached ?: rawEmojicons
-            }
-            val filtered = filterRawEmojicons(currentCompat)
-            synchronized(this) {
-                lastCompatInstance = currentCompat
-                cachedFilteredEmojicons = filtered
-            }
-            return filtered
+            val cached = filteredSnapshots.value
+            if (cached == null || cached.compat !== LimeEmojiCompat.getAsFlow().value) prewarm()
+            return cached?.categories ?: rawEmojicons
         }
 
 

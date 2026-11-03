@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [Unreleased]
+
+### Fixed
+- **Adaptive Panels**: Sized emoji, symbol, emoticon, and clipboard grids from their available width, preserving common-symbol pairs and fitting glyphs to constrained panel heights. Kept paged symbol and emoji cell bounds synchronized with the column count from the first layout.
+- **Emoji Loading**: Started manually configured emoji metadata loading without an Activity and refreshed visible pages after filtered data becomes available.
+- **Compact Layouts**: Added scrollable keyboard mode cards, compact text-edit controls, and a side category list for low-height symbol panels.
+- **Voice Controls**: Kept locked-recording completion controls within the overlay and aligned their touch bounds after resizing; fitted preview text to the available width.
+- **Panel Rotation**: Restored symbol panel mode and category during configuration changes within the same unrestricted editor session.
+
+---
+
 ## [0.9.5] - 2026-11-01
 
 ### Changed

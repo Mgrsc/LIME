@@ -156,9 +156,11 @@ class ClipBoardAdapter(
 
         val timeTextView = TextView(context).apply {
             id = View.generateViewId()
+            setSingleLine()
+            ellipsize = TextUtils.TruncateAt.END
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 9.5f)
             setTextColor(Color.argb(130, Color.red(textColor), Color.green(textColor), Color.blue(textColor)))
-            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
         }
 
         val countTextView = TextView(context).apply {

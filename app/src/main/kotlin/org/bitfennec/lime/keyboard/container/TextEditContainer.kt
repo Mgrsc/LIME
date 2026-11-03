@@ -5,11 +5,13 @@ import android.content.Context
 import android.content.res.ColorStateList
 import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
+import android.graphics.drawable.Drawable
 import android.graphics.drawable.RippleDrawable
 import android.os.Handler
 import android.os.Looper
 import android.text.TextUtils
 import android.view.KeyEvent
+import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
@@ -25,6 +27,8 @@ import org.bitfennec.lime.prefs.InputFeedbacks
 import org.bitfennec.lime.prefs.behavior.SkbMenuMode
 import org.bitfennec.lime.utils.DevicesUtils
 import org.bitfennec.lime.utils.dp
+import org.bitfennec.lime.utils.EditButtonLayout
+import org.bitfennec.lime.utils.resolveEditButtonLayout
 
 /**
  * Text editing keyboard container.
@@ -54,6 +58,14 @@ class TextEditContainer(context: Context, inputView: InputView) : BaseContainer(
     private val btnDelete: TextView
     private val btnPaste: TextView
 
+    private data class ButtonLayoutState(
+        val width: Int,
+        val height: Int,
+        val label: String,
+        val textSize: Float,
+        val icon: Drawable
+    )
+    private val buttonLayouts = mutableMapOf<TextView, ButtonLayoutState>()
     private var hasTextSelected = false
     private val mHandler = Handler(Looper.getMainLooper())
 
@@ -85,25 +97,42 @@ class TextEditContainer(context: Context, inputView: InputView) : BaseContainer(
             btnLeft, btnSpace, btnRight, btnCopy,
             btnBack, btnDown, btnDelete, btnPaste
         )
-        val iconSize = dp(22)
         allButtons.forEach { button ->
-            val icon = button.compoundDrawables[1] ?: return@forEach
-            icon.setBounds(0, 0, iconSize, iconSize)
-            button.setCompoundDrawables(null, icon, null, null)
+            button.contentDescription = button.text
             button.setSingleLine()
             button.ellipsize = TextUtils.TruncateAt.END
-            // Top compound drawables follow padding, not the text's vertical gravity.
-            button.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
-                val fontMetrics = button.paint.fontMetrics
-                val textHeight = kotlin.math.max(button.lineHeight, kotlin.math.ceil((fontMetrics.descent - fontMetrics.ascent).toDouble()).toInt())
-                val contentHeight = iconSize + button.compoundDrawablePadding + textHeight
-                val topPadding = ((button.height - contentHeight) / 2).coerceAtLeast(0)
-                button.setPadding(dp(4), topPadding, dp(4), 0)
-            }
+            button.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> updateButtonLayout(button) }
         }
 
         setupListeners()
         applyTheme()
+    }
+
+    private fun updateButtonLayout(button: TextView) {
+        if (button.width <= 0 || button.height <= 0) return
+        val icon = button.compoundDrawablesRelative.firstOrNull { it != null } ?: return
+        val label = button.contentDescription ?: button.text
+        val state = ButtonLayoutState(button.width, button.height, label.toString(), button.textSize, icon)
+        if (buttonLayouts[button] == state) return
+        buttonLayouts[button] = state
+        val metrics = button.paint.fontMetrics
+        val textHeight = maxOf(button.lineHeight, kotlin.math.ceil((metrics.descent - metrics.ascent).toDouble()).toInt())
+        val iconSize = minOf(dp(22), (button.height - dp(4)).coerceAtLeast(1))
+        val gap = dp(2)
+        val layout = resolveEditButtonLayout(button.width, button.height, iconSize,
+            button.paint.measureText(label.toString()), textHeight, gap, dp(8))
+        icon.setBounds(0, 0, iconSize, iconSize)
+        val targetText = if (layout == EditButtonLayout.IconOnly) "" else label
+        if (button.text.toString() != targetText.toString()) button.text = targetText
+        button.gravity = Gravity.CENTER
+        button.compoundDrawablePadding = gap
+        if (layout == EditButtonLayout.Stacked) {
+            button.setCompoundDrawablesRelative(null, icon, null, null)
+            button.setPadding(dp(4), ((button.height - iconSize - gap - textHeight) / 2).coerceAtLeast(0), dp(4), 0)
+        } else {
+            button.setCompoundDrawablesRelative(icon, null, null, null)
+            button.setPadding(dp(4), 0, dp(4), 0)
+        }
     }
 
     private fun collapseSelection() {
@@ -299,15 +328,17 @@ class TextEditContainer(context: Context, inputView: InputView) : BaseContainer(
             setSelectAllOrCutIcon(R.drawable.ic_edit_cut)
             TextViewCompat.setCompoundDrawableTintList(btnSelectAllOrCut, ColorStateList.valueOf(theme.accentKeyTextColor))
             btnSelectAllOrCut.setTextColor(theme.accentKeyTextColor)
-            btnSelectAllOrCut.text = context.getString(R.string.text_edit_cut)
+            btnSelectAllOrCut.contentDescription = context.getString(R.string.text_edit_cut)
         } else {
             // Standard Select-All state
             btnSelectAllOrCut.background = createCardDrawable(theme.keyBackgroundColor, theme.keyPressHighlightColor, cornerRadius)
             setSelectAllOrCutIcon(R.drawable.ic_edit_select_all)
             TextViewCompat.setCompoundDrawableTintList(btnSelectAllOrCut, ColorStateList.valueOf(theme.keyTextColor))
             btnSelectAllOrCut.setTextColor(theme.keyTextColor)
-            btnSelectAllOrCut.text = context.getString(R.string.text_edit_select_all)
+            btnSelectAllOrCut.contentDescription = context.getString(R.string.text_edit_select_all)
         }
+        btnSelectAllOrCut.text = btnSelectAllOrCut.contentDescription
+        updateButtonLayout(btnSelectAllOrCut)
     }
 
     private fun setSelectAllOrCutIcon(resource: Int) {

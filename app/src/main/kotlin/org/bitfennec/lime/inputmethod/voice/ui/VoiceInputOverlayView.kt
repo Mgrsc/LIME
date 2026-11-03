@@ -8,6 +8,8 @@ import android.graphics.Path
 import android.graphics.RectF
 import android.graphics.Typeface
 import android.util.AttributeSet
+import android.text.TextPaint
+import android.text.TextUtils
 import android.view.Gravity
 import android.view.MotionEvent
 import android.widget.FrameLayout
@@ -51,7 +53,6 @@ class VoiceInputOverlayView @JvmOverloads constructor(
     private var isEnginePreparing: Boolean = false
     private var isRecognizing: Boolean = false
 
-    // Paint objects reused across lifecycle (zero allocations in onDraw)
     private val bgPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.FILL
     }
@@ -63,12 +64,12 @@ class VoiceInputOverlayView @JvmOverloads constructor(
         style = Paint.Style.FILL
     }
 
-    private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+    private val textPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
         textAlign = Paint.Align.CENTER
         typeface = Typeface.DEFAULT_BOLD
     }
 
-    private val hintTextPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+    private val hintTextPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
         textAlign = Paint.Align.CENTER
     }
 
@@ -82,8 +83,47 @@ class VoiceInputOverlayView @JvmOverloads constructor(
 
     private val vectorIconPaint = Paint(Paint.ANTI_ALIAS_FLAG)
 
-    private val modeBadgePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+    private val modeBadgePaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
         textAlign = Paint.Align.CENTER
+    }
+
+    private var overlayLayout = VoiceOverlayLayout.calculate(242f)
+
+    override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
+        super.onSizeChanged(w, h, oldw, oldh)
+        overlayLayout = VoiceOverlayLayout.calculate(h / resources.displayMetrics.density)
+        updateControlBounds()
+        val waveformBottom = min(overlayLayout.targetTop, overlayLayout.lockedStatusBaseline - 16f) - 4f
+        val waveformHeight = 24f
+        visualizerView.visibility = if (waveformBottom - overlayLayout.waveformTop >= waveformHeight) VISIBLE else INVISIBLE
+        visualizerView.layoutParams = LayoutParams(min(dp2px(180f).toInt(), w), dp2px(waveformHeight).toInt()).apply {
+            gravity = Gravity.CENTER_HORIZONTAL or Gravity.TOP
+            topMargin = dp2px(overlayLayout.waveformTop).toInt()
+        }
+    }
+
+    private fun updateControlBounds() {
+        val w = width.toFloat()
+        val margin = min(dp2px(28f), w * 0.08f)
+        val pillWidth = min(dp2px(80f), (w - margin * 3f) / 2f)
+        val pillTop = dp2px(overlayLayout.targetTop)
+        val pillHeight = dp2px(VoiceOverlayLayout.TARGET_HEIGHT_DP)
+        leftPillRect.set(margin, pillTop, margin + pillWidth, pillTop + pillHeight)
+        rightPillRect.set(w - margin - pillWidth, pillTop, w - margin, pillTop + pillHeight)
+        val finishWidth = min(dp2px(140f), (w - dp2px(16f)).coerceAtLeast(0f))
+        val finishTop = dp2px(overlayLayout.finishTop)
+        lockFinishRect.set((w - finishWidth) / 2f, finishTop, (w + finishWidth) / 2f,
+            finishTop + dp2px(VoiceOverlayLayout.FINISH_HEIGHT_DP))
+        val modeBaseline = dp2px(if (isLocked) overlayLayout.lockedModeBaseline else overlayLayout.modeBaseline)
+        val modeHalfWidth = min(dp2px(70f), w / 2f)
+        modeBadgeRect.set(w / 2f - modeHalfWidth, modeBaseline - dp2px(VoiceOverlayLayout.MODE_HALF_HEIGHT_DP),
+            w / 2f + modeHalfWidth, modeBaseline + dp2px(VoiceOverlayLayout.MODE_HALF_HEIGHT_DP))
+    }
+
+    private fun drawFittedText(canvas: Canvas, text: String, cx: Float, baseline: Float, paint: TextPaint,
+        availableWidth: Float = width - dp2px(32f), truncateAt: TextUtils.TruncateAt = TextUtils.TruncateAt.END) {
+        val fitted = TextUtils.ellipsize(text, paint, availableWidth.coerceAtLeast(0f), truncateAt)
+        canvas.drawText(fitted.toString(), cx, baseline, paint)
     }
 
     private var captureMode = AudioRecordHelper.VoiceCaptureMode.STANDARD
@@ -213,6 +253,7 @@ class VoiceInputOverlayView @JvmOverloads constructor(
     fun enterLockMode() {
         isLocked = true
         currentState = VoiceActionState.LOCK
+        updateControlBounds()
         invalidate()
     }
 
@@ -231,6 +272,7 @@ class VoiceInputOverlayView @JvmOverloads constructor(
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
         if (!isLocked) return false
+        updateControlBounds()
 
         when (event.action) {
             MotionEvent.ACTION_DOWN -> {
@@ -280,14 +322,10 @@ class VoiceInputOverlayView @JvmOverloads constructor(
             postInvalidateOnAnimation()
         }
 
-        val pillMargin = dp2px(28f)
-        val pillW = dp2px(80f)
-        val pillH = dp2px(38f)
-        val pillY = dp2px(76f)
+        val pillH = dp2px(VoiceOverlayLayout.TARGET_HEIGHT_DP)
 
         // 3. Left target: Cancel capsule
         val leftActive = currentState == VoiceActionState.CANCEL
-        leftPillRect.set(pillMargin, pillY, pillMargin + pillW, pillY + pillH)
 
         canvas.withScale(leftScale, leftScale, leftPillRect.centerX(), leftPillRect.centerY()) {
             pillBgPaint.color = when {
@@ -312,7 +350,6 @@ class VoiceInputOverlayView @JvmOverloads constructor(
 
         // 4. Right target: Lock capsule
         val rightActive = currentState == VoiceActionState.LOCK
-        rightPillRect.set(w - pillMargin - pillW, pillY, w - pillMargin, pillY + pillH)
 
         canvas.withScale(rightScale, rightScale, rightPillRect.centerX(), rightPillRect.centerY()) {
             pillBgPaint.color = when {
@@ -336,48 +373,46 @@ class VoiceInputOverlayView @JvmOverloads constructor(
 
         // 5. Center hint and live preview
         hintTextPaint.textSize = dp2px(14f)
-        val hintY = dp2px(142f)
+        val hintY = dp2px(overlayLayout.hintBaseline)
         if (isRecognizing) {
             hintTextPaint.color = if (isNight) "#0A84FF".toColorInt() else "#007AFF".toColorInt()
-            canvas.drawText(strLiveTranscribing, w / 2f, hintY, hintTextPaint)
+            drawFittedText(canvas, strLiveTranscribing, w / 2f, hintY, hintTextPaint)
         } else if (isEnginePreparing) {
             hintTextPaint.color = if (isNight) "#FF9500".toColorInt() else "#FF8D00".toColorInt()
-            canvas.drawText(strEnginePreparing, w / 2f, hintY, hintTextPaint)
+            drawFittedText(canvas, strEnginePreparing, w / 2f, hintY, hintTextPaint)
         } else if (liveTranscribeText.isNotEmpty() && currentState == VoiceActionState.NORMAL) {
             textPaint.textSize = dp2px(15f)
             textPaint.color = if (isNight) Color.WHITE else "#1C1C1E".toColorInt()
-            val maxChars = 24
-            val displayPreview = if (liveTranscribeText.length > maxChars) "..." + liveTranscribeText.takeLast(maxChars) else liveTranscribeText
-            canvas.drawText(displayPreview, w / 2f, dp2px(126f), textPaint)
+            drawFittedText(canvas, liveTranscribeText, w / 2f, dp2px(overlayLayout.previewBaseline), textPaint,
+                truncateAt = TextUtils.TruncateAt.START)
 
             hintTextPaint.textSize = dp2px(12f)
             hintTextPaint.color = if (isNight) "#80FFFFFF".toColorInt() else "#80000000".toColorInt()
-            canvas.drawText(strReleaseToSend, w / 2f, dp2px(148f), hintTextPaint)
+            drawFittedText(canvas, strReleaseToSend, w / 2f, hintY + dp2px(6f), hintTextPaint)
 
-            drawModeBadge(canvas, w / 2f, dp2px(166f), isNight)
+            drawModeBadge(canvas, w / 2f, dp2px(overlayLayout.modeBaseline), isNight)
         } else {
             when (currentState) {
                 VoiceActionState.CANCEL -> {
                     hintTextPaint.color = "#FF453A".toColorInt()
-                    canvas.drawText(strReleaseToCancel, w / 2f, hintY, hintTextPaint)
+                    drawFittedText(canvas, strReleaseToCancel, w / 2f, hintY, hintTextPaint)
                 }
                 VoiceActionState.LOCK -> {
                     hintTextPaint.color = if (isNight) "#0A84FF".toColorInt() else "#007AFF".toColorInt()
-                    canvas.drawText(strReleaseToLock, w / 2f, hintY, hintTextPaint)
+                    drawFittedText(canvas, strReleaseToLock, w / 2f, hintY, hintTextPaint)
                 }
                 VoiceActionState.NORMAL -> {
                     hintTextPaint.color = if (isNight) "#A6FFFFFF".toColorInt() else "#99000000".toColorInt()
-                    canvas.drawText(strReleaseToSend, w / 2f, dp2px(142f), hintTextPaint)
+                    drawFittedText(canvas, strReleaseToSend, w / 2f, hintY, hintTextPaint)
 
-                    drawModeBadge(canvas, w / 2f, dp2px(162f), isNight)
+                    drawModeBadge(canvas, w / 2f, dp2px(overlayLayout.modeBaseline), isNight)
                 }
             }
         }
 
-        // 6. Spacebar press origin indicator (Y: 182dp, W: 200dp, H: 44dp)
-        val anchorW = dp2px(200f)
-        val anchorH = dp2px(44f)
-        val anchorY = dp2px(182f)
+        val anchorW = min(dp2px(200f), w - dp2px(16f))
+        val anchorH = dp2px(overlayLayout.anchorHeight)
+        val anchorY = dp2px(overlayLayout.anchorTop)
         anchorRect.set((w - anchorW) / 2f, anchorY, (w + anchorW) / 2f, anchorY + anchorH)
         anchorBoxPaint.color = if (isNight) "#1FFFFFFF".toColorInt() else "#14000000".toColorInt()
         canvas.drawRoundRect(anchorRect, dp2px(12f), dp2px(12f), anchorBoxPaint)
@@ -385,7 +420,7 @@ class VoiceInputOverlayView @JvmOverloads constructor(
         hintTextPaint.textSize = dp2px(12f)
         hintTextPaint.color = if (isNight) "#4DFFFFFF".toColorInt() else "#4D000000".toColorInt()
         val anchorTextY = anchorRect.centerY() - ((hintTextPaint.descent() + hintTextPaint.ascent()) / 2)
-        canvas.drawText(strHoldToSpeak, anchorRect.centerX(), anchorTextY, hintTextPaint)
+        drawFittedText(canvas, strHoldToSpeak, anchorRect.centerX(), anchorTextY, hintTextPaint, anchorRect.width() - dp2px(8f))
     }
 
     private val modeBadgeRect = RectF()
@@ -402,8 +437,7 @@ class VoiceInputOverlayView @JvmOverloads constructor(
             isWhisper -> if (isNight) "#64D2FF".toColorInt() else "#0071A4".toColorInt()
             else -> if (isNight) "#66FFFFFF".toColorInt() else "#66000000".toColorInt()
         }
-        modeBadgeRect.set(cx - dp2px(70f), cy - dp2px(14f), cx + dp2px(70f), cy + dp2px(14f))
-        canvas.drawText(modeText, cx, cy, modeBadgePaint)
+        drawFittedText(canvas, modeText, cx, cy, modeBadgePaint, modeBadgeRect.width())
     }
 
     /** Renders locked long-speech recording mode. */
@@ -411,29 +445,22 @@ class VoiceInputOverlayView @JvmOverloads constructor(
         // 1. Top hint and live transcription preview
         hintTextPaint.textSize = dp2px(14f)
         hintTextPaint.color = if (isNight) "#0A84FF".toColorInt() else "#007AFF".toColorInt()
-        canvas.drawText(strLiveTranscribing, w / 2f, dp2px(76f), hintTextPaint)
+        drawFittedText(canvas, strLiveTranscribing, w / 2f, dp2px(overlayLayout.lockedStatusBaseline), hintTextPaint)
 
         // Real-time transcription display
         if (liveTranscribeText.isNotEmpty()) {
             textPaint.textSize = dp2px(15f)
             textPaint.color = if (isNight) Color.WHITE else "#1C1C1E".toColorInt()
-            val previewY = dp2px(116f)
-            val maxChars = 24
-            val displayPreview = if (liveTranscribeText.length > maxChars) "..." + liveTranscribeText.takeLast(maxChars) else liveTranscribeText
-            canvas.drawText(displayPreview, w / 2f, previewY, textPaint)
+            drawFittedText(canvas, liveTranscribeText, w / 2f, dp2px(overlayLayout.lockedPreviewBaseline), textPaint,
+                truncateAt = TextUtils.TruncateAt.START)
         } else {
             hintTextPaint.textSize = dp2px(13f)
             hintTextPaint.color = if (isNight) "#66FFFFFF".toColorInt() else "#66000000".toColorInt()
-            canvas.drawText(strListeningHint, w / 2f, dp2px(116f), hintTextPaint)
+            drawFittedText(canvas, strListeningHint, w / 2f, dp2px(overlayLayout.lockedPreviewBaseline), hintTextPaint)
         }
 
-        drawModeBadge(canvas, w / 2f, dp2px(138f), isNight)
+        drawModeBadge(canvas, w / 2f, dp2px(overlayLayout.lockedModeBaseline), isNight)
 
-        // 2. Centered Done button (Y: 165dp, W: 140dp, H: 44dp, R: 22dp)
-        val btnW = dp2px(140f)
-        val btnH = dp2px(44f)
-        val btnY = dp2px(165f)
-        lockFinishRect.set((w - btnW) / 2f, btnY, (w + btnW) / 2f, btnY + btnH)
 
         lockBtnPaint.color = if (isNight) "#0A84FF".toColorInt() else "#007AFF".toColorInt()
         canvas.drawRoundRect(lockFinishRect, dp2px(22f), dp2px(22f), lockBtnPaint)
@@ -456,17 +483,12 @@ class VoiceInputOverlayView @JvmOverloads constructor(
         val h = height.toFloat()
         if (w <= 0 || h <= 0) return VoiceActionState.NORMAL
 
-        val pillMargin = dp2px(28f)
-        val pillW = dp2px(80f)
-        val pillH = dp2px(38f)
-        val pillY = dp2px(76f)
-
-        val leftTargetCenterX = pillMargin + pillW / 2f
-        val leftTargetCenterY = pillY + pillH / 2f
+        updateControlBounds()
+        val leftTargetCenterX = leftPillRect.centerX()
+        val leftTargetCenterY = leftPillRect.centerY()
         val distToLeftTarget = sqrt(((x - leftTargetCenterX) * (x - leftTargetCenterX) + (y - leftTargetCenterY) * (y - leftTargetCenterY)).toDouble()).toFloat()
-
-        val rightTargetCenterX = w - pillMargin - pillW / 2f
-        val rightTargetCenterY = pillY + pillH / 2f
+        val rightTargetCenterX = rightPillRect.centerX()
+        val rightTargetCenterY = rightPillRect.centerY()
         val distToRightTarget = sqrt(((x - rightTargetCenterX) * (x - rightTargetCenterX) + (y - rightTargetCenterY) * (y - rightTargetCenterY)).toDouble()).toFloat()
 
         // Bottom touch gate: adapts to view height (default 140dp, max 65% height in landscape)
@@ -535,6 +557,7 @@ class VoiceInputOverlayView @JvmOverloads constructor(
         leftScale = 1.0f
         rightScale = 1.0f
         visualizerView.reset()
+        updateControlBounds()
         visibility = VISIBLE
         invalidate()
     }

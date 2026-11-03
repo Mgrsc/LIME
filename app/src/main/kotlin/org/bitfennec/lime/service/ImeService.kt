@@ -43,6 +43,7 @@ import org.bitfennec.lime.keyboard.KeyboardManager
 import org.bitfennec.lime.keyboard.HandwritingKeyboard
 import org.bitfennec.lime.keyboard.container.ClipBoardContainer
 import org.bitfennec.lime.keyboard.container.TextEditContainer
+import org.bitfennec.lime.keyboard.container.SymbolContainer
 import org.bitfennec.lime.prefs.AppPrefs.Companion.getInstance
 import org.bitfennec.lime.prefs.behavior.SkbMenuMode
 import org.bitfennec.lime.environment.ImeEnvironment
@@ -482,6 +483,9 @@ class ImeService : InputMethodService(), LifecycleOwner {
      * Handles configuration / orientation change.
      */
     override fun onConfigurationChanged(newConfig: Configuration) {
+        val symbolState = (KeyboardManager.instance.currentContainer as? SymbolContainer)
+            ?.takeIf { it.isShown }
+            ?.capturePanelState()
         super.onConfigurationChanged(newConfig)
         stylusHandwritingRegion.setEmpty()
         handleHardwareKeyboard(newConfig)
@@ -491,6 +495,11 @@ class ImeService : InputMethodService(), LifecycleOwner {
             KeyboardLoaderUtil.instance.clearKeyboardMap()
             KeyboardManager.instance.clearKeyboard()
             KeyboardManager.instance.switchKeyboard()
+            if (symbolState != null && symbolState.canRestore(InputModeSwitcher.currentEditorSessionId, InputModeSwitcher.isPassword)) {
+                KeyboardManager.instance.switchKeyboard(KeyboardManager.KeyboardType.SYMBOL)
+                (KeyboardManager.instance.currentContainer as? SymbolContainer)
+                    ?.restorePanelState(symbolState)
+            }
         } else if (isHardwareKeyboard && ::mCandidateView.isInitialized) {
             mCandidateView.initView()
         }

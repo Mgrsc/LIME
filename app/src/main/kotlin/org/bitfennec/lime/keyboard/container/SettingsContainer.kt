@@ -63,7 +63,7 @@ class SettingsContainer(context: Context, inputView: InputView) : BaseContainer(
     private var mContentContainer: FrameLayout? = null
     private var mRVMenuLayout: RecyclerView? = null
     private var mFeedbackLayout: View? = null
-    private var mModeSelectLayout: LinearLayout? = null
+    private var mModeSelectLayout: ScrollView? = null
 
     private var mTheme: Theme? = null
     private var adapter: MenuAdapter? = null
@@ -476,62 +476,69 @@ class SettingsContainer(context: Context, inputView: InputView) : BaseContainer(
 
     private var modeCards: List<View> = emptyList()
 
-    private fun createModeSelectLayout(): LinearLayout {
-        val layout = LinearLayout(context).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(dp(8), dp(6), dp(8), dp(6))
+    private fun createModeSelectLayout(): ScrollView {
+        val scroll = ScrollView(context).apply {
+            isFillViewport = true
             layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
         }
-
-        val row1 = LinearLayout(context).apply {
-            orientation = LinearLayout.HORIZONTAL
-            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f).apply {
-                bottomMargin = dp(3)
+        val layout = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(8), dp(6), dp(8), dp(6))
+        }
+        val modes = listOf(
+            Triple(R.string.keyboard_name_t9, R.string.keyboard_type_t9_desc, R.drawable.select_input_mode_py9) to SkbMenuMode.PinyinT9,
+            Triple(R.string.keyboard_name_cn26, R.string.keyboard_type_qwerty_desc, R.drawable.select_input_mode_py26) to SkbMenuMode.Pinyin26Jian,
+            Triple(R.string.keyboard_name_hand, R.string.keyboard_type_handwriting_desc, R.drawable.select_input_mode_handwriting) to SkbMenuMode.PinyinHandWriting,
+            Triple(R.string.double_pinyin_flypy_plus, R.string.keyboard_type_double_pinyin_desc, R.drawable.select_input_mode_dpy26) to SkbMenuMode.Pinyin26Double
+        )
+        modeCards = modes.map { (resources, mode) ->
+            createKeyboardModeCard(context.getString(resources.first), context.getString(resources.second), resources.third, mode)
+        }
+        modeCards.chunked(2).forEach { cards ->
+            val row = LinearLayout(context).apply {
+                orientation = LinearLayout.HORIZONTAL
+                isBaselineAligned = false
+                layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
+                    topMargin = dp(3)
+                    bottomMargin = dp(3)
+                }
+            }
+            cards.forEach { row.addView(it) }
+            layout.addView(row)
+        }
+        scroll.addView(layout)
+        var compactLayout: Boolean? = null
+        scroll.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
+            val minimumCardHeight = modeCards.maxOf { card ->
+                val labels = (card as LinearLayout).getChildAt(1) as LinearLayout
+                dp(48) + (labels.getChildAt(0) as TextView).lineHeight + (labels.getChildAt(1) as TextView).lineHeight
+            }
+            val compact = scroll.height < minimumCardHeight * 2 + dp(24)
+            if (compactLayout != compact) {
+                compactLayout = compact
+                modeCards.forEach { view ->
+                    val card = view as LinearLayout
+                    card.orientation = if (compact) LinearLayout.HORIZONTAL else LinearLayout.VERTICAL
+                    card.gravity = if (compact) Gravity.CENTER_VERTICAL else Gravity.CENTER
+                    card.minimumHeight = if (compact) dp(48) else 0
+                    val icon = card.getChildAt(0)
+                    icon.layoutParams = LinearLayout.LayoutParams(dp(28), dp(28)).apply {
+                        marginEnd = if (compact) dp(8) else 0
+                    }
+                    val labels = card.getChildAt(1) as LinearLayout
+                    labels.gravity = if (compact) Gravity.START else Gravity.CENTER_HORIZONTAL
+                    labels.layoutParams = LinearLayout.LayoutParams(
+                        if (compact) 0 else LinearLayout.LayoutParams.MATCH_PARENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT,
+                        if (compact) 1f else 0f
+                    )
+                    labels.setPadding(0, if (compact) 0 else dp(5), 0, 0)
+                }
             }
         }
-        val row2 = LinearLayout(context).apply {
-            orientation = LinearLayout.HORIZONTAL
-            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f).apply {
-                topMargin = dp(3)
-            }
-        }
-
-        val card1 = createKeyboardModeCard(
-            context.getString(R.string.keyboard_name_t9),
-            context.getString(R.string.keyboard_type_t9_desc),
-            R.drawable.select_input_mode_py9,
-            SkbMenuMode.PinyinT9
-        )
-        val card2 = createKeyboardModeCard(
-            context.getString(R.string.keyboard_name_cn26),
-            context.getString(R.string.keyboard_type_qwerty_desc),
-            R.drawable.select_input_mode_py26,
-            SkbMenuMode.Pinyin26Jian
-        )
-        val card3 = createKeyboardModeCard(
-            context.getString(R.string.keyboard_name_hand),
-            context.getString(R.string.keyboard_type_handwriting_desc),
-            R.drawable.select_input_mode_handwriting,
-            SkbMenuMode.PinyinHandWriting
-        )
-        val card4 = createKeyboardModeCard(
-            context.getString(R.string.double_pinyin_flypy_plus),
-            context.getString(R.string.keyboard_type_double_pinyin_desc),
-            R.drawable.select_input_mode_dpy26,
-            SkbMenuMode.Pinyin26Double
-        )
-
-        row1.addView(card1)
-        row1.addView(card2)
-        row2.addView(card3)
-        row2.addView(card4)
-
-        layout.addView(row1)
-        layout.addView(row2)
-
-        modeCards = listOf(card1, card2, card3, card4)
         updateModeSelectCards()
-        return layout
+        return scroll
     }
 
     private fun createKeyboardModeCard(title: String, subtitle: String, iconRes: Int, mode: SkbMenuMode): View {
@@ -541,7 +548,7 @@ class SettingsContainer(context: Context, inputView: InputView) : BaseContainer(
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
             tag = mode
-            val lp = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f).apply {
+            val lp = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
                 marginStart = dp(3)
                 marginEnd = dp(3)
             }
@@ -559,9 +566,7 @@ class SettingsContainer(context: Context, inputView: InputView) : BaseContainer(
             setTypeface(null, Typeface.BOLD)
             setTextColor(theme.keyTextColor)
             includeFontPadding = false
-            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
-                topMargin = dp(5)
-            }
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT)
         }
         val subTv = TextView(context).apply {
             text = subtitle
@@ -574,9 +579,15 @@ class SettingsContainer(context: Context, inputView: InputView) : BaseContainer(
             }
         }
 
+        val labels = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER_HORIZONTAL
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+            addView(titleTv)
+            addView(subTv)
+        }
         card.addView(iconIv)
-        card.addView(titleTv)
-        card.addView(subTv)
+        card.addView(labels)
 
         card.setOnClickListener {
             DevicesUtils.tryPlayKeyDown()
@@ -617,7 +628,7 @@ class SettingsContainer(context: Context, inputView: InputView) : BaseContainer(
             }
             card.background = cardBg
 
-            val titleTv = (card as? LinearLayout)?.getChildAt(1) as? TextView
+            val titleTv = ((card as? LinearLayout)?.getChildAt(1) as? LinearLayout)?.getChildAt(0) as? TextView
             val iconIv = (card as? LinearLayout)?.getChildAt(0) as? ImageView
 
             if (isSelected) {

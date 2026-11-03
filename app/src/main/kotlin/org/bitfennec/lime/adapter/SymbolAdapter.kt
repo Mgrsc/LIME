@@ -8,6 +8,9 @@ import android.graphics.Paint
 import android.graphics.drawable.RippleDrawable
 import android.graphics.drawable.GradientDrawable
 import android.util.TypedValue
+import android.text.Layout
+import android.text.TextPaint
+import android.text.TextUtils
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -20,12 +23,14 @@ import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import org.bitfennec.lime.R
 import org.bitfennec.lime.data.theme.ThemeManager
+import org.bitfennec.lime.data.emojicon.LimeEmojiCompat
 import org.bitfennec.lime.data.theme.ThemeManager.activeTheme
 import org.bitfennec.lime.prefs.AppPrefs
 import org.bitfennec.lime.prefs.behavior.HalfWidthSymbolsMode
 import org.bitfennec.lime.prefs.behavior.SymbolMode
 import org.bitfennec.lime.utils.DevicesUtils
 import org.bitfennec.lime.utils.StringUtils
+import org.bitfennec.lime.view.widget.layout.SymbolGridLayoutManager
 
 /**
  * Adapter for symbols and emoji.
@@ -38,6 +43,34 @@ class SymbolAdapter(
 ) : RecyclerView.Adapter<SymbolAdapter.SymbolHolder>() {
 
     private var attachedRecyclerView: RecyclerView? = null
+    internal var keepSymbolPairsTogether = false
+    private fun updateMinimumItemWidth(items: List<String>) {
+        val recyclerView = attachedRecyclerView ?: return
+        val metrics = recyclerView.resources.displayMetrics
+        val textSize = when (viewType) {
+            SymbolMode.Emojicon -> 24f
+            SymbolMode.Emoticon -> 13f
+            SymbolMode.Symbol -> 17f
+        }
+        val paint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
+            this.textSize = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, textSize, metrics)
+        }
+        val minimumWidth = when (viewType) {
+            SymbolMode.Emoticon -> 112f * metrics.density * recyclerView.resources.configuration.fontScale
+            else -> 48f * metrics.density
+        }
+        val compat = LimeEmojiCompat.getAsFlow().value
+        val textWidth = if (viewType == SymbolMode.Emoticon) {
+            0f
+        } else {
+            items.maxOfOrNull { item ->
+                Layout.getDesiredWidth(if (viewType == SymbolMode.Emojicon) compat?.process(item) ?: item else item, paint)
+            } ?: 0f
+        }
+        (recyclerView.layoutManager as? SymbolGridLayoutManager)
+            ?.setMinimumItemWidth(maxOf(minimumWidth, textWidth + metrics.density * 8f), keepSymbolPairsTogether)
+    }
+
     private var symbolDividers: RecyclerView.ItemDecoration? = null
     private val onThemeChangeListener = ThemeManager.OnThemeChangeListener {
         attachedRecyclerView?.invalidate()
@@ -46,6 +79,7 @@ class SymbolAdapter(
     override fun onAttachedToRecyclerView(recyclerView: RecyclerView) {
         super.onAttachedToRecyclerView(recyclerView)
         attachedRecyclerView = recyclerView
+        updateMinimumItemWidth(mDatas)
         if (viewType == SymbolMode.Symbol) {
             ThemeManager.addOnChangedListener(onThemeChangeListener)
             val paint = Paint().apply {
@@ -104,6 +138,7 @@ class SymbolAdapter(
 
     fun updateData(newItems: List<String>, isRecent: Boolean = this.isRecent) {
         val targetItems = newItems.toList()
+        updateMinimumItemWidth(targetItems)
         val version = ++dataUpdateVersion
         safelyDispatchUpdates(version) {
             val oldItems = mDatas
@@ -155,6 +190,8 @@ class SymbolAdapter(
     override fun onBindViewHolder(holder: SymbolHolder, position: Int) {
         val data = mDatas[position]
         holder.textView.text = data
+        holder.textView.ellipsize = if (viewType == SymbolMode.Emojicon) null else TextUtils.TruncateAt.END
+        holder.textView.setHorizontallyScrolling(false)
         holder.itemView.contentDescription = data
 
         when (viewType) {
@@ -200,6 +237,16 @@ class SymbolAdapter(
                     HalfWidthSymbolsMode.None -> View.GONE
                 }
             }
+        }
+
+        val recyclerView = attachedRecyclerView
+        val availableHeight = (recyclerView?.layoutManager?.height ?: 0) -
+            (recyclerView?.paddingTop ?: 0) - (recyclerView?.paddingBottom ?: 0) -
+            holder.container.paddingTop - holder.container.paddingBottom
+        val metrics = holder.textView.paint.fontMetrics
+        val lineHeight = metrics.descent - metrics.ascent
+        if (availableHeight > 0 && lineHeight > availableHeight) {
+            holder.textView.setTextSize(TypedValue.COMPLEX_UNIT_PX, holder.textView.textSize * availableHeight / lineHeight)
         }
 
         holder.itemView.setOnClickListener {

@@ -28,6 +28,7 @@ import org.bitfennec.lime.adapter.SymbolPagerAdapter
 import org.bitfennec.lime.data.emojicon.EmojiconData
 import org.bitfennec.lime.data.theme.ThemeManager.activeTheme
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
@@ -43,6 +44,7 @@ import org.bitfennec.lime.keyboard.KeyboardManager
 import org.bitfennec.lime.manager.InputModeSwitcher
 import androidx.constraintlayout.widget.ConstraintLayout
 import org.bitfennec.lime.utils.dp
+import org.bitfennec.lime.environment.ImeEnvironment
 import kotlin.math.max
 
 /**
@@ -53,6 +55,10 @@ import kotlin.math.max
  */
 @SuppressLint("ViewConstructor", "ClickableViewAccessibility")
 class SymbolContainer(context: Context, inputView: InputView) : BaseContainer(context, inputView) {
+    private companion object {
+        const val MINIMUM_EXPANDED_HEIGHT_DP = 160f
+    }
+
     private var isConstructed = false
     private var mShowType: SymbolMode = SymbolMode.Symbol
     private val pagerPositions = mutableMapOf<SymbolMode, Int>()
@@ -111,6 +117,52 @@ class SymbolContainer(context: Context, inputView: InputView) : BaseContainer(co
     private val mLLTopSegment: LinearLayout
     private val tvSegmentEmoji: TextView
     private val tvSegmentEmoticon: TextView
+    private val compactModeSwitch: ImageView
+    private val bottomNavigation: LinearLayout
+    private var compactLayout = false
+    private var emojiDataJob: Job? = null
+
+    override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+        if (isConstructed) {
+            val compact = ImeEnvironment.skbHeight < dp(MINIMUM_EXPANDED_HEIGHT_DP * resources.configuration.fontScale)
+            if (compactLayout != compact) {
+                compactLayout = compact
+                val tabPaint = android.text.TextPaint().apply {
+                    textSize = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, 13f, resources.displayMetrics)
+                }
+                val tabMetrics = tabPaint.fontMetricsInt
+                val navigationHeight = if (compact) maxOf(dp(36), tabMetrics.bottom - tabMetrics.top + dp(8)) else dp(48)
+                bottomNavigation.layoutParams = bottomNavigation.layoutParams.apply { height = navigationHeight }
+                for (index in 0 until bottomNavigation.childCount) {
+                    val child = bottomNavigation.getChildAt(index)
+                    child.layoutParams = child.layoutParams.apply {
+                        height = navigationHeight
+                        if (child is ImageView) width = navigationHeight
+                    }
+                    if (child is ImageView) child.setPadding(dp(if (compact) 8 else 12))
+                }
+                updateTopSegmentUI()
+            }
+        }
+        super.onMeasure(widthMeasureSpec, heightMeasureSpec)
+    }
+
+    private fun updateEmojiDataCollection(active: Boolean) {
+        if (!active || mShowType != SymbolMode.Emojicon) {
+            emojiDataJob?.cancel()
+            emojiDataJob = null
+            return
+        }
+        if (emojiDataJob?.isActive == true) return
+        EmojiconData.prewarm()
+        emojiDataJob = CoroutineScope(Dispatchers.Main.immediate).launch {
+            EmojiconData.snapshots.collect { snapshot ->
+                if (snapshot != null && isAttachedToWindow && isShown && windowVisibility == VISIBLE && mShowType == SymbolMode.Emojicon) {
+                    (mVPSymbolsView.adapter as? SymbolPagerAdapter)?.updateEmojiData(snapshot.categories)
+                }
+            }
+        }
+    }
 
     private fun createBottomBackground() = RippleDrawable(
         ColorStateList.valueOf(activeTheme.keyTextColor).withAlpha(28),
@@ -228,6 +280,20 @@ class SymbolContainer(context: Context, inputView: InputView) : BaseContainer(co
         // 2. Initialize bottom navigation and controls
         val mLLSymbolType = LayoutInflater.from(getContext()).inflate(R.layout.view_symbols_emoji_type, this, false) as LinearLayout
         mLLSymbolType.id = View.generateViewId()
+        bottomNavigation = mLLSymbolType
+        compactModeSwitch = ImageView(context).apply {
+            visibility = GONE
+            isFocusable = true
+            scaleType = ImageView.ScaleType.CENTER_INSIDE
+            background = createBottomBackground()
+            setPadding(dp(8))
+            setOnClickListener {
+                DevicesUtils.tryPlayKeyDown()
+                DevicesUtils.tryVibrate(this@SymbolContainer)
+                setEmojisView(if (mShowType == SymbolMode.Emojicon) SymbolMode.Emoticon else SymbolMode.Emojicon)
+            }
+        }
+        mLLSymbolType.addView(compactModeSwitch, 1, LinearLayout.LayoutParams(dp(48), LinearLayout.LayoutParams.MATCH_PARENT))
         tabLayout = mLLSymbolType.findViewById<TabLayout>(R.id.tab_symbols_emoji_type).apply {
             addOnTabSelectedListener(object : TabLayout.OnTabSelectedListener {
                 override fun onTabSelected(tab: TabLayout.Tab?) {
@@ -356,6 +422,7 @@ class SymbolContainer(context: Context, inputView: InputView) : BaseContainer(co
 
     private fun wakeCurrentPage() {
         val active = isShown && isAttachedToWindow && windowVisibility == VISIBLE
+        updateEmojiDataCollection(active)
         val adapter = mVPSymbolsView.adapter as? SymbolPagerAdapter ?: return
         adapter.setQueriesActive(active)
         if (pageWakePending || !active) return
@@ -364,6 +431,7 @@ class SymbolContainer(context: Context, inputView: InputView) : BaseContainer(co
     }
 
     private fun cancelPageWake() {
+        updateEmojiDataCollection(false)
         deleteGestureController?.cancel()
         (mVPSymbolsView.adapter as? SymbolPagerAdapter)?.setQueriesActive(false)
         mVPSymbolsView.removeCallbacks(pageWakeTask)
@@ -372,7 +440,13 @@ class SymbolContainer(context: Context, inputView: InputView) : BaseContainer(co
     }
 
     private fun updateTopSegmentUI() {
-        mLLTopSegment.visibility = if (mShowType == SymbolMode.Symbol) View.GONE else View.VISIBLE
+        val emojiMode = mShowType != SymbolMode.Symbol
+        mLLTopSegment.visibility = if (emojiMode && !compactLayout) View.VISIBLE else View.GONE
+        compactModeSwitch.visibility = if (emojiMode && compactLayout) View.VISIBLE else View.GONE
+        compactModeSwitch.contentDescription = context.getString(
+            if (mShowType == SymbolMode.Emojicon) R.string.symbol_tab_emoticon else R.string.symbol_tab_emoji)
+        compactModeSwitch.setImageResource(if (mShowType == SymbolMode.Emojicon) R.drawable.icon_emoticon_1 else R.drawable.icon_emojibar_smileys)
+        compactModeSwitch.drawable?.setTint(activeTheme.keyTextColor)
         val radius = DevicesUtils.dip2px(14).toFloat()
 
         fun applyTabState(tv: TextView, isSelected: Boolean) {
@@ -620,6 +694,33 @@ class SymbolContainer(context: Context, inputView: InputView) : BaseContainer(co
         adapter.refreshRecents()
         updateLockUi()
         wakeCurrentPage()
+    }
+
+    internal fun capturePanelState(): SymbolPanelState {
+        val adapter = mVPSymbolsView.adapter as? SymbolPagerAdapter
+        return SymbolPanelState(
+            editorSessionId = InputModeSwitcher.currentEditorSessionId,
+            mode = mShowType,
+            symbolCategory = EmojiconData.SymbolCategory.entries.getOrElse(mVPSymbolsView.currentItem) { EmojiconData.SymbolCategory.COMMON },
+            emojiCategory = adapter?.emojiCategoryKey(mVPSymbolsView.currentItem),
+            moreCategory = adapter?.selectedMoreCategory ?: EmojiconData.SymbolMoreSubCategory.PARENTHESES,
+            lockedByUser = isSymbolLockedByUser
+        )
+    }
+
+    internal fun restorePanelState(state: SymbolPanelState) {
+        if (!state.canRestore(InputModeSwitcher.currentEditorSessionId, InputModeSwitcher.isPassword)) return
+        isSymbolLockedByUser = state.lockedByUser
+        if (state.mode == SymbolMode.Symbol) {
+            lastEditorSessionId = state.editorSessionId
+            lastSelectedTabPosition = state.symbolCategory.ordinal
+            setSymbolsView()
+            (mVPSymbolsView.adapter as? SymbolPagerAdapter)?.selectedMoreCategory = state.moreCategory
+        } else {
+            val categories = if (state.mode == SymbolMode.Emoticon) EmojiconData.emoticonData else EmojiconData.emojiconData
+            pagerPositions[state.mode] = categories.keys.indexOf(state.emojiCategory).coerceAtLeast(0)
+            setEmojisView(state.mode)
+        }
     }
 
     fun getMenuMode(): SymbolMode {

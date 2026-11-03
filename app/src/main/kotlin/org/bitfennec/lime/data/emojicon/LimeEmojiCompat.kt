@@ -22,46 +22,42 @@ object LimeEmojiCompat {
     }
     private val _emojiCompatFlow = MutableStateFlow<EmojiCompat?>(null)
 
+    @Volatile
+    private var callbackCompat: EmojiCompat? = null
+
+    @Synchronized
     fun init(context: Context) {
         try {
             if (!EmojiCompat.isConfigured()) {
                 val config = DefaultEmojiCompatConfig.create(context)?.apply {
                     setReplaceAll(true)
-                    registerInitCallback(object : EmojiCompat.InitCallback() {
-                        override fun onInitialized() {
-                            _emojiCompatFlow.value = EmojiCompat.get()
-                            EmojiconData.prewarm()
-                        }
-                        override fun onFailed(throwable: Throwable?) {
-                            _emojiCompatFlow.value = null
-                        }
-                    })
-                }
-                if (config != null) {
-                    EmojiCompat.init(config)
-                }
-            } else {
-                val current = EmojiCompat.get()
-                when (current.loadState) {
-                    EmojiCompat.LOAD_STATE_SUCCEEDED -> {
+                } ?: return
+                EmojiCompat.init(config)
+            }
+            val current = EmojiCompat.get()
+            if (callbackCompat !== current) {
+                callbackCompat = current
+                current.registerInitCallback(object : EmojiCompat.InitCallback() {
+                    override fun onInitialized() {
+                        if (callbackCompat !== current) return
                         _emojiCompatFlow.value = current
                         EmojiconData.prewarm()
                     }
-                    EmojiCompat.LOAD_STATE_LOADING -> {
-                        current.registerInitCallback(object : EmojiCompat.InitCallback() {
-                            override fun onInitialized() {
-                                _emojiCompatFlow.value = EmojiCompat.get()
-                                EmojiconData.prewarm()
-                            }
-                            override fun onFailed(throwable: Throwable?) {
-                                _emojiCompatFlow.value = null
-                            }
-                        })
-                    }
-                    else -> {
+
+                    override fun onFailed(throwable: Throwable?) {
+                        if (callbackCompat !== current) return
                         _emojiCompatFlow.value = null
+                        EmojiconData.prewarm()
                     }
+                })
+            }
+            when (current.loadState) {
+                EmojiCompat.LOAD_STATE_DEFAULT -> current.load()
+                EmojiCompat.LOAD_STATE_SUCCEEDED -> {
+                    _emojiCompatFlow.value = current
+                    EmojiconData.prewarm()
                 }
+                EmojiCompat.LOAD_STATE_LOADING, EmojiCompat.LOAD_STATE_FAILED -> Unit
             }
         } catch (e: Throwable) {
             e.printStackTrace()

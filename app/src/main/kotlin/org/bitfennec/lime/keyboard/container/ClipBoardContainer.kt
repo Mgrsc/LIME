@@ -43,7 +43,6 @@ import org.bitfennec.lime.application.Launcher
 import org.bitfennec.lime.data.theme.ThemeManager.activeTheme
 import org.bitfennec.lime.database.AppDatabase
 import org.bitfennec.lime.database.entity.Clipboard
-import org.bitfennec.lime.environment.ImeEnvironment
 import org.bitfennec.lime.keyboard.InputView
 import org.bitfennec.lime.keyboard.KeyboardManager
 import org.bitfennec.lime.prefs.AppPrefs
@@ -54,6 +53,7 @@ import org.bitfennec.lime.service.ClipboardHelper
 import org.bitfennec.lime.utils.DevicesUtils
 import org.bitfennec.lime.utils.collectWhenStarted
 import org.bitfennec.lime.utils.dp
+import org.bitfennec.lime.utils.calculateGridSpanCount
 import org.bitfennec.lime.view.widget.layout.CustomGridLayoutManager
 
 /**
@@ -105,6 +105,9 @@ class ClipBoardContainer(context: Context, inputView: InputView) : BaseContainer
 
         mRVSymbolsView = RecyclerView(ctx).apply {
             itemAnimator = null
+            addOnLayoutChangeListener { _, left, _, right, _, oldLeft, _, oldRight, _ ->
+                if (right - left != oldRight - oldLeft) updateClipboardLayout()
+            }
             layoutParams = FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.MATCH_PARENT
@@ -461,26 +464,7 @@ class ClipBoardContainer(context: Context, inputView: InputView) : BaseContainer
         activeActionPopup?.dismiss()
         activeActionPopup = null
         pendingScrollToTopOnOpen = true
-        val isLandscape = ImeEnvironment.isLandscape
-        val count = if (isLandscape) 4 else 2
-        val layoutMode = AppPrefs.getInstance().clipboard.clipboardLayoutCompact.getValue()
-
-        mAdapter?.setLayoutMode(layoutMode)
-
-        val currentLm = mRVSymbolsView?.layoutManager
-        val needNewLm = when (layoutMode) {
-            ClipboardLayoutMode.ListView -> currentLm?.javaClass != LinearLayoutManager::class.java
-            ClipboardLayoutMode.FlexboxView -> currentLm !is StaggeredGridLayoutManager || currentLm.spanCount != count
-            ClipboardLayoutMode.GridView -> currentLm !is CustomGridLayoutManager || currentLm.spanCount != count
-        }
-        if (needNewLm) {
-            val manager: RecyclerView.LayoutManager = when (layoutMode) {
-                ClipboardLayoutMode.ListView -> LinearLayoutManager(themedContext, LinearLayoutManager.VERTICAL, false)
-                ClipboardLayoutMode.FlexboxView -> StaggeredGridLayoutManager(count, StaggeredGridLayoutManager.VERTICAL)
-                ClipboardLayoutMode.GridView -> CustomGridLayoutManager(themedContext, count)
-            }
-            mRVSymbolsView?.layoutManager = manager
-        }
+        updateClipboardLayout()
 
         if (mAdapter == null) {
             mAdapter = ClipBoardAdapter(themedContext).apply {
@@ -505,6 +489,31 @@ class ClipBoardContainer(context: Context, inputView: InputView) : BaseContainer
             }
         }
         updateClipboardCollection()
+    }
+
+    private fun updateClipboardLayout() {
+        val recyclerView = mRVSymbolsView ?: return
+        val width = recyclerView.width.takeIf { it > 0 } ?: inputView.currentKeyboardSurfaceWidth()
+        val count = calculateGridSpanCount(width - recyclerView.paddingLeft - recyclerView.paddingRight,
+            themedContext.dp(MINIMUM_CARD_WIDTH_DP * resources.configuration.fontScale).toFloat())
+        val layoutMode = AppPrefs.getInstance().clipboard.clipboardLayoutCompact.getValue()
+
+        mAdapter?.setLayoutMode(layoutMode)
+
+        val currentLm = mRVSymbolsView?.layoutManager
+        val needNewLm = when (layoutMode) {
+            ClipboardLayoutMode.ListView -> currentLm?.javaClass != LinearLayoutManager::class.java
+            ClipboardLayoutMode.FlexboxView -> currentLm !is StaggeredGridLayoutManager || currentLm.spanCount != count
+            ClipboardLayoutMode.GridView -> currentLm !is CustomGridLayoutManager || currentLm.spanCount != count
+        }
+        if (needNewLm) {
+            val manager: RecyclerView.LayoutManager = when (layoutMode) {
+                ClipboardLayoutMode.ListView -> LinearLayoutManager(themedContext, LinearLayoutManager.VERTICAL, false)
+                ClipboardLayoutMode.FlexboxView -> StaggeredGridLayoutManager(count, StaggeredGridLayoutManager.VERTICAL)
+                ClipboardLayoutMode.GridView -> CustomGridLayoutManager(themedContext, count)
+            }
+            mRVSymbolsView?.layoutManager = manager
+        }
     }
 
     private fun showItemActionMenu(item: Clipboard, anchor: View) {
@@ -686,6 +695,7 @@ class ClipBoardContainer(context: Context, inputView: InputView) : BaseContainer
     }
 
     companion object {
+        private const val MINIMUM_CARD_WIDTH_DP = 144f
         private const val COLOR_DESTRUCTIVE = 0xffdf5a5a.toInt()
     }
 }
