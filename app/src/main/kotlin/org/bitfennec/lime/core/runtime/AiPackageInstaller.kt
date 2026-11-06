@@ -15,9 +15,12 @@ import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.bitfennec.lime.R
@@ -58,7 +61,13 @@ object AiPackageInstaller {
     private val packageStatusMap = ConcurrentHashMap<String, MutableStateFlow<PackageStatus>>()
     private val activePackageJobs = ConcurrentHashMap<String, Deferred<Boolean>>()
     private val activeBlobJobs = ConcurrentHashMap<String, Deferred<Boolean>>()
+    private val activeBlobProgress = ConcurrentHashMap<String, MutableStateFlow<BlobStatus?>>()
     private val blobUsers = ConcurrentHashMap<String, MutableSet<String>>()
+
+    internal sealed interface BlobStatus {
+        data class Stage(val stage: AiBlobDownloader.Stage, val detail: String) : BlobStatus
+        data class Progress(val bytesRead: Long, val totalBytes: Long, val speedBps: Long) : BlobStatus
+    }
 
     internal class DownloadProgress(artifacts: List<AiPackageSpec.Artifact>) {
         private val expectedBytes = artifacts.map { it.downloadArtifact }.distinctBy { it.sha256 }
@@ -95,6 +104,7 @@ object AiPackageInstaller {
 
     @VisibleForTesting
     internal fun updateStatus(packageId: String, status: PackageStatus) {
+        if (status !is PackageStatus.Downloading) AiModuleManager.invalidateCache()
         packageStatusMap.computeIfAbsent(packageId) {
             MutableStateFlow(status)
         }.value = status
@@ -475,6 +485,7 @@ object AiPackageInstaller {
         }
 
         lateinit var deferred: Deferred<Boolean>
+        lateinit var progress: MutableStateFlow<BlobStatus?>
         while (true) {
             currentCoroutineContext().ensureActive()
             var jobToJoin: Deferred<Boolean>? = null
@@ -483,10 +494,20 @@ object AiPackageInstaller {
                 if (existing != null && existing.isActive) {
                     blobUsers.computeIfAbsent(artifact.sha256) { ConcurrentHashMap.newKeySet() }.add(packageId)
                     deferred = existing
+                    progress = activeBlobProgress.getOrPut(artifact.sha256) { MutableStateFlow(null) }
                 } else if (existing != null && !existing.isCompleted) {
                     jobToJoin = existing
                 } else {
                     blobUsers.computeIfAbsent(artifact.sha256) { ConcurrentHashMap.newKeySet() }.add(packageId)
+                    val transferProgress = MutableStateFlow<BlobStatus?>(null)
+                    activeBlobProgress[artifact.sha256] = transferProgress
+                    progress = transferProgress
+                    val publishProgress: (Long, Long, Long) -> Unit = { bytes, total, speed ->
+                        transferProgress.value = BlobStatus.Progress(bytes, total, speed)
+                    }
+                    val publishStage: (AiBlobDownloader.Stage, String) -> Unit = { stage, detail ->
+                        transferProgress.value = BlobStatus.Stage(stage, detail)
+                    }
                     val newJob = installerScope.async {
                         val source = artifact.archiveSource
                         if (source == null) {
@@ -497,8 +518,8 @@ object AiPackageInstaller {
                                 allowedPrefixes = artifact.pinnedUrls,
                                 mirrorIndex = mirrorIndex,
                                 modelRepoDirectory = modelRepoDirectory,
-                                onProgress = onProgress,
-                                onStage = onStage
+                                onProgress = publishProgress,
+                                onStage = publishStage
                             )
                         } else {
                             val directory = requireNotNull(blobsDir)
@@ -511,8 +532,8 @@ object AiPackageInstaller {
                                 mirrorIndex = mirrorIndex,
                                 modelRepoDirectory = null,
                                 blobsDir = directory,
-                                onProgress = onProgress,
-                                onStage = onStage,
+                                onProgress = publishProgress,
+                                onStage = publishStage,
                             )
                             downloaded && AiRuntimeArchive.extract(artifact, archiveFile, targetBlobFile, partialBlobFile)
                         }
@@ -528,25 +549,44 @@ object AiPackageInstaller {
             }
         }
 
-        return try {
-            deferred.await()
-        } finally {
-            val lastUser = synchronized(activeBlobJobs) {
-                val users = blobUsers[artifact.sha256]
-                users?.remove(packageId)
-                if (users.isNullOrEmpty()) {
-                    blobUsers.remove(artifact.sha256)
-                    if (!deferred.isCompleted) deferred.cancel()
-                    true
-                } else {
-                    false
+        return coroutineScope {
+            val progressJob = if (onProgress != null || onStage != null) {
+                launch(start = CoroutineStart.UNDISPATCHED) {
+                    progress.filterNotNull().collect { status ->
+                        when (status) {
+                            is BlobStatus.Stage -> onStage?.invoke(status.stage, status.detail)
+                            is BlobStatus.Progress -> onProgress?.invoke(status.bytesRead, status.totalBytes, status.speedBps)
+                        }
+                    }
                 }
-            }
-            if (lastUser) {
-                // The package must not finish cancellation while its blob writer is still exiting.
-                withContext(NonCancellable) { deferred.join() }
-                synchronized(activeBlobJobs) {
-                    activeBlobJobs.remove(artifact.sha256, deferred)
+            } else null
+            try {
+                deferred.await()
+            } finally {
+                withContext(NonCancellable) {
+                    progressJob?.cancelAndJoin()
+                    val transferToRelease = synchronized(activeBlobJobs) {
+                        val users = blobUsers[artifact.sha256]
+                        users?.remove(packageId)
+                        if (users.isNullOrEmpty()) {
+                            blobUsers.remove(artifact.sha256)
+                            activeBlobJobs[artifact.sha256]?.let { current ->
+                                if (!current.isCompleted) current.cancel()
+                                current to activeBlobProgress[artifact.sha256]
+                            }
+                        } else {
+                            null
+                        }
+                    }
+                    if (transferToRelease != null) {
+                        val (current, currentProgress) = transferToRelease
+                        current.join()
+                        synchronized(activeBlobJobs) {
+                            if (activeBlobJobs.remove(artifact.sha256, current) && currentProgress != null) {
+                                activeBlobProgress.remove(artifact.sha256, currentProgress)
+                            }
+                        }
+                    }
                 }
             }
         }

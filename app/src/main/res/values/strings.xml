@@ -74,8 +74,6 @@
     <string name="handwriting_empty_hint">未识别到文字，请写大一点或点击清空</string>
     <string name="handwriting_module_download_required">手写识别模型未安装，请在设置中下载</string>
     <string name="voice_module_download_required">离线语音识别模型未安装，请在设置中下载</string>
-    <string name="ai_download_hw_ready">手写离线识别引擎已就绪</string>
-    <string name="ai_download_hw_error">手写识别引擎下载失败，请重试</string>
     <string name="ai_download_notif_channel_name">AI 模型下载</string>
     <string name="ai_download_notif_channel_desc">展示手写与语音离线模型下载进度</string>
     <string name="ai_download_notif_preparing">正在准备下载…</string>

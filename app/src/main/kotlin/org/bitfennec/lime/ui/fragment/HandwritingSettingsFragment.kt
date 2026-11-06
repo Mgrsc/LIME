@@ -10,6 +10,7 @@ import android.widget.ProgressBar
 import android.widget.SeekBar
 import android.widget.TextView
 import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.Lifecycle
@@ -39,6 +40,14 @@ class HandwritingSettingsFragment : Fragment() {
     private lateinit var btnDeleteHwModel: TextView
     private lateinit var btnDownloadHwModel: TextView
     private lateinit var tvHwCurrentMirror: TextView
+    private var downloadDialog: DownloadDialog? = null
+
+    private class DownloadDialog(
+        val dialog: AlertDialog,
+        val progressBar: ProgressBar,
+        val status: TextView,
+        val speed: TextView,
+    )
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -120,6 +129,7 @@ class HandwritingSettingsFragment : Fragment() {
                             updateModelCardUi()
                         }
                     }
+                    updateDownloadDialog(status)
                 }
             }
         }
@@ -132,6 +142,11 @@ class HandwritingSettingsFragment : Fragment() {
         if (!AiDownloadManager.isDownloading("handwriting")) {
             updateModelCardUi()
         }
+    }
+
+    override fun onDestroyView() {
+        dismissDownloadDialog()
+        super.onDestroyView()
     }
 
     private fun updateThicknessAndSpeedUi() {
@@ -279,10 +294,14 @@ class HandwritingSettingsFragment : Fragment() {
     }
 
     private fun startDownloadHwModel(force: Boolean = false) {
+        if (downloadDialog != null) return
         val context = requireContext()
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU &&
             !org.bitfennec.lime.inputmethod.voice.ui.VoicePermissionActivity.hasNotificationPermission(context)) {
             org.bitfennec.lime.inputmethod.voice.ui.VoicePermissionActivity.requestNotificationPermission(context)
+        }
+        if (!AiDownloadManager.isDownloading("handwriting")) {
+            AiDownloadManager.downloadHandwriting(context, force)
         }
         val density = context.resources.displayMetrics.density
         val padding = (density * 20).toInt()
@@ -320,40 +339,58 @@ class HandwritingSettingsFragment : Fragment() {
             .setTitle(R.string.handwriting_download_title)
             .setView(layout)
             .setCancelable(false)
-            .setPositiveButton(R.string.handwriting_btn_background, null)
+            .setPositiveButton(R.string.handwriting_btn_background) { _, _ ->
+                dismissDownloadDialog()
+            }
             .setNegativeButton(R.string.cancel) { _, _ ->
+                dismissDownloadDialog()
                 AiDownloadManager.cancelDownload(context)
             }
             .create()
 
+        val currentDialog = DownloadDialog(dialog, progressBar, tvStatus, tvSpeed)
+        downloadDialog = currentDialog
+        dialog.setOnDismissListener {
+            if (downloadDialog === currentDialog) downloadDialog = null
+        }
         dialog.show()
+        updateDownloadDialog(AiDownloadManager.getStatusFlow("handwriting").value)
+    }
 
-        AiDownloadManager.downloadHandwriting(
-            context = context,
-            force = force,
-            onProgress = { percent, speedDesc, stepDesc ->
-                progressBar.progress = percent
-                if (speedDesc.isNotEmpty()) {
-                    tvStatus.text = getString(R.string.download_status_progress, stepDesc, percent)
-                    tvSpeed.visibility = View.VISIBLE
-                    tvSpeed.text = speedDesc
+    private fun updateDownloadDialog(status: PackageStatus) {
+        val currentDialog = downloadDialog ?: return
+        when (status) {
+            is PackageStatus.Downloading -> {
+                currentDialog.progressBar.progress = status.percent
+                currentDialog.status.text = if (status.stageDesc.isNotEmpty()) {
+                    status.stageDesc
                 } else {
-                    tvStatus.text = stepDesc
-                    tvSpeed.visibility = View.GONE
+                    getString(R.string.download_status_progress, status.artifactName, status.percent)
                 }
-            },
-            onComplete = { success, errorMsg ->
-                if (dialog.isShowing) {
-                    dialog.dismiss()
-                }
-                updateModelCardUi()
-                if (success) {
-                    Toast.makeText(context, getString(R.string.handwriting_download_success), Toast.LENGTH_LONG).show()
+                currentDialog.speed.visibility = if (status.stageDesc.isEmpty() && status.speedBps > 0) {
+                    currentDialog.speed.text = AiBlobDownloader.formatSpeed(status.speedBps)
+                    View.VISIBLE
                 } else {
-                    Toast.makeText(context, errorMsg ?: getString(R.string.ai_download_error_generic), Toast.LENGTH_LONG).show()
+                    View.GONE
                 }
             }
-        )
+            is PackageStatus.Ready -> {
+                dismissDownloadDialog()
+                Toast.makeText(requireContext(), R.string.handwriting_download_success, Toast.LENGTH_LONG).show()
+            }
+            is PackageStatus.Failed -> {
+                dismissDownloadDialog()
+                Toast.makeText(requireContext(), status.error, Toast.LENGTH_LONG).show()
+            }
+            is PackageStatus.Missing -> dismissDownloadDialog()
+        }
+    }
+
+    private fun dismissDownloadDialog() {
+        val currentDialog = downloadDialog ?: return
+        downloadDialog = null
+        currentDialog.dialog.setOnDismissListener(null)
+        currentDialog.dialog.dismiss()
     }
 
     private fun showTechSpecsDialog() {

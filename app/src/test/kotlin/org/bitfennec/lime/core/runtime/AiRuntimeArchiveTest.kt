@@ -4,7 +4,9 @@ import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
@@ -20,6 +22,8 @@ import java.nio.ByteOrder
 import java.security.MessageDigest
 import java.io.RandomAccessFile
 import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 
@@ -47,10 +51,11 @@ class AiRuntimeArchiveTest {
         data: ByteArray = elf(),
         entryName: String = "jni/arm64-v8a/libfixture.so",
         extraEntry: Pair<String, ByteArray>? = null,
+        additionalEntries: List<Pair<String, ByteArray>> = emptyList(),
     ): Pair<AiPackageSpec.Artifact, File> {
         val archiveFile = temporaryFolder.newFile("runtime.aar")
         ZipOutputStream(archiveFile.outputStream()).use { zip ->
-            for ((name, content) in listOfNotNull(entryName to data, extraEntry)) {
+            for ((name, content) in listOfNotNull(entryName to data, extraEntry) + additionalEntries) {
                 zip.putNextEntry(ZipEntry(name))
                 zip.write(content)
                 zip.closeEntry()
@@ -357,6 +362,325 @@ class AiRuntimeArchiveTest {
     @Test
     fun cancellingOriginalConsumerPreservesSharedRuntimeDownload() =
         assertSharedArchiveSurvivesConsumerCancellation(sharedArtifact = true)
+
+    @Test
+    fun cancellingVoiceDuringSharedRuntimeDownloadKeepsHandwritingReady() =
+        assertPackageCancellationPreservesSharedArchive(cachedOrt = false, cancelledPackageId = "voice")
+
+    @Test
+    fun cancellingHandwritingDuringSharedRuntimeDownloadKeepsVoiceReady() =
+        assertPackageCancellationPreservesSharedArchive(cachedOrt = false, cancelledPackageId = "handwriting")
+
+    @Test
+    fun cancellingVoiceDuringSeparateJniDownloadsKeepsHandwritingReady() =
+        assertPackageCancellationPreservesSharedArchive(cachedOrt = true, cancelledPackageId = "voice")
+
+    @Test
+    fun cancellingHandwritingDuringSeparateJniDownloadsKeepsVoiceReady() =
+        assertPackageCancellationPreservesSharedArchive(cachedOrt = true, cancelledPackageId = "handwriting")
+
+    private fun assertPackageCancellationPreservesSharedArchive(
+        cachedOrt: Boolean,
+        cancelledPackageId: String,
+    ) = runBlocking {
+        val voiceJniData = elf(0x8000)
+        val handwritingJniData = elf(0x10000)
+        val (ortArtifact, source) = fixture(
+            extraEntry = "jni/arm64-v8a/libvoice.so" to voiceJniData,
+            additionalEntries = listOf("jni/arm64-v8a/libhandwriting.so" to handwritingJniData),
+        )
+        val archive = ortArtifact.downloadArtifact
+        val voiceJni = ortArtifact.copy(
+            id = "voice-jni-fixture",
+            fileName = "libvoice.so",
+            sha256 = sha256(voiceJniData),
+            archiveSource = AiPackageSpec.ArchiveSource(archive, "jni/arm64-v8a/libvoice.so"),
+        )
+        val handwritingJni = ortArtifact.copy(
+            id = "handwriting-jni-fixture",
+            fileName = "libhandwriting.so",
+            sha256 = sha256(handwritingJniData),
+            archiveSource = AiPackageSpec.ArchiveSource(archive, "jni/arm64-v8a/libhandwriting.so"),
+        )
+        val context = object : android.content.ContextWrapper(null) {
+            override fun getFilesDir(): File = temporaryFolder.root
+            override fun getApplicationContext(): android.content.Context = this
+        }
+        val packages = listOf(
+            AiPackageSpec.Package("ort", "package-fixture", emptyList(), listOf(ortArtifact), 1),
+            AiPackageSpec.Package("sherpa-jni", "package-fixture", listOf("ort"), listOf(voiceJni), 1),
+            AiPackageSpec.Package("ort-jni", "package-fixture", listOf("ort"), listOf(handwritingJni), 1),
+            AiPackageSpec.Package("voice", "package-fixture", listOf("sherpa-jni"), emptyList(), 1),
+            AiPackageSpec.Package("handwriting", "package-fixture", listOf("ort-jni"), emptyList(), 1),
+        ).associateBy { it.id }
+        if (cachedOrt) {
+            val ort = AiBlobStore.getBlobFile(context, ortArtifact.sha256, ortArtifact.fileName)
+            ort.parentFile!!.mkdirs()
+            ort.writeBytes(elf())
+            AiPackageInstaller.activatePackage(context, packages.getValue("ort"))
+        }
+        val jobsField = AiPackageInstaller::class.java.getDeclaredField("activeBlobJobs").apply { isAccessible = true }
+        val usersField = AiPackageInstaller::class.java.getDeclaredField("blobUsers").apply { isAccessible = true }
+        val progressField = AiPackageInstaller::class.java.getDeclaredField("activeBlobProgress").apply { isAccessible = true }
+        @Suppress("UNCHECKED_CAST")
+        val jobs = jobsField.get(AiPackageInstaller) as MutableMap<String, kotlinx.coroutines.Deferred<Boolean>>
+        @Suppress("UNCHECKED_CAST")
+        val users = usersField.get(AiPackageInstaller) as Map<String, Set<String>>
+        @Suppress("UNCHECKED_CAST")
+        val progressFlows = progressField.get(AiPackageInstaller) as MutableMap<String, MutableStateFlow<AiPackageInstaller.BlobStatus?>>
+        val transfer = kotlinx.coroutines.CompletableDeferred<Boolean>()
+        val progress = MutableStateFlow<AiPackageInstaller.BlobStatus?>(null)
+        synchronized(jobs) {
+            jobs[archive.sha256] = transfer
+            progressFlows[archive.sha256] = progress
+        }
+        val voice = async(Dispatchers.Default) { AiPackageInstaller.ensure(context, "voice", packages) }
+        val handwriting = async(Dispatchers.Default) { AiPackageInstaller.ensure(context, "handwriting", packages) }
+        try {
+            val expectedArchiveUsers = if (cachedOrt) {
+                setOf("artifact:${voiceJni.sha256}", "artifact:${handwritingJni.sha256}")
+            } else {
+                setOf("artifact:${ortArtifact.sha256}")
+            }
+            withTimeout(5_000) {
+                while (
+                    users[archive.sha256] != expectedArchiveUsers ||
+                    (!cachedOrt && users[ortArtifact.sha256] != setOf("voice", "handwriting")) ||
+                    (cachedOrt && users[voiceJni.sha256] != setOf("voice")) ||
+                    (cachedOrt && users[handwritingJni.sha256] != setOf("handwriting"))
+                ) delay(10)
+            }
+            assertTrue(AiPackageInstaller.getStatusFlow("voice").value is AiPackageInstaller.PackageStatus.Downloading)
+            assertTrue(AiPackageInstaller.getStatusFlow("handwriting").value is AiPackageInstaller.PackageStatus.Downloading)
+            val cancelledCaller = if (cancelledPackageId == "voice") voice else handwriting
+            val survivingCaller = if (cancelledPackageId == "voice") handwriting else voice
+            val survivingPackageId = if (cancelledPackageId == "voice") "handwriting" else "voice"
+            val survivingArtifact = if (survivingPackageId == "voice") voiceJni else handwritingJni
+
+            assertTrue(AiPackageInstaller.cancel(cancelledPackageId))
+            withTimeout(5_000) { cancelledCaller.join() }
+            assertTrue(cancelledCaller.isCancelled)
+            assertTrue(transfer.isActive)
+            assertTrue(jobs[archive.sha256] === transfer)
+            assertEquals(
+                if (cachedOrt) setOf("artifact:${survivingArtifact.sha256}") else expectedArchiveUsers,
+                users[archive.sha256],
+            )
+            val cachedArchive = AiBlobStore.getBlobFile(context, archive.sha256, archive.fileName)
+            source.copyTo(cachedArchive)
+            transfer.complete(true)
+
+            assertTrue(withTimeout(5_000) { survivingCaller.await() })
+            assertEquals(AiPackageInstaller.PackageStatus.Ready, AiPackageInstaller.getStatusFlow(survivingPackageId).value)
+            assertEquals(AiPackageInstaller.PackageStatus.Missing, AiPackageInstaller.getStatusFlow(cancelledPackageId).value)
+            assertEquals("package-fixture", AiBlobStore.getActiveVersion(context, survivingPackageId))
+            assertEquals(survivingArtifact.sha256, AiDownloadGuard.computeSha256(
+                AiBlobStore.getBlobFile(context, survivingArtifact.sha256, survivingArtifact.fileName),
+            ))
+            assertTrue(AiPackageInstaller.ensure(context, survivingPackageId, packages))
+            assertEquals(0, progress.subscriptionCount.value)
+            for (artifact in listOf(archive, ortArtifact, voiceJni, handwritingJni)) {
+                assertFalse(jobs.containsKey(artifact.sha256))
+                assertFalse(progressFlows.containsKey(artifact.sha256))
+                assertFalse(users.containsKey(artifact.sha256))
+            }
+        } finally {
+            AiPackageInstaller.cancel("voice")
+            AiPackageInstaller.cancel("handwriting")
+            voice.cancelAndJoin()
+            handwriting.cancelAndJoin()
+            transfer.cancelAndJoin()
+            synchronized(jobs) {
+                jobs.remove(archive.sha256, transfer)
+                progressFlows.remove(archive.sha256, progress)
+            }
+        }
+    }
+
+    @Test
+    fun sharedRuntimeReplaysProgressAndSurvivesOriginalObserverCancellation() =
+        assertSharedProgressSurvivesCancellation(sharedArtifact = true)
+
+    @Test
+    fun sharedArchiveBroadcastsProgressAcrossDifferentLibraries() =
+        assertSharedProgressSurvivesCancellation(sharedArtifact = false)
+
+    @Test
+    fun sharedRuntimeFailureReleasesEveryProgressObserver() =
+        assertSharedProgressSurvivesCancellation(sharedArtifact = true, succeeds = false)
+
+    @Test
+    fun retryFinishingBeforePreviousObserverCleanupReleasesTheCurrentTransfer() = runBlocking {
+        val (artifact, source) = fixture()
+        val directory = temporaryFolder.newFolder("retry-progress-blobs")
+        val archive = artifact.downloadArtifact
+        source.copyTo(AiBlobStore.getBlobFile(directory, archive.sha256, archive.fileName))
+        val jobsField = AiPackageInstaller::class.java.getDeclaredField("activeBlobJobs").apply { isAccessible = true }
+        val progressField = AiPackageInstaller::class.java.getDeclaredField("activeBlobProgress").apply { isAccessible = true }
+        @Suppress("UNCHECKED_CAST")
+        val jobs = jobsField.get(AiPackageInstaller) as MutableMap<String, kotlinx.coroutines.Deferred<Boolean>>
+        @Suppress("UNCHECKED_CAST")
+        val progressFlows = progressField.get(AiPackageInstaller) as MutableMap<String, MutableStateFlow<AiPackageInstaller.BlobStatus?>>
+        val previous = kotlinx.coroutines.CompletableDeferred<Boolean>()
+        val previousProgress = MutableStateFlow<AiPackageInstaller.BlobStatus?>(
+            AiPackageInstaller.BlobStatus.Stage(AiBlobDownloader.Stage.CONNECTING, "runtime.example"),
+        )
+        jobs[artifact.sha256] = previous
+        progressFlows[artifact.sha256] = previousProgress
+        val callbackStarted = kotlinx.coroutines.CompletableDeferred<Unit>()
+        val releaseCallback = CountDownLatch(1)
+        val first = async(Dispatchers.Default) {
+            AiPackageInstaller.downloadBlobSingleFlight(
+                packageId = "previous-progress-consumer",
+                artifact = artifact,
+                targetBlobFile = target,
+                partialBlobFile = partial,
+                mirrorIndex = 0,
+                modelRepoDirectory = null,
+                blobsDir = directory,
+                onStage = { _, _ ->
+                    callbackStarted.complete(Unit)
+                    check(releaseCallback.await(5, TimeUnit.SECONDS))
+                },
+                onProgress = null,
+            )
+        }
+        var retry: kotlinx.coroutines.Deferred<Boolean>? = null
+        try {
+            withTimeout(5_000) { callbackStarted.await() }
+            previous.complete(false)
+            retry = async(Dispatchers.Default) {
+                AiPackageInstaller.downloadBlobSingleFlight(
+                    packageId = "retry-progress-consumer",
+                    artifact = artifact,
+                    targetBlobFile = target,
+                    partialBlobFile = partial,
+                    mirrorIndex = 0,
+                    modelRepoDirectory = null,
+                    blobsDir = directory,
+                    onProgress = null,
+                )
+            }
+            assertTrue(withTimeout(5_000) { retry.await() })
+            releaseCallback.countDown()
+            assertFalse(withTimeout(5_000) { first.await() })
+
+            assertEquals(0, previousProgress.subscriptionCount.value)
+            assertFalse(jobs.containsKey(artifact.sha256))
+            assertFalse(progressFlows.containsKey(artifact.sha256))
+            assertEquals(artifact.sha256, AiDownloadGuard.computeSha256(target))
+        } finally {
+            releaseCallback.countDown()
+            first.cancelAndJoin()
+            retry?.cancelAndJoin()
+            previous.cancelAndJoin()
+            jobs.remove(artifact.sha256)
+            progressFlows.remove(artifact.sha256)
+        }
+    }
+
+    private fun assertSharedProgressSurvivesCancellation(
+        sharedArtifact: Boolean,
+        succeeds: Boolean = true,
+    ) = runBlocking {
+        val secondData = elf(0x8000)
+        val (firstArtifact, source) = fixture(extraEntry = "jni/arm64-v8a/libsecond.so" to secondData)
+        val secondArtifact = if (sharedArtifact) firstArtifact else firstArtifact.copy(
+            id = "second-progress-fixture",
+            fileName = "libsecond.so",
+            sha256 = sha256(secondData),
+            archiveSource = AiPackageSpec.ArchiveSource(firstArtifact.downloadArtifact, "jni/arm64-v8a/libsecond.so"),
+        )
+        val directory = temporaryFolder.newFolder("progress-blobs")
+        val archive = firstArtifact.downloadArtifact
+        val jobsField = AiPackageInstaller::class.java.getDeclaredField("activeBlobJobs").apply { isAccessible = true }
+        val progressField = AiPackageInstaller::class.java.getDeclaredField("activeBlobProgress").apply { isAccessible = true }
+        @Suppress("UNCHECKED_CAST")
+        val jobs = jobsField.get(AiPackageInstaller) as MutableMap<String, kotlinx.coroutines.Deferred<Boolean>>
+        @Suppress("UNCHECKED_CAST")
+        val progressFlows = progressField.get(AiPackageInstaller) as MutableMap<String, MutableStateFlow<AiPackageInstaller.BlobStatus?>>
+        val transfer = kotlinx.coroutines.CompletableDeferred<Boolean>()
+        val progress = MutableStateFlow<AiPackageInstaller.BlobStatus?>(null)
+        jobs[archive.sha256] = transfer
+        progressFlows[archive.sha256] = progress
+        val firstEvents = Channel<AiPackageInstaller.BlobStatus>(Channel.UNLIMITED)
+        val secondEvents = Channel<AiPackageInstaller.BlobStatus>(Channel.UNLIMITED)
+        val thirdEvents = Channel<AiPackageInstaller.BlobStatus>(Channel.UNLIMITED)
+        suspend fun install(
+            packageId: String,
+            artifact: AiPackageSpec.Artifact,
+            events: Channel<AiPackageInstaller.BlobStatus>,
+        ) = AiPackageInstaller.downloadBlobSingleFlight(
+            packageId = packageId,
+            artifact = artifact,
+            targetBlobFile = AiBlobStore.getBlobFile(directory, artifact.sha256, artifact.fileName),
+            partialBlobFile = AiBlobStore.getPartialFile(directory, artifact.sha256),
+            mirrorIndex = 0,
+            modelRepoDirectory = null,
+            blobsDir = directory,
+            onStage = { stage, detail -> events.trySend(AiPackageInstaller.BlobStatus.Stage(stage, detail)) },
+            onProgress = { bytes, total, speed -> events.trySend(AiPackageInstaller.BlobStatus.Progress(bytes, total, speed)) },
+        )
+        suspend fun next(events: Channel<AiPackageInstaller.BlobStatus>) = withTimeout(5_000) { events.receive() }
+        val first = async(Dispatchers.Default) { install("progress-consumer-a", firstArtifact, firstEvents) }
+        var second: kotlinx.coroutines.Deferred<Boolean>? = null
+        var third: kotlinx.coroutines.Deferred<Boolean>? = null
+        try {
+            val connecting = AiPackageInstaller.BlobStatus.Stage(AiBlobDownloader.Stage.CONNECTING, "runtime.example")
+            progress.value = connecting
+            assertEquals(connecting, next(firstEvents))
+            second = async(Dispatchers.Default) { install("progress-consumer-b", secondArtifact, secondEvents) }
+            assertEquals(connecting, next(secondEvents))
+            val initialProgress = AiPackageInstaller.BlobStatus.Progress(1, archive.expectedBytes, 1_024)
+            progress.value = initialProgress
+            assertEquals(initialProgress, next(firstEvents))
+            assertEquals(initialProgress, next(secondEvents))
+            third = async(Dispatchers.Default) { install("progress-consumer-c", secondArtifact, thirdEvents) }
+            assertEquals(initialProgress, next(thirdEvents))
+
+            AiPackageInstaller.cancel("progress-consumer-a")
+            first.cancelAndJoin()
+            assertTrue(transfer.isActive)
+            val resumedProgress = initialProgress.copy(bytesRead = 2, speedBps = 2_048)
+            progress.value = resumedProgress
+            assertEquals(resumedProgress, next(secondEvents))
+            assertEquals(resumedProgress, next(thirdEvents))
+            assertTrue(firstEvents.tryReceive().isFailure)
+
+            AiPackageInstaller.cancel("progress-consumer-c")
+            third.cancelAndJoin()
+            assertTrue(transfer.isActive)
+            val reconnecting = connecting.copy(detail = "mirror.example")
+            progress.value = reconnecting
+            assertEquals(reconnecting, next(secondEvents))
+            assertTrue(thirdEvents.tryReceive().isFailure)
+            assertTrue(jobs[archive.sha256] === transfer)
+
+            if (succeeds) source.copyTo(AiBlobStore.getBlobFile(directory, archive.sha256, archive.fileName))
+            transfer.complete(succeeds)
+            assertEquals(succeeds, withTimeout(5_000) { second.await() })
+            assertEquals(0, progress.subscriptionCount.value)
+            assertFalse(progressFlows.containsKey(archive.sha256))
+            assertFalse(jobs.containsKey(archive.sha256))
+            assertFalse(progressFlows.containsKey(firstArtifact.sha256))
+            assertFalse(progressFlows.containsKey(secondArtifact.sha256))
+            if (succeeds) {
+                assertEquals(secondArtifact.sha256, AiDownloadGuard.computeSha256(
+                    AiBlobStore.getBlobFile(directory, secondArtifact.sha256, secondArtifact.fileName),
+                ))
+            }
+        } finally {
+            first.cancelAndJoin()
+            second?.cancelAndJoin()
+            third?.cancelAndJoin()
+            transfer.cancelAndJoin()
+            jobs.remove(archive.sha256, transfer)
+            progressFlows.remove(archive.sha256, progress)
+            firstEvents.close()
+            secondEvents.close()
+            thirdEvents.close()
+        }
+    }
 
     private fun assertSharedArchiveSurvivesConsumerCancellation(sharedArtifact: Boolean) = runBlocking {
         val secondData = elf(0x8000)

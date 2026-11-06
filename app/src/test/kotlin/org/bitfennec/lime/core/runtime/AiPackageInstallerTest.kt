@@ -3,6 +3,7 @@ package org.bitfennec.lime.core.runtime
 import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.launch
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -151,6 +152,57 @@ class AiPackageInstallerTest {
             assertTrue("Status must be Downloading after prepareDownload on unready package", status is AiPackageInstaller.PackageStatus.Downloading)
         } finally {
             tempAiDir.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun terminalStatusInvalidatesReadinessBeforeUiObserversReadIt() = kotlinx.coroutines.runBlocking {
+        val directory = File.createTempFile("ai_ready_status", "").apply { delete(); mkdirs() }
+        val context = createMockContext(directory)
+        AiModuleManager.invalidateCache()
+        for (pkg in AiPackageSpec.resolveDependencies("handwriting")) {
+            for (artifact in pkg.artifacts) {
+                val blob = AiBlobStore.getBlobFile(context, artifact.sha256, artifact.fileName)
+                blob.parentFile!!.mkdirs()
+                java.io.RandomAccessFile(blob, "rw").use { it.setLength(artifact.expectedBytes) }
+            }
+            AiPackageInstaller.activatePackage(context, pkg)
+        }
+        assertTrue(AiModuleManager.isHandwritingReady(context))
+        assertTrue(AiModuleManager.getHandwritingModelFile(context).delete())
+        val rejected = AiPackageSpec.voiceTokensArtifact.copy(
+            fileName = "rejected.bin",
+            sha256 = "0".repeat(64),
+            expectedBytes = 1,
+            minExpectedBytes = 1,
+            pinnedUrls = listOf("https://github.com:444/example/rejected.bin"),
+        )
+        val pkg = AiPackageSpec.handwritingPackage.copy(
+            version = "rejected-fixture",
+            dependencies = emptyList(),
+            artifacts = listOf(rejected),
+        )
+        val readyAtFailure = kotlinx.coroutines.CompletableDeferred<Boolean>()
+        val observer = launch(
+            kotlinx.coroutines.Dispatchers.Unconfined,
+            start = kotlinx.coroutines.CoroutineStart.UNDISPATCHED,
+        ) {
+            AiPackageInstaller.getStatusFlow("handwriting").collect { status ->
+                if (status is AiPackageInstaller.PackageStatus.Failed) {
+                    readyAtFailure.complete(AiModuleManager.isHandwritingReady(context))
+                }
+            }
+        }
+        try {
+            assertFalse(kotlinx.coroutines.withTimeout(5_000) {
+                AiPackageInstaller.ensure(context, pkg.id, mapOf(pkg.id to pkg), mirrorIndex = 1, force = true)
+            })
+            assertFalse(kotlinx.coroutines.withTimeout(5_000) { readyAtFailure.await() })
+        } finally {
+            observer.cancelAndJoin()
+            AiPackageInstaller.cancel("handwriting")
+            AiModuleManager.invalidateCache()
+            directory.deleteRecursively()
         }
     }
 

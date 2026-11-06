@@ -64,8 +64,6 @@
     <string name="handwriting_empty_hint">No character recognized. Please write larger or tap Clear.</string>
     <string name="handwriting_module_download_required">Handwriting model not installed, please download in settings</string>
     <string name="voice_module_download_required">Offline voice model not installed, please download in settings</string>
-    <string name="ai_download_hw_ready">Handwriting engine ready</string>
-    <string name="ai_download_hw_error">Failed to download handwriting engine. Please retry</string>
     <string name="ai_download_notif_channel_name">AI Model Download</string>
     <string name="ai_download_notif_channel_desc">Shows download progress for handwriting and voice offline models</string>
     <string name="ai_download_notif_preparing">Preparing download…</string>
