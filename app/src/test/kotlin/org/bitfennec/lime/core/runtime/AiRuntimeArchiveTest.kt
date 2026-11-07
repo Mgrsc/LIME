@@ -246,16 +246,44 @@ class AiRuntimeArchiveTest {
         val registeredPackages = AiPackageSpec.ALL_PACKAGES.toMap()
         val observedPackages = CopyOnWriteArrayList<Map<String, AiPackageSpec.Package>>()
         val statuses = CopyOnWriteArrayList<AiPackageInstaller.PackageStatus>()
+        val archiveMissing = !cacheArchive && !(cacheFirst && cacheSecond)
+        val jobsField = AiPackageInstaller::class.java.getDeclaredField("activeBlobJobs").apply { isAccessible = true }
+        val progressField = AiPackageInstaller::class.java.getDeclaredField("activeBlobProgress").apply { isAccessible = true }
+        @Suppress("UNCHECKED_CAST")
+        val jobs = jobsField.get(AiPackageInstaller) as MutableMap<String, kotlinx.coroutines.Deferred<Boolean>>
+        @Suppress("UNCHECKED_CAST")
+        val progressFlows = progressField.get(AiPackageInstaller) as MutableMap<String, MutableStateFlow<AiPackageInstaller.BlobStatus?>>
+        val transfer = kotlinx.coroutines.CompletableDeferred<Boolean>()
+        val progress = MutableStateFlow<AiPackageInstaller.BlobStatus?>(
+            AiPackageInstaller.BlobStatus.Stage(AiBlobDownloader.Stage.CONNECTING, "github.com"),
+        )
+        val connectionObserved = kotlinx.coroutines.CompletableDeferred<Unit>()
         AiPackageInstaller.cancel(pkg.id)
         val observer = launch(Dispatchers.Unconfined, start = CoroutineStart.UNDISPATCHED) {
             AiPackageInstaller.getStatusFlow(pkg.id).collect {
                 statuses.add(it)
                 observedPackages.add(AiPackageSpec.ALL_PACKAGES.toMap())
+                if (it is AiPackageInstaller.PackageStatus.Downloading && it.stageDesc.contains("github.com")) {
+                    connectionObserved.complete(Unit)
+                }
             }
         }
         try {
+            if (archiveMissing) {
+                synchronized(jobs) {
+                    jobs[archive.sha256] = transfer
+                    progressFlows[archive.sha256] = progress
+                }
+            }
             val success = withTimeout(5_000) {
-                AiPackageInstaller.ensure(context, pkg.id, packages, mirrorIndex = 1, force = true)
+                val installation = async {
+                    AiPackageInstaller.ensure(context, pkg.id, packages, mirrorIndex = 1, force = true)
+                }
+                if (archiveMissing) {
+                    connectionObserved.await()
+                    transfer.complete(false)
+                }
+                installation.await()
             }
             assertTrue(observedPackages.isNotEmpty())
             assertTrue(observedPackages.all { it == registeredPackages })
@@ -292,6 +320,11 @@ class AiRuntimeArchiveTest {
         } finally {
             observer.cancelAndJoin()
             AiPackageInstaller.cancel(pkg.id)
+            transfer.cancelAndJoin()
+            synchronized(jobs) {
+                jobs.remove(archive.sha256, transfer)
+                progressFlows.remove(archive.sha256, progress)
+            }
         }
     }
 
