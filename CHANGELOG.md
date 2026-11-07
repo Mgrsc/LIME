@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+---
+
+## [0.9.6] - 2026-11-07
+
 ### Fixed
 - **Concurrent AI Downloads**: Bound handwriting download UI updates to the view lifecycle and released progress dialogs when leaving the page. Shared runtime transfers now replay and broadcast progress to all waiting downloads while preserving transfers needed by other consumers.
 - **Adaptive Panels**: Sized emoji, symbol, emoticon, and clipboard grids from their available width, preserving common-symbol pairs and fitting glyphs to constrained panel heights. Kept paged symbol and emoji cell bounds synchronized with the column count from the first layout.
