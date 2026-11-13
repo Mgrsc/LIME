@@ -93,7 +93,7 @@ class ScriptSyllabifier : public PhraseSyllabifier {
     }
   }
 
-  virtual Spans Syllabify(const Phrase* phrase);
+  Spans Syllabify(const Phrase* phrase) override;
   size_t BuildSyllableGraph(Prism& prism);
   size_t UseAbbreviatedGraph(ScriptSyllabifier& primary);
   bool HasSpelling(const Code& code,
@@ -101,6 +101,7 @@ class ScriptSyllabifier : public PhraseSyllabifier {
                    bool abbreviated = false,
                    bool full_spelling_only = false) const;
   string GetPreeditString(const Phrase& cand) const;
+  MappedPreedit GetMappedPreedit(const Phrase* cand) const override;
   string GetOriginalSpelling(const Phrase& cand) const;
   bool IsCorrection(const Code& code, size_t code_length) const;
   bool IsVowellessSingleCharSyllableInput(const Code& code, size_t end) const;
@@ -424,6 +425,11 @@ string ScriptTranslator::FormatPreedit(const string& preedit) {
   return result;
 }
 
+MappedPreedit ScriptTranslator::FormatPreedit(MappedPreedit preedit) {
+  preedit_formatter_.Apply(&preedit);
+  return preedit;
+}
+
 string ScriptTranslator::Spell(const Code& code) {
   string result;
   vector<string> syllables;
@@ -575,30 +581,36 @@ bool ScriptSyllabifier::IsVowellessSingleCharSyllableInput(const Code& code,
 }
 
 string ScriptSyllabifier::GetPreeditString(const Phrase& cand) const {
+  return GetMappedPreedit(&cand).text;
+}
+
+MappedPreedit ScriptSyllabifier::GetMappedPreedit(const Phrase* cand) const {
   const auto& delimiters = translator_->delimiters();
   std::stack<size_t> lengths;
-  string output;
-  SyllabifyTask task{cand.matching_code(), syllable_graph_, cand.end() - start_,
+  MappedPreedit output;
+  SyllabifyTask task{cand->matching_code(), syllable_graph_, cand->end() - start_,
                      [&](SyllabifyTask* task, size_t depth, size_t current_pos,
                          size_t next_pos) {
-                       size_t len = output.length();
+                       size_t len = output.text.length();
                        if (depth > 0 && len > 0 &&
-                           delimiters.find(output[len - 1]) == string::npos) {
-                         output += delimiters.at(0);
+                           delimiters.find(output.text[len - 1]) == string::npos) {
+                         output.Append(MappedPreedit::Literal(
+                             string(1, delimiters.at(0)),
+                             {start_ + current_pos, start_ + current_pos}));
                        }
-                       output +=
-                           input_.substr(current_pos, next_pos - current_pos);
+                       output.Append(MappedPreedit::Input(
+                           input_.substr(current_pos, next_pos - current_pos),
+                           start_ + current_pos));
                        lengths.push(len);
                      },
                      [&](SyllabifyTask* task, size_t depth) {
-                       output.resize(lengths.top());
+                       output.text.resize(lengths.top());
+                       output.sources.resize(lengths.top());
                        lengths.pop();
                      }};
-  if (syllabify_dfs(&task, 0, cand.start() - start_)) {
-    return translator_->FormatPreedit(output);
-  } else {
-    return string();
-  }
+  if (syllabify_dfs(&task, 0, cand->start() - start_))
+    return translator_->FormatPreedit(std::move(output));
+  return {};
 }
 
 string ScriptSyllabifier::GetOriginalSpelling(const Phrase& cand) const {

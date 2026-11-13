@@ -15,7 +15,7 @@ class EnginePipelineTest {
     fun testEngineStateEqualityAndImmutability() {
         val state1 = EngineState(
             candidates = listOf(CandidateListItem("pinyin", "候选")),
-            showComposition = "hou'xuan",
+            composition = CompositionPresentation(text = "hou'xuan"),
             prefixs = listOf("hou", "xuan"),
             isFinish = false,
             isAssociate = false,
@@ -25,7 +25,7 @@ class EnginePipelineTest {
 
         val state2 = EngineState(
             candidates = listOf(CandidateListItem("pinyin", "候选")),
-            showComposition = "hou'xuan",
+            composition = CompositionPresentation(text = "hou'xuan"),
             prefixs = listOf("hou", "xuan"),
             isFinish = false,
             isAssociate = false,

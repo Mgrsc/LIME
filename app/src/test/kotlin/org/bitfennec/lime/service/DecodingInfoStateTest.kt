@@ -17,7 +17,6 @@ class DecodingInfoStateTest {
             EngineState(
                 candidates = candidates,
                 stripMode = CandidateStripMode.DECODING,
-                showComposition = "",
             )
         )
 

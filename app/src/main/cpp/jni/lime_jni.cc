@@ -55,7 +55,7 @@ static std::string g_t9_dictionary_schema_id;
 static std::map<size_t, std::string> g_t9_locked_prefixes;
 static std::string g_t9_pending_prefix_input;
 static std::string g_t9_preedit_input;
-static std::string g_t9_preedit_text;
+static rime::MappedPreedit g_t9_preedit;
 static std::unique_ptr<rime::Projection> g_t9_spelling_projection;
 static std::string g_t9_projection_schema_id;
 static bool g_t9_projection_initialized = false;
@@ -64,7 +64,7 @@ static std::string g_t9_digit_keys;
 static void clear_t9_preedit_cache_locked() {
     g_t9_pending_prefix_input.clear();
     g_t9_preedit_input.clear();
-    g_t9_preedit_text.clear();
+    g_t9_preedit = {};
 }
 
 static void clear_t9_input_state_locked() {
@@ -309,33 +309,33 @@ static bool candidate_matches_locked_prefixes(
     return true;
 }
 
-static std::string decode_candidate_preedit(
+static rime::MappedPreedit decode_candidate_preedit(
         rime::Dictionary* dictionary,
         const rime::an<rime::Candidate>& candidate,
         const std::string& input,
         const std::string& schema_id,
         rime::Config* config) {
-    if (!dictionary || !candidate || !config) return "";
+    if (!dictionary || !candidate || !config) return {};
     auto phrase = rime::As<rime::Phrase>(
             rime::Candidate::GetGenuineCandidate(candidate));
-    if (!phrase) return "";
+    if (!phrase) return {};
     std::vector<std::string> syllables;
     if (!dictionary->Decode(phrase->matching_code(), &syllables) || syllables.empty()) {
-        return "";
+        return {};
     }
     const auto spans = phrase->spans();
-    if (spans.Count() != syllables.size() || spans.end() > input.size()) return "";
+    if (spans.Count() != syllables.size() || spans.end() > input.size()) return {};
     auto* spelling_projection = get_t9_spelling_projection_locked(schema_id, config);
-    if (!spelling_projection) return "";
-    std::string preedit;
+    if (!spelling_projection) return {};
+    rime::MappedPreedit preedit;
     size_t start = spans.start();
     for (const auto& syllable : syllables) {
         const size_t end = spans.NextStop(start);
-        if (end <= start || end > input.size()) return "";
+        if (end <= start || end > input.size()) return {};
         std::string raw = input.substr(start, end - start);
         raw.erase(std::remove_if(raw.begin(), raw.end(),
                 [](char c) { return c == '\'' || c == ' '; }), raw.end());
-        if (raw.empty()) return "";
+        if (raw.empty()) return {};
         rime::Script spellings;
         spellings.AddSyllable(syllable);
         spelling_projection->Apply(&spellings);
@@ -353,7 +353,7 @@ static std::string decode_candidate_preedit(
                 selected = spelling.substr(0, raw.size());
             }
         }
-        if (selected.empty()) return "";
+        if (selected.empty()) return {};
         size_t spelling_start = start;
         while (spelling_start < end &&
                 (input[spelling_start] == '\'' || input[spelling_start] == ' ')) ++spelling_start;
@@ -362,8 +362,19 @@ static std::string decode_candidate_preedit(
         if (lock != g_t9_locked_prefixes.end() && lock->second == syllable) {
             selected = syllable;
         }
-        if (!preedit.empty()) preedit += "'";
-        preedit += selected;
+        if (!preedit.text.empty())
+            preedit.Append(rime::MappedPreedit::Literal("'", {start, start}));
+        size_t spelling_end = end;
+        while (spelling_end > spelling_start &&
+                (input[spelling_end - 1] == '\'' || input[spelling_end - 1] == ' ')) --spelling_end;
+        if (selected.size() == spelling_end - spelling_start) {
+            auto mapped = rime::MappedPreedit::Input(selected, spelling_start);
+            mapped.ExtendFirst({start, spelling_start});
+            mapped.ExtendLast({spelling_end, end});
+            preedit.Append(mapped);
+        } else {
+            preedit.Append(rime::MappedPreedit::Literal(selected, {start, end}));
+        }
         start = end;
     }
     return preedit;
@@ -570,7 +581,7 @@ static jobject build_snapshot_locked(JNIEnv* env, jboolean handled) {
     }
 
     std::string current_raw_input(raw_input ? raw_input : "");
-    std::string fallback_locked_preedit;
+    rime::MappedPreedit fallback_locked_preedit;
     if (std::strcmp(schema_id, "t9_pinyin") != 0) {
         reset_t9_session_locked();
     } else if (current_raw_input.empty()) {
@@ -609,14 +620,18 @@ static jobject build_snapshot_locked(JNIEnv* env, jboolean handled) {
         for (size_t pos = 0; pos < current_raw_input.size();) {
             const auto lock = g_t9_locked_prefixes.find(pos);
             if (lock == g_t9_locked_prefixes.end()) {
-                fallback_locked_preedit += current_raw_input[pos++];
+                fallback_locked_preedit.Append(rime::MappedPreedit::Input(
+                        current_raw_input.substr(pos, 1), pos));
+                ++pos;
                 continue;
             }
-            if (!fallback_locked_preedit.empty() && fallback_locked_preedit.back() != '\'' &&
-                    fallback_locked_preedit.back() != ' ') fallback_locked_preedit += "'";
-            fallback_locked_preedit += lock->second;
+            if (!fallback_locked_preedit.text.empty() && fallback_locked_preedit.text.back() != '\'' &&
+                    fallback_locked_preedit.text.back() != ' ')
+                fallback_locked_preedit.Append(rime::MappedPreedit::Literal("'", {pos, pos}));
             const auto end = current_raw_input.find_first_of("' ", pos);
-            pos = end == std::string::npos ? current_raw_input.size() : end;
+            const auto next = end == std::string::npos ? current_raw_input.size() : end;
+            fallback_locked_preedit.Append(rime::MappedPreedit::Literal(lock->second, {pos, next}));
+            pos = next;
         }
     }
 
@@ -677,12 +692,11 @@ static jobject build_snapshot_locked(JNIEnv* env, jboolean handled) {
 
     schema = new_utf8_string(env, schema_id);
     raw = new_utf8_string(env, raw_input ? raw_input : "");
-    preedit = new_utf8_string(env, ctx.composition.preedit ? ctx.composition.preedit : "");
     auto session = rime::Service::instance().GetSession(sid);
     literal = new_utf8_string(env, session && session->context()
             ? literal_composition_text(session->context()->composition(), raw_input ? raw_input : "")
             : (raw_input ? raw_input : ""));
-    if (!schema || !raw || !preedit || !literal) {
+    if (!schema || !raw || !literal) {
         cleanup();
         return nullptr;
     }
@@ -692,22 +706,26 @@ static jobject build_snapshot_locked(JNIEnv* env, jboolean handled) {
     const jint comp_length = (session && session->context())
             ? (jint)session->context()->input().length()
             : (jint)ctx.composition.length;
-    composition = env->NewObject(g_cache.compClass, g_cache.compInit,
-        comp_length,
-        comp_cursor_pos,
-        (jint)ctx.composition.sel_start,
-        (jint)ctx.composition.sel_end,
-        preedit, literal);
-    if (!composition) {
-        cleanup();
-        return nullptr;
+    rime::Preedit native_preedit;
+    rime::MappedPreedit mapped_preedit;
+    if (session && session->context()) {
+        auto* internal_context = session->context();
+        native_preedit = internal_context->composition().GetPreedit(
+                current_raw_input, internal_context->caret_pos(), "");
+        mapped_preedit = native_preedit.mapped;
+    } else {
+        mapped_preedit = rime::MappedPreedit::Literal(
+                ctx.composition.preedit ? ctx.composition.preedit : "", {0, current_raw_input.size()});
+        native_preedit.caret_pos = ctx.composition.cursor_pos;
+        native_preedit.sel_start = ctx.composition.sel_start;
+        native_preedit.sel_end = ctx.composition.sel_end;
     }
 
     const int candidate_count = (ctx.menu.num_candidates > 0 && ctx.menu.candidates)
         ? ctx.menu.num_candidates
         : 0;
-    std::string t9_preedit = current_raw_input == g_t9_preedit_input
-            ? g_t9_preedit_text : "";
+    rime::MappedPreedit t9_preedit = current_raw_input == g_t9_preedit_input
+            ? g_t9_preedit : rime::MappedPreedit();
     std::vector<std::string> t9_prefix_options;
     std::vector<bool> candidate_matches(candidate_count, g_t9_locked_prefixes.empty());
     if (std::strcmp(schema_id, "t9_pinyin") == 0) {
@@ -727,19 +745,20 @@ static jobject build_snapshot_locked(JNIEnv* env, jboolean handled) {
                     const bool matches = candidate_matches_locked_prefixes(
                             dictionary, candidate, g_t9_locked_prefixes, current_raw_input);
                     candidate_matches[index] = matches;
-                    if (matches && t9_preedit.empty()) {
+                    if (matches && t9_preedit.text.empty()) {
                         const auto& input = internal_context->input();
                         auto decoded = decode_candidate_preedit(
                                 dictionary, candidate, input, schema_id,
                                 session && session->schema() ? session->schema()->config() : nullptr);
-                        if (!decoded.empty() && candidate->start() == segment.start &&
+                        if (!decoded.text.empty() && candidate->start() == segment.start &&
                             candidate->end() >= candidate->start() &&
                             candidate->end() <= input.size()) {
                             const auto native_preedit = internal_context->composition().GetPreedit(
                                     input, internal_context->caret_pos(), "");
-                            // Candidate spans count input bytes, not decoded pinyin letters.
-                            t9_preedit = native_preedit.text.substr(0, native_preedit.sel_start) +
-                                    decoded + input.substr(candidate->end());
+                            t9_preedit = native_preedit.mapped.Slice(0, native_preedit.sel_start);
+                            t9_preedit.Append(decoded);
+                            t9_preedit.Append(rime::MappedPreedit::Input(
+                                    input.substr(candidate->end()), candidate->end()));
                         }
                     }
                 }
@@ -751,13 +770,46 @@ static jobject build_snapshot_locked(JNIEnv* env, jboolean handled) {
             t9_prefix_options = get_t9_prefix_options(dictionary, current_raw_input.substr(prefix_start));
         }
     }
-    if (t9_preedit.empty()) {
+    if (t9_preedit.text.empty()) {
         t9_preedit = fallback_locked_preedit;
     }
     if (std::strcmp(schema_id, "t9_pinyin") == 0) {
         g_t9_preedit_input = current_raw_input;
-        g_t9_preedit_text = t9_preedit;
+        g_t9_preedit = t9_preedit;
+        native_preedit.sel_start = t9_preedit.ByteOffsetForRaw(
+                mapped_preedit.Source(native_preedit.sel_start, native_preedit.sel_start).start);
+        native_preedit.sel_end = t9_preedit.ByteOffsetForRaw(
+                mapped_preedit.Source(native_preedit.sel_end, native_preedit.sel_end).start);
+        mapped_preedit = t9_preedit;
+        native_preedit.caret_pos = mapped_preedit.ByteOffsetForRaw(comp_cursor_pos);
     }
+    preedit = new_utf8_string(env, mapped_preedit.text.c_str());
+    const auto boundaries = mapped_preedit.Utf16Boundaries();
+    std::vector<jint> display_offsets;
+    std::vector<jint> raw_offsets;
+    for (const auto& [display_offset, raw_offset] : boundaries) {
+        display_offsets.push_back(display_offset);
+        raw_offsets.push_back(raw_offset);
+    }
+    jintArray display_boundaries = env->NewIntArray(display_offsets.size());
+    jintArray raw_boundaries = env->NewIntArray(raw_offsets.size());
+    if (display_boundaries && raw_boundaries && preedit) {
+        env->SetIntArrayRegion(display_boundaries, 0, display_offsets.size(), display_offsets.data());
+        env->SetIntArrayRegion(raw_boundaries, 0, raw_offsets.size(), raw_offsets.data());
+        composition = env->NewObject(g_cache.compClass, g_cache.compInit,
+                comp_length, comp_cursor_pos,
+                (jint)mapped_preedit.Utf16Offset(native_preedit.sel_start),
+                (jint)mapped_preedit.Utf16Offset(native_preedit.sel_end),
+                preedit, literal, display_boundaries, raw_boundaries,
+                (jint)mapped_preedit.Utf16Offset(native_preedit.caret_pos));
+    }
+    if (display_boundaries) env->DeleteLocalRef(display_boundaries);
+    if (raw_boundaries) env->DeleteLocalRef(raw_boundaries);
+    if (!composition || env->ExceptionCheck()) {
+        cleanup();
+        return nullptr;
+    }
+
     std::vector<int> visible_candidate_indices;
     visible_candidate_indices.reserve(candidate_count);
     for (int index = 0; index < candidate_count; ++index) {
@@ -851,7 +903,7 @@ static jobject build_snapshot_locked(JNIEnv* env, jboolean handled) {
                 return nullptr;
             }
         }
-        jstring preeditText = new_utf8_string(env, t9_preedit.c_str());
+        jstring preeditText = new_utf8_string(env, t9_preedit.text.c_str());
         if (!preeditText) {
             cleanup();
             return nullptr;
@@ -916,12 +968,12 @@ static jobject JNICALL native_processRimeKeyAndSnapshot(JNIEnv *env, jclass claz
         handled = g_rime_api->process_key(sid, keyCode, mask);
         bool retained = false;
         if (tail_backspace && handled && g_t9_digit_keys.size() == 26 &&
-                !g_t9_preedit_text.empty() &&
+                !g_t9_preedit.text.empty() &&
                 context->input().size() + 1 == g_t9_preedit_input.size() &&
                 g_t9_preedit_input.compare(0, context->input().size(), context->input()) == 0) {
             // Retain the chosen spelling only when it maps one-to-one to the keys.
             std::string encoded;
-            for (char c : g_t9_preedit_text) {
+            for (char c : g_t9_preedit.text) {
                 if (c >= 'a' && c <= 'z') encoded += g_t9_digit_keys[c - 'a'];
                 else if (c != '\'' && c != ' ') encoded += c;
             }
@@ -929,18 +981,19 @@ static jobject JNICALL native_processRimeKeyAndSnapshot(JNIEnv *env, jclass claz
             raw.erase(std::remove_if(raw.begin(), raw.end(),
                     [](char c) { return c == '\'' || c == ' '; }), raw.end());
             if (encoded == raw && g_t9_preedit_input.back() != '\'' && g_t9_preedit_input.back() != ' ') {
-                while (!g_t9_preedit_text.empty() && (g_t9_preedit_text.back() == '\'' || g_t9_preedit_text.back() == ' '))
-                    g_t9_preedit_text.pop_back();
-                if (!g_t9_preedit_text.empty()) g_t9_preedit_text.pop_back();
-                while (!g_t9_preedit_text.empty() && (g_t9_preedit_text.back() == '\'' || g_t9_preedit_text.back() == ' '))
-                    g_t9_preedit_text.pop_back();
+                while (!g_t9_preedit.text.empty() && (g_t9_preedit.text.back() == '\'' || g_t9_preedit.text.back() == ' '))
+                    g_t9_preedit.text.pop_back();
+                if (!g_t9_preedit.text.empty()) g_t9_preedit.text.pop_back();
+                while (!g_t9_preedit.text.empty() && (g_t9_preedit.text.back() == '\'' || g_t9_preedit.text.back() == ' '))
+                    g_t9_preedit.text.pop_back();
+                g_t9_preedit.sources.resize(g_t9_preedit.text.size());
                 g_t9_preedit_input = context->input();
                 retained = true;
             }
         }
         if (!retained) {
             g_t9_preedit_input.clear();
-            g_t9_preedit_text.clear();
+            g_t9_preedit = {};
         }
     }
 #ifndef NDEBUG
@@ -1221,7 +1274,7 @@ static jobject JNICALL native_selectT9PrefixAndSnapshot(
                     internal_context->set_input(new_input);
                 }
                 g_t9_preedit_input.clear();
-                g_t9_preedit_text.clear();
+                g_t9_preedit = {};
                 g_t9_locked_prefixes[segment_start] = selected_prefix;
                 g_t9_pending_prefix_input = internal_context->input();
             }
@@ -1687,7 +1740,7 @@ static jmethodID find_method(JNIEnv* env, jclass clazz, const char* name, const 
 
 static void init_cache(JNIEnv* env) {
     g_cache.compClass = find_global_class(env, g_package_prefix + "/RimeComposition");
-    g_cache.compInit = find_method(env, g_cache.compClass, "<init>", "(IIIILjava/lang/String;Ljava/lang/String;)V");
+    g_cache.compInit = find_method(env, g_cache.compClass, "<init>", "(IIIILjava/lang/String;Ljava/lang/String;[I[II)V");
 
     g_cache.pageCandidateClass = find_global_class(env, g_package_prefix + "/RimePageCandidate");
     g_cache.pageCandidateInit = find_method(env, g_cache.pageCandidateClass, "<init>", "(ILjava/lang/String;Ljava/lang/String;)V");

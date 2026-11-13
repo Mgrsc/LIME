@@ -53,18 +53,19 @@ class CandidatesHeightMeasureTest {
 
     @Test
     fun preeditCursorMappingPreservesSyllableBoundaries() {
-        val raw = "nihao"
-        val show = "ni'hao"
-        // Cursor at 0 (start)
-        assertEquals(0, org.bitfennec.lime.utils.PreeditCursorUtils.rawCursorPosToDisplayCursorPos(raw, 0, show))
-        assertEquals(0, org.bitfennec.lime.utils.PreeditCursorUtils.touchOffsetToRawIndex(0, 0, show, raw))
-
-        // Cursor at 2 (between ni and hao across delimiter)
-        assertEquals(3, org.bitfennec.lime.utils.PreeditCursorUtils.rawCursorPosToDisplayCursorPos(raw, 2, show))
-        assertEquals(2, org.bitfennec.lime.utils.PreeditCursorUtils.touchOffsetToRawIndex(3, 3, show, raw))
-
-        // Cursor at 5 (end of input)
-        assertEquals(6, org.bitfennec.lime.utils.PreeditCursorUtils.rawCursorPosToDisplayCursorPos(raw, 5, show))
-        assertEquals(5, org.bitfennec.lime.utils.PreeditCursorUtils.touchOffsetToRawIndex(7, 6, show, raw))
+        val composition = org.bitfennec.lime.inputmethod.CompositionPresentation.from(
+            org.bitfennec.lime.core.RimeComposition(
+                length = 5,
+                preedit = "ni'hao",
+                displayBoundaries = intArrayOf(0, 1, 2, 3, 4, 5, 6),
+                rawBoundaries = intArrayOf(0, 1, 2, 2, 3, 4, 5),
+            ),
+            revision = 1,
+        )
+        listOf(0 to 0, 2 to 3, 5 to 6).forEach { (raw, display) ->
+            val current = composition.copy(rawCursor = raw)
+            assertEquals(display, current.displayCursor)
+            assertEquals(raw, org.bitfennec.lime.utils.PreeditCursorUtils.touchOffsetToRawIndex(display, current))
+        }
     }
 }

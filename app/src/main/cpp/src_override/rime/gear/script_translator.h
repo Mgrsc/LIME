@@ -39,6 +39,7 @@ class ScriptTranslator : public Translator,
                                       const Segment& seg) override;
 
   string FormatPreedit(const string& preedit);
+  MappedPreedit FormatPreedit(MappedPreedit preedit);
   string Spell(const Code& code);
   string GetPrecedingText(size_t start) const;
   bool UpdateElements(const CommitEntry& commit_entry);

@@ -1,122 +1,125 @@
 package org.bitfennec.lime.inputmethod
 
-import org.bitfennec.lime.core.CandidateListItem
+import org.bitfennec.lime.core.RimeComposition
 import org.bitfennec.lime.utils.PreeditCursorUtils
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class PreeditCursorTest {
+    @Test
+    fun mapsInsertedSeparatorsInBothDirections() {
+        val composition = presentation("ni hao", 5, intArrayOf(0, 1, 2, 3, 4, 5, 6), intArrayOf(0, 1, 2, 2, 3, 4, 5))
+        assertEquals(3, composition.copy(rawCursor = 2).displayCursor)
+        (0..5).forEach { raw ->
+            val current = composition.copy(rawCursor = raw)
+            assertEquals(raw, current.rawOffsetForDisplay(current.displayCursor))
+        }
+        assertEquals(2, composition.rawOffsetForDisplay(2))
+        assertEquals(2, composition.rawOffsetForDisplay(3))
+    }
 
     @Test
-    fun testEngineStateCursorPos() {
-        val state = EngineState(
-            candidates = listOf(CandidateListItem("🔤", "v")),
-            showComposition = "v",
-            compositionCursorPos = 1,
-            isFinish = false
+    fun mapsAlternativeSpellingWithoutComparingCharacters() {
+        val composition = presentation("lü you", 5, intArrayOf(0, 1, 2, 3, 4, 5, 6), intArrayOf(0, 1, 2, 2, 3, 4, 5))
+        assertEquals(5, composition.copy(rawCursor = 4).displayCursor)
+        assertEquals(4, composition.copy(rawCursor = 3).displayCursor)
+        assertEquals(1, composition.rawOffsetForDisplay(1))
+        assertEquals(4, composition.rawOffsetForDisplay(5))
+    }
+
+    @Test
+    fun snapsDoublePinyinExpansionsToRealKeyBoundaries() {
+        val composition = presentation("zhong guo", 4, intArrayOf(0, 2, 5, 6, 7, 9), intArrayOf(0, 1, 2, 2, 3, 4))
+        assertEquals(2, composition.copy(rawCursor = 1).displayCursor)
+        assertEquals(6, composition.copy(rawCursor = 2).displayCursor)
+        assertEquals(1, composition.rawOffsetForDisplay(3))
+        assertEquals(2, composition.rawOffsetForDisplay(4))
+        assertEquals(4, composition.rawOffsetForDisplay(8))
+    }
+
+    @Test
+    fun mapsUnconvertedTextAfterSelectedCharacters() {
+        val composition = presentation("\u4f60\u597dshi jie", 11, intArrayOf(0, 2, 3, 4, 5, 6, 7, 8, 9), intArrayOf(0, 5, 6, 7, 8, 8, 9, 10, 11))
+        assertEquals(3, composition.copy(rawCursor = 6).displayCursor)
+        assertEquals(6, composition.rawOffsetForDisplay(3))
+        assertEquals(10, composition.rawOffsetForDisplay(8))
+        assertEquals(5, composition.rawOffsetForDisplay(1))
+    }
+
+    @Test
+    fun excludesSurrogateInteriorsAndCopiesNativeArrays() {
+        val display = intArrayOf(0, 2, 3)
+        val raw = intArrayOf(0, 2, 3)
+        val composition = presentation("😀a", 3, display, raw)
+        display[1] = 1
+        raw[1] = 1
+        assertEquals(2, composition.rawOffsetForDisplay(1))
+        assertTrue(composition.boundaries.none { it.displayOffset == 1 })
+    }
+
+    @Test
+    fun rejectsMalformedOrNonMonotonicMappings() {
+        listOf(
+            intArrayOf(0, 1, 2) to intArrayOf(0, 1),
+            intArrayOf(0, 1, 3) to intArrayOf(0, 1, 2),
+            intArrayOf(0, 2, 1) to intArrayOf(0, 1, 2),
+            intArrayOf(0, 1, 2) to intArrayOf(0, 2, 1),
+        ).forEach { (display, raw) ->
+            assertNull(presentation("ab", 2, display, raw).rawOffsetForDisplay(1))
+        }
+        assertNull(presentation("😀", 2, intArrayOf(0, 1, 2), intArrayOf(0, 1, 2)).rawOffsetForDisplay(1))
+    }
+
+    @Test
+    fun preservesNativeCaretWhenOpaqueTextHasNoEditableMapping() {
+        val composition = CompositionPresentation.from(
+            RimeComposition(length = 5, cursorPos = 2, preedit = "opaque", displayCursorPos = 3, selStart = 1, selEnd = 5),
+            revision = 1,
         )
-        assertEquals(1, state.compositionCursorPos)
-        assertEquals("v", state.showComposition)
-        assertEquals(1, state.candidates.size)
-        assertEquals("🔤", state.candidates[0].comment)
-        assertEquals("v", state.candidates[0].text)
-        assertFalse(state.isFinish)
+        assertEquals(3, composition.displayCursor)
+        assertEquals(1, composition.selectionStart)
+        assertEquals(5, composition.selectionEnd)
+        assertNull(composition.rawOffsetForDisplay(3))
     }
 
     @Test
-    fun testMoveCompositionCursorActionContracts() {
-        val moveAction = EngineAction.MoveCompositionCursor(3)
-        assertEquals(3, moveAction.targetIndex)
-
-        val stepLeftAction = EngineAction.StepCompositionCursor(-1)
-        assertEquals(-1, stepLeftAction.direction)
-
-        val stepRightAction = EngineAction.StepCompositionCursor(1)
-        assertEquals(1, stepRightAction.direction)
-    }
-
-    @Test
-    fun testRawCursorPosToDisplayCursorPos() {
-        val raw = "nihao"
-        val show = "ni'hao"
-
-        // 0: |ni'hao
-        assertEquals(0, PreeditCursorUtils.rawCursorPosToDisplayCursorPos(raw, 0, show))
-        // 1: n|i'hao
-        assertEquals(1, PreeditCursorUtils.rawCursorPosToDisplayCursorPos(raw, 1, show))
-        // 2: ni'|hao (after syllable 'ni' and delimiter '\'')
-        assertEquals(3, PreeditCursorUtils.rawCursorPosToDisplayCursorPos(raw, 2, show))
-        // 3: ni'h|ao
-        assertEquals(4, PreeditCursorUtils.rawCursorPosToDisplayCursorPos(raw, 3, show))
-        // 4: ni'ha|o
-        assertEquals(5, PreeditCursorUtils.rawCursorPosToDisplayCursorPos(raw, 4, show))
-        // 5: ni'hao| (end of string)
-        assertEquals(6, PreeditCursorUtils.rawCursorPosToDisplayCursorPos(raw, 5, show))
-    }
-
-    @Test
-    fun testRawCursorPosToDisplayCursorPosMultiSyllable() {
-        val raw = "zhongguoren"
-        val show = "zhong'guo'ren"
-
-        assertEquals(0, PreeditCursorUtils.rawCursorPosToDisplayCursorPos(raw, 0, show))
-        // After 'zhong' (5 chars) -> display index 6 (after "zhong'")
-        assertEquals(6, PreeditCursorUtils.rawCursorPosToDisplayCursorPos(raw, 5, show))
-        // After 'zhongguo' (8 chars) -> display index 10 (after "zhong'guo'")
-        assertEquals(10, PreeditCursorUtils.rawCursorPosToDisplayCursorPos(raw, 8, show))
-        // End (11 chars) -> display index 13 ("zhong'guo'ren")
-        assertEquals(13, PreeditCursorUtils.rawCursorPosToDisplayCursorPos(raw, 11, show))
-    }
-
-    @Test
-    fun testTouchOffsetToRawIndex() {
-        val raw = "nihao"
-        val show = "ni'hao"
-        val displayCursorPos = 3 // "ni'▎hao"
-
-        // Click before cursor placeholder (touchOffset <= 3)
-        assertEquals(0, PreeditCursorUtils.touchOffsetToRawIndex(0, displayCursorPos, show, raw))
-        assertEquals(1, PreeditCursorUtils.touchOffsetToRawIndex(1, displayCursorPos, show, raw))
-        assertEquals(2, PreeditCursorUtils.touchOffsetToRawIndex(2, displayCursorPos, show, raw))
-        assertEquals(2, PreeditCursorUtils.touchOffsetToRawIndex(3, displayCursorPos, show, raw))
-
-        // Click after cursor placeholder (touchOffset > 3, should deduct 1 for ▎)
-        // touchOffset = 4 -> letter 'h' -> raw index 2 ('ni|hao') or 3
-        assertEquals(2, PreeditCursorUtils.touchOffsetToRawIndex(4, displayCursorPos, show, raw))
-        // touchOffset = 5 -> letter 'a' -> raw index 3
-        assertEquals(3, PreeditCursorUtils.touchOffsetToRawIndex(5, displayCursorPos, show, raw))
-        // touchOffset = 6 -> letter 'o' -> raw index 4
-        assertEquals(4, PreeditCursorUtils.touchOffsetToRawIndex(6, displayCursorPos, show, raw))
-        // touchOffset = 7 -> end -> raw index 5 ("nihao")
-        assertEquals(5, PreeditCursorUtils.touchOffsetToRawIndex(7, displayCursorPos, show, raw))
-    }
-
-    @Test
-    fun testPreeditCursorUtilsEdgeCases() {
-        assertEquals(0, PreeditCursorUtils.rawCursorPosToDisplayCursorPos("", 0, ""))
-        assertEquals(0, PreeditCursorUtils.touchOffsetToRawIndex(0, 0, "", ""))
-
-        val rawSingle = "v"
-        val showSingle = "v"
-        assertEquals(0, PreeditCursorUtils.rawCursorPosToDisplayCursorPos(rawSingle, -1, showSingle))
-        assertEquals(1, PreeditCursorUtils.rawCursorPosToDisplayCursorPos(rawSingle, 1, showSingle))
-        assertEquals(1, PreeditCursorUtils.rawCursorPosToDisplayCursorPos(rawSingle, 2, showSingle))
-        assertEquals(1, PreeditCursorUtils.touchOffsetToRawIndex(2, 1, showSingle, rawSingle))
-    }
-
-    @Test
-    fun testT9LockedCountContract() {
-        val metadata = org.bitfennec.lime.core.RimeT9Metadata("ni'hao", arrayOf("gan", "gao"), 1)
-        assertEquals("ni'hao", metadata.preedit)
-        assertEquals(1, metadata.lockedCount)
-        assertEquals(2, metadata.prefixOptions.size)
-
-        val state = EngineState(
-            showComposition = "ni'hao",
-            t9LockedCount = 1,
-            isFinish = false
+    fun rejectsNativeCaretInsideSurrogatePair() {
+        val composition = CompositionPresentation.from(
+            RimeComposition(length = 2, cursorPos = 2, preedit = "\uD83D\uDE00", displayCursorPos = 1),
+            revision = 1,
         )
-        assertEquals(1, state.t9LockedCount)
+        assertNull(composition.nativeDisplayCursor)
+        assertEquals(2, composition.displayCursor)
     }
+
+    @Test
+    fun accountsForVisibleCursorWithoutCreatingEditablePositions() {
+        val composition = presentation("ni hao", 5, intArrayOf(0, 1, 2, 3, 4, 5, 6), intArrayOf(0, 1, 2, 2, 3, 4, 5))
+            .copy(rawCursor = 2)
+        assertEquals(2, PreeditCursorUtils.touchOffsetToRawIndex(3, composition))
+        assertEquals(2, PreeditCursorUtils.touchOffsetToRawIndex(4, composition))
+        assertEquals(3, PreeditCursorUtils.touchOffsetToRawIndex(5, composition))
+        assertEquals(5, PreeditCursorUtils.touchOffsetToRawIndex(100, composition))
+        assertNull(PreeditCursorUtils.touchOffsetToRawIndex(0, CompositionPresentation.Empty))
+    }
+
+    @Test
+    fun stateKeepsOneCompositionObjectWhenCandidatesAreAppended() {
+        val presentation = presentation("lü you", 5, intArrayOf(0, 1, 2, 3, 4, 5, 6), intArrayOf(0, 1, 2, 2, 3, 4, 5))
+        val state = EngineState(composition = presentation, sessionId = 7, isFinish = false)
+        val next = state.copy(candidatePageNo = 1)
+        assertTrue(state.composition === next.composition)
+        assertEquals("lü you", next.showComposition)
+        assertEquals(5, next.compositionCursorPos)
+        val action = EngineAction.MoveCompositionCursor(3, expectedRevision = presentation.revision, expectedSessionId = state.sessionId)
+        assertEquals(3, action.targetIndex)
+        assertEquals(7L, action.expectedSessionId)
+    }
+
+    private fun presentation(text: String, length: Int, display: IntArray, raw: IntArray) = CompositionPresentation.from(
+        RimeComposition(length = length, cursorPos = length, preedit = text, displayBoundaries = display, rawBoundaries = raw),
+        revision = 4,
+    )
 }

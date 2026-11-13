@@ -22,6 +22,9 @@ data class RimeComposition(
     val selEnd: Int = 0,
     val preedit: String? = "",
     val literalText: String = "",
+    val displayBoundaries: IntArray = intArrayOf(),
+    val rawBoundaries: IntArray = intArrayOf(),
+    val displayCursorPos: Int = -1,
 )
 
 @Keep

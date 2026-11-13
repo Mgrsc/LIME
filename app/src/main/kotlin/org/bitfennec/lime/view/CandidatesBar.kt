@@ -688,17 +688,20 @@ class CandidatesBar(context: Context?, attrs: AttributeSet?) : RelativeLayout(co
         predictionDeletePopup?.dismiss()
         predictionDeletePopup = null
         configureCandidateLayout()
-        val composing = if (InputModeSwitcher.isPassword) "" else DecodingInfo.composingStrForDisplay
+        val displayState = if (isPassword || engineState.sessionId != sessionId) {
+            engineState.copy(composition = org.bitfennec.lime.inputmethod.CompositionPresentation.Empty)
+        } else engineState
+        val composing = displayState.showComposition
         val isComposing = composing.isNotEmpty()
         val isEngineUnavailable = !engineState.engineReady || engineState.stripMode == org.bitfennec.lime.inputmethod.predict.CandidateStripMode.UNAVAILABLE
         if (isEngineUnavailable && isComposing) {
-            mPreeditView.render(context.getString(R.string.rime_engine_init_failed))
+            mPreeditView.renderMessage(context.getString(R.string.rime_engine_init_failed))
             mPreeditView.updateVisibility(true, usesHandwritingCandidateLayout)
             mCandidatesAdapter.setCandidates(emptyList(), 0)
             showViewVisibility(mCandidatesDataContainer)
             return
         }
-        mPreeditView.render(composing)
+        mPreeditView.render(displayState)
         mPreeditView.updateVisibility(isComposing, usesHandwritingCandidateLayout)
         mCandidatesMenuAdapter.isEditMode = (container as? SettingsContainer)?.isCustomDragMode() == true
         setSlot(resolveSlot())

@@ -37,8 +37,7 @@ import org.bitfennec.lime.prefs.AppPrefs
 data class EngineState(
     val candidates: List<CandidateListItem> = emptyList(),
     val predictionSources: List<PredictionSource?> = emptyList(),
-    val showComposition: String = "",
-    val compositionCursorPos: Int = 0,
+    val composition: CompositionPresentation = CompositionPresentation.Empty,
     val prefixs: List<String> = emptyList(),
     val t9LockedCount: Int = 0,
     val isFinish: Boolean = true,
@@ -52,7 +51,10 @@ data class EngineState(
     val sessionId: Long = 0L,
     val traceSequence: Long = 0L,
     val engineReady: Boolean = true,
-)
+) {
+    val showComposition: String get() = composition.text
+    val compositionCursorPos: Int get() = composition.rawCursor
+}
 
 data class EditorSessionKey(
     val packageName: String,
@@ -129,7 +131,12 @@ sealed interface EngineAction {
     data class DeleteKey(val gen: Long = 0L) : EngineAction
     data class SpaceKey(val gen: Long = 0L, val insertSpace: Boolean = true) : EngineAction
     data class EnterKey(val gen: Long = 0L) : EngineAction
-    data class MoveCompositionCursor(val targetIndex: Int, val gen: Long = 0L) : EngineAction
+    data class MoveCompositionCursor(
+        val targetIndex: Int,
+        val gen: Long = 0L,
+        val expectedRevision: Long? = null,
+        val expectedSessionId: Long? = null,
+    ) : EngineAction
     data class StepCompositionCursor(val direction: Int, val gen: Long = 0L) : EngineAction
     data class CommitThenKey(val keyCode: Int, val gen: Long = 0L) : EngineAction
     data class CommitThenText(val text: String, val moveCursorLeft: Boolean = false, val gen: Long = 0L) : EngineAction
@@ -451,8 +458,7 @@ object EnginePipeline {
             }
             if (action is EngineAction.ClearComposition) {
                 _stateFlow.value = _stateFlow.value.copy(
-                    showComposition = "",
-                    compositionCursorPos = 0,
+                    composition = CompositionPresentation.Empty,
                     candidates = emptyList(),
                     predictionSources = emptyList(),
                     isFinish = true,
@@ -621,7 +627,9 @@ object EnginePipeline {
                     processEnterKey(sessionId, action.gen)
                 }
                 is EngineAction.MoveCompositionCursor -> {
-                    if (!RimeEngine.isFinish()) {
+                    if (!RimeEngine.isFinish() && RimeEngine.matchesComposition(action.expectedRevision) &&
+                        (action.expectedSessionId == null || action.expectedSessionId == sessionId)
+                    ) {
                         RimeEngine.moveCompositionCursor(action.targetIndex)
                         emitRimeSnapshot(sessionId, null)
                         publishCurrentState(sessionId, gen = action.gen)
@@ -696,7 +704,7 @@ object EnginePipeline {
                         publishState(EngineState(
                             candidates = action.candidates,
                             predictionSources = action.predictionSources.map { it },
-                            showComposition = "",
+                            composition = CompositionPresentation.Empty,
                             prefixs = emptyList(),
                             isFinish = true,
                             isAssociate = true,
@@ -742,7 +750,6 @@ object EnginePipeline {
                 is EngineAction.SetCharCase -> {
                     publishState(_stateFlow.value.copy(
                         candidates = snapshotCandidates(),
-                        showComposition = RimeEngine.showComposition,
                         charCase = action.charCase,
                         gen = action.gen,
                         sessionId = sessionId,
@@ -1006,8 +1013,8 @@ object EnginePipeline {
     ) {
         val passwordField = activePolicy.flags.isPassword && activePolicy.sessionId == sessionId
         val candidates = if (passwordField) emptyList() else snapshotCandidates()
-        val composition = if (passwordField) "" else RimeEngine.showComposition
-        val cursorPos = if (passwordField) 0 else RimeEngine.compositionCursorPos
+        val presentation = if (passwordField) CompositionPresentation.Empty else RimeEngine.compositionPresentation
+        val composition = presentation.text
         val prefixs = if (passwordField) emptyList() else RimeEngine.getPrefixs().toList()
         val isFinish = RimeEngine.isFinish()
         val currentSchema = RimeEngine.getCurrentRimeSchema()
@@ -1021,8 +1028,7 @@ object EnginePipeline {
         val published = publishState(EngineState(
             candidates = candidates,
             predictionSources = List(candidates.size) { null },
-            showComposition = composition,
-            compositionCursorPos = cursorPos,
+            composition = presentation,
             prefixs = prefixs,
             t9LockedCount = if (passwordField) 0 else RimeEngine.t9LockedCount,
             isFinish = isFinish,

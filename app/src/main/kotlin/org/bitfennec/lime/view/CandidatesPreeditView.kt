@@ -25,9 +25,8 @@ import org.bitfennec.lime.data.theme.ThemeManager.activeTheme
 import org.bitfennec.lime.environment.ImeEnvironment
 import org.bitfennec.lime.inputmethod.EngineAction
 import org.bitfennec.lime.inputmethod.EnginePipeline
-import org.bitfennec.lime.inputmethod.RimeEngine
-import org.bitfennec.lime.manager.InputModeSwitcher
-import org.bitfennec.lime.service.DecodingInfo
+import org.bitfennec.lime.inputmethod.EngineState
+import org.bitfennec.lime.inputmethod.CompositionPresentation
 import org.bitfennec.lime.utils.DevicesUtils
 import org.bitfennec.lime.utils.LimeTypefaces
 import org.bitfennec.lime.utils.PreeditCursorUtils
@@ -46,7 +45,9 @@ class CandidatesPreeditView(private val context: Context) {
     private val touchSlop = ViewConfiguration.get(context).scaledTouchSlop
     private var downX = 0f
     private var isDragging = false
-    private var lastDisplayCursorPos = 0
+    private var renderedState = EngineState()
+    private var gestureRevision: Long? = null
+    private var gestureSessionId: Long? = null
     private var lastDispatchedRawCursor: Int? = null
     private var composingScrollGeneration = 0L
 
@@ -70,6 +71,9 @@ class CandidatesPreeditView(private val context: Context) {
                     view.parent?.requestDisallowInterceptTouchEvent(true)
                     downX = event.x
                     isDragging = false
+                    lastDispatchedRawCursor = null
+                    gestureRevision = renderedState.composition.revision
+                    gestureSessionId = renderedState.sessionId
                     updateCursorFromTouch(textView, event.x)
                     true
                 }
@@ -86,11 +90,15 @@ class CandidatesPreeditView(private val context: Context) {
                         view.performClick()
                     }
                     lastDispatchedRawCursor = null
+                    gestureRevision = null
+                    gestureSessionId = null
                     isDragging = false
                     true
                 }
                 MotionEvent.ACTION_CANCEL -> {
                     lastDispatchedRawCursor = null
+                    gestureRevision = null
+                    gestureSessionId = null
                     isDragging = false
                     true
                 }
@@ -123,26 +131,26 @@ class CandidatesPreeditView(private val context: Context) {
         }
     }
 
-    fun render(composing: String) {
+    fun renderMessage(message: String) {
+        render(EngineState(composition = CompositionPresentation(text = message)))
+    }
+
+    fun render(state: EngineState) {
+        renderedState = state
+        if (lastDispatchedRawCursor == state.composition.rawCursor) {
+            lastDispatchedRawCursor = null
+        }
+        val composing = state.composition.text
         val scrollGeneration = ++composingScrollGeneration
         if (composing.isEmpty()) {
             composingView.text = ""
             composingView.scrollTo(0, 0)
-            lastDisplayCursorPos = 0
+            lastDispatchedRawCursor = null
+            gestureRevision = null
+            gestureSessionId = null
             return
         }
-        val state = EnginePipeline.stateFlow.value
-        val rawPreedit = RimeEngine.rawPreedit
-        val displayCursorPos = if (rawPreedit.isEmpty()) {
-            composing.length
-        } else {
-            PreeditCursorUtils.rawCursorPosToDisplayCursorPos(
-                rawPreedit = rawPreedit,
-                rawCursorPos = state.compositionCursorPos,
-                showComposition = composing
-            )
-        }.coerceIn(0, composing.length)
-        lastDisplayCursorPos = displayCursorPos
+        val displayCursorPos = state.composition.displayCursor
 
         val text = SpannableStringBuilder().apply {
             append(composing.substring(0, displayCursorPos))
@@ -168,7 +176,7 @@ class CandidatesPreeditView(private val context: Context) {
             }
         }
 
-        val isT9 = state.currentSchema == CustomConstant.SCHEMA_ZH_T9 || InputModeSwitcher.isChineseT9
+        val isT9 = state.currentSchema == CustomConstant.SCHEMA_ZH_T9
         if (isT9 && state.t9LockedCount > 0) {
             val segments = mutableListOf<Pair<Int, Int>>()
             var segStart = 0
@@ -218,7 +226,10 @@ class CandidatesPreeditView(private val context: Context) {
         composingView.text = ""
         composingView.scrollTo(0, 0)
         updateVisibility(isComposing = false, usesHandwritingLayout = false)
-        lastDisplayCursorPos = 0
+        renderedState = EngineState()
+        lastDispatchedRawCursor = null
+        gestureRevision = null
+        gestureSessionId = null
     }
 
     fun updateVisibility(isComposing: Boolean, usesHandwritingLayout: Boolean) {
@@ -253,18 +264,23 @@ class CandidatesPreeditView(private val context: Context) {
 
     private fun updateCursorFromTouch(textView: TextView, touchX: Float) {
         val layout = textView.layout ?: return
+        val state = renderedState
+        if (gestureRevision != state.composition.revision || gestureSessionId != state.sessionId) return
         val rawTarget = PreeditCursorUtils.findNearestRawIndex(
             layout = layout,
             touchX = touchX - textView.totalPaddingLeft + textView.scrollX,
-            displayCursorPos = lastDisplayCursorPos,
-            showComposition = DecodingInfo.composingStrForDisplay,
-            rawPreedit = RimeEngine.rawPreedit
-        )
-        val currentCursorPos = EnginePipeline.stateFlow.value.compositionCursorPos
-        if (rawTarget != currentCursorPos && rawTarget != lastDispatchedRawCursor) {
-            lastDispatchedRawCursor = rawTarget
-            EnginePipeline.send(EngineAction.MoveCompositionCursor(rawTarget))
-            DevicesUtils.tryVibrate(textView)
+            composition = state.composition,
+        ) ?: return
+        if (rawTarget != state.composition.rawCursor && rawTarget != lastDispatchedRawCursor) {
+            val accepted = EnginePipeline.send(EngineAction.MoveCompositionCursor(
+                targetIndex = rawTarget,
+                expectedRevision = state.composition.revision,
+                expectedSessionId = state.sessionId,
+            ))
+            if (accepted) {
+                lastDispatchedRawCursor = rawTarget
+                DevicesUtils.tryVibrate(textView)
+            }
         }
     }
 }

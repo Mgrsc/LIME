@@ -6,7 +6,6 @@ import org.bitfennec.lime.utils.KeyEventUtils
 import org.bitfennec.lime.core.CandidateListItem
 import org.bitfennec.lime.core.Rime
 import org.bitfennec.lime.core.RimeSnapshot
-import org.bitfennec.lime.utils.QwertyPinYinUtils
 import org.bitfennec.lime.manager.InputModeSwitcher
 import java.util.Locale
 
@@ -18,8 +17,11 @@ object RimeEngine {
     var t9LockedCount: Int = 0
         private set
     var showCandidates: List<CandidateListItem> = emptyList() // Active candidates to display
-    var showComposition: String = "" // Composition string displayed above candidates
-    var compositionCursorPos: Int = 0 // Composition cursor position
+    var compositionPresentation = CompositionPresentation.Empty
+        private set
+    private var presentationRevision = 0L
+    val showComposition: String get() = compositionPresentation.text
+    val compositionCursorPos: Int get() = rawCompositionCursorPos
     private var candidateReferences: List<CandidateReference> = emptyList()
     private var expandedCandidates: List<CandidateListItem> = emptyList()
     private var expandedCandidateReferences: List<CandidateReference> = emptyList()
@@ -175,7 +177,7 @@ object RimeEngine {
         candidateReferences = emptyList()
         expandedCandidates = candidates
         expandedCandidateReferences = emptyList()
-        showComposition = ""
+        clearPresentation()
     }
 
     fun selectAssociation(index: Int): String {
@@ -183,7 +185,7 @@ object RimeEngine {
         showCandidates = emptyList()
         expandedCandidates = emptyList()
         expandedCandidateReferences = emptyList()
-        showComposition = ""
+        clearPresentation()
         pinyins = emptyArray()
         return chosenText
     }
@@ -231,8 +233,7 @@ object RimeEngine {
         showCandidates = emptyList()
         pinyins = emptyArray()
         t9LockedCount = 0
-        showComposition = ""
-        compositionCursorPos = 0
+        clearPresentation()
         candidateReferences = emptyList()
         expandedCandidates = emptyList()
         expandedCandidateReferences = emptyList()
@@ -342,12 +343,7 @@ object RimeEngine {
             expandedCandidates = showCandidates
             expandedCandidateReferences = candidateReferences
         }
-        var composition = getCurrentComposition(
-            rawCandidates,
-            compositionText,
-            rimeSchema,
-            snapshot.t9Metadata?.preedit.orEmpty(),
-        ).lowercase(Locale.ROOT)
+        val previousLockedCount = t9LockedCount
         pinyins = snapshot.t9Metadata?.prefixOptions ?: emptyArray()
         t9LockedCount = snapshot.t9Metadata?.lockedCount ?: 0
         currentCandidatePageNo = snapshot.page.pageNo
@@ -356,10 +352,20 @@ object RimeEngine {
         compositionLiteralText = snapshot.composition.literalText
         rawCompositionLength = snapshot.composition.length
         rawCompositionCursorPos = snapshot.composition.cursorPos
+        if (resetExpandedCandidates) {
+            val next = if (isEnglish) CompositionPresentation.Empty else
+                CompositionPresentation.from(snapshot.composition, presentationRevision)
+            if (rawInput != snapshot.rawInput || currentSchema != snapshot.schemaId ||
+                next.text != compositionPresentation.text || next.boundaries != compositionPresentation.boundaries ||
+                next.selectionStart != compositionPresentation.selectionStart ||
+                next.selectionEnd != compositionPresentation.selectionEnd || previousLockedCount != t9LockedCount
+            ) {
+                presentationRevision++
+            }
+            compositionPresentation = next.copy(revision = presentationRevision)
+        }
         rawInput = snapshot.rawInput
         currentSchema = snapshot.schemaId
-        compositionCursorPos = snapshot.composition.cursorPos
-        showComposition = composition
         return committedText
     }
 
@@ -368,31 +374,12 @@ object RimeEngine {
         return pinyins
     }
 
-    private fun getCurrentComposition(
-        candidates: List<CandidateListItem>,
-        composition: String,
-        rimeSchema: String,
-        t9Preedit: String,
-    ): String {
-        if (rimeSchema == CustomConstant.SCHEMA_EN) return ""
-        if (composition.isEmpty()) return ""
-        if (candidates.isEmpty()) return if (rimeSchema == CustomConstant.SCHEMA_ZH_T9) t9Preedit.ifEmpty { composition.lowercase(Locale.ROOT) } else composition
-        val firstCand = candidates.first()
-        val comment = firstCand.comment
-        val result = when (rimeSchema) {
-            CustomConstant.SCHEMA_ZH_T9 -> {
-                t9Preedit.ifEmpty { composition }
-            }
-            CustomConstant.SCHEMA_ZH_DOUBLE_FLYPY -> {
-                composition
-            }
-            else -> {
-                if (comment.isNotBlank() && comment.startsWith("~")) composition
-                else QwertyPinYinUtils.getQwertyComposition(composition, comment)
-            }
-        }
-        return if (!composition.endsWith("'") && result.endsWith("'")) result.dropLast(1) else result
+    private fun clearPresentation() {
+        compositionPresentation = CompositionPresentation.Empty.copy(revision = ++presentationRevision)
     }
+
+    fun matchesComposition(revision: Long?): Boolean =
+        revision == null || revision == compositionPresentation.revision
 
     fun isEnglishSchema(): Boolean = getCurrentRimeSchema() == CustomConstant.SCHEMA_EN
 
@@ -448,7 +435,5 @@ object RimeEngine {
     val hasNextCandidatePage: Boolean
         get() = currentCandidatePageHasNext
 
-    val rawPreedit: String
-        get() = rawInput.ifEmpty { rawCompositionPreedit }
 
 }
