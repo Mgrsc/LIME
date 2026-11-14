@@ -53,7 +53,14 @@ static std::unique_ptr<rime::Dictionary> g_t9_dictionary;
 static std::string g_t9_dictionary_schema_id;
 // Keys are absolute byte offsets in the current raw input, like candidate spans.
 static std::map<size_t, std::string> g_t9_locked_prefixes;
-static std::string g_t9_pending_prefix_input;
+struct T9PrefixSelection {
+    std::string input_before;
+    size_t caret_before = 0;
+    std::map<size_t, std::string> locked_prefixes_before;
+    std::string input_after;
+    size_t caret_after = 0;
+};
+static std::vector<T9PrefixSelection> g_t9_prefix_history;
 static std::string g_t9_preedit_input;
 static rime::MappedPreedit g_t9_preedit;
 static std::unique_ptr<rime::Projection> g_t9_spelling_projection;
@@ -62,13 +69,13 @@ static bool g_t9_projection_initialized = false;
 static std::string g_t9_digit_keys;
 
 static void clear_t9_preedit_cache_locked() {
-    g_t9_pending_prefix_input.clear();
     g_t9_preedit_input.clear();
     g_t9_preedit = {};
 }
 
 static void clear_t9_input_state_locked() {
     g_t9_locked_prefixes.clear();
+    g_t9_prefix_history.clear();
     clear_t9_preedit_cache_locked();
 }
 
@@ -591,6 +598,7 @@ static jobject build_snapshot_locked(JNIEnv* env, jboolean handled) {
         auto* dictionary = get_t9_dictionary_locked(session.get());
         for (auto it = g_t9_locked_prefixes.begin(); it != g_t9_locked_prefixes.end(); ) {
             if (it->first >= current_raw_input.size()) {
+                g_t9_prefix_history.clear();
                 it = g_t9_locked_prefixes.erase(it);
             } else if (dictionary && dictionary->prism() && dictionary->primary_table()) {
                 const auto end = current_raw_input.find_first_of("' ", it->first);
@@ -609,6 +617,7 @@ static jobject build_snapshot_locked(JNIEnv* env, jboolean handled) {
                     }
                 }
                 if (!valid) {
+                    g_t9_prefix_history.clear();
                     it = g_t9_locked_prefixes.erase(it);
                 } else {
                     ++it;
@@ -948,19 +957,25 @@ static jobject JNICALL native_processRimeKeyAndSnapshot(JNIEnv *env, jclass claz
     Bool handled = False;
     auto session = rime::Service::instance().GetSession(sid);
     auto* context = session ? session->context() : nullptr;
-    // Like ExpressEditor, undo a recent selection before deleting input.
-    // Paging preserves this opportunity; another input/edit consumes it.
-    if (context && !g_t9_pending_prefix_input.empty() && mask == 0 &&
+    if (context && !g_t9_prefix_history.empty() && mask == 0 &&
             keyCode == backspace_keycode &&
-            context->input() == g_t9_pending_prefix_input &&
-            !g_t9_locked_prefixes.empty()) {
-        g_t9_locked_prefixes.erase(std::prev(g_t9_locked_prefixes.end()));
+            context->input() == g_t9_prefix_history.back().input_after &&
+            context->caret_pos() == g_t9_prefix_history.back().caret_after) {
+        auto selection = std::move(g_t9_prefix_history.back());
+        g_t9_prefix_history.pop_back();
+        g_t9_locked_prefixes = std::move(selection.locked_prefixes_before);
+        if (context->input() != selection.input_before) {
+            context->set_input(selection.input_before);
+        }
+        if (context->caret_pos() != selection.caret_before) {
+            context->set_caret_pos(selection.caret_before);
+        }
         clear_t9_preedit_cache_locked();
         context->Highlight(0);
         handled = True;
     }
-    g_t9_pending_prefix_input.clear();
     if (!handled) {
+        g_t9_prefix_history.clear();
         const bool tail_backspace = context && mask == 0 &&
                 keyCode == backspace_keycode &&
                 context->caret_pos() == context->input().size() &&
@@ -1044,6 +1059,7 @@ static void JNICALL native_setRimeOption(JNIEnv *env, jclass clazz, jstring opti
     if (!sid) return;
     const char* c_option = env->GetStringUTFChars(option, nullptr);
     if (!c_option) return;
+    g_t9_prefix_history.clear();
     g_rime_api->set_option(sid, c_option, value == JNI_TRUE);
     env->ReleaseStringUTFChars(option, c_option);
 }
@@ -1129,6 +1145,7 @@ static jobject JNICALL native_selectRimeCandidateOnPageAndSnapshot(
     g_rime_api->free_context(&target_context);
     if (!index_valid) return nullptr;
 
+    g_t9_prefix_history.clear();
     clear_t9_preedit_cache_locked();
     const Bool handled = g_rime_api->select_candidate_on_current_page(sid, static_cast<size_t>(target_page_index));
     return build_snapshot_locked(env, handled ? JNI_TRUE : JNI_FALSE);
@@ -1173,6 +1190,7 @@ static jobject JNICALL native_deleteRimeCandidateOnPageAndSnapshot(
     g_rime_api->free_context(&target_context);
     if (!index_valid) return nullptr;
 
+    g_t9_prefix_history.clear();
     clear_t9_preedit_cache_locked();
     const Bool handled = g_rime_api->delete_candidate_on_current_page(
         sid, static_cast<size_t>(target_page_index));
@@ -1270,13 +1288,28 @@ static jobject JNICALL native_selectT9PrefixAndSnapshot(
                         new_input = raw_input.substr(0, split_pos) + "'" + raw_input.substr(split_pos);
                     }
                 }
+                const auto existing = g_t9_locked_prefixes.find(segment_start);
+                if (new_input.empty() && existing != g_t9_locked_prefixes.end() &&
+                        existing->second == selected_prefix) {
+                    return build_snapshot_locked(env, JNI_TRUE);
+                }
+                if (!g_t9_prefix_history.empty() &&
+                        (g_t9_prefix_history.back().input_after != raw_input ||
+                         g_t9_prefix_history.back().caret_after != internal_context->caret_pos())) {
+                    g_t9_prefix_history.clear();
+                }
+                T9PrefixSelection selection;
+                selection.input_before = raw_input;
+                selection.caret_before = internal_context->caret_pos();
+                selection.locked_prefixes_before = g_t9_locked_prefixes;
                 if (!new_input.empty()) {
                     internal_context->set_input(new_input);
                 }
-                g_t9_preedit_input.clear();
-                g_t9_preedit = {};
+                clear_t9_preedit_cache_locked();
                 g_t9_locked_prefixes[segment_start] = selected_prefix;
-                g_t9_pending_prefix_input = internal_context->input();
+                selection.input_after = internal_context->input();
+                selection.caret_after = internal_context->caret_pos();
+                g_t9_prefix_history.push_back(std::move(selection));
             }
         }
     }

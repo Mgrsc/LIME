@@ -190,6 +190,110 @@ static void TestProjection() {
   }
 }
 
+static void TestT9PrefixUndo(Harness& harness, JNIEnv* env) {
+  const int backspace = RimeGetKeycodeByName("BackSpace");
+  const auto original = harness.Type("t9_pinyin", "64426744");
+  const auto first = harness.Lock("ni");
+  const auto second = harness.Lock("hao");
+  const auto third = harness.Lock("shi");
+  assert(first.locked == 1 && second.locked == 2 && third.locked == 3);
+  for (const auto& expected : {second, first, original}) {
+    const auto actual = harness.Key(backspace);
+    assert(actual.raw == expected.raw && actual.cursor == expected.cursor);
+    assert(actual.locked == expected.locked && actual.text == expected.text);
+  }
+  assert(harness.Key(backspace).raw == "6442674");
+
+  harness.Type("t9_pinyin", "64'426");
+  assert(harness.Lock("hao").locked == 1);
+  auto restored = harness.Key(backspace);
+  assert(restored.raw == "64'426" && restored.locked == 0);
+  assert(harness.Key(backspace).raw == "64'42");
+
+  harness.Type("t9_pinyin", "64426");
+  harness.Lock("ni");
+  auto edited = harness.Key('7');
+  assert(edited.raw == "64'4267" && edited.locked == 1);
+  edited = harness.Key(backspace);
+  assert(edited.raw == "64'426" && edited.locked == 1);
+  edited = harness.Key(backspace);
+  assert(edited.raw == "64'42" && edited.locked == 1);
+
+  harness.Type("t9_pinyin", "64426");
+  harness.Lock("ni");
+  harness.Lock("hao");
+  harness.Lock("hao");
+  assert(harness.Key(backspace).locked == 1);
+  restored = harness.Key(backspace);
+  assert(restored.raw == "64426" && restored.locked == 0);
+
+  harness.Type("t9_pinyin", "64");
+  harness.Lock("ni");
+  assert(harness.Lock("mi").text == "mi");
+  restored = harness.Key(backspace);
+  assert(restored.raw == "64" && restored.locked == 1 && restored.text == "ni");
+  assert(harness.Key(backspace).locked == 0);
+
+  harness.Type("t9_pinyin", "64426");
+  harness.Move(2);
+  harness.Lock("ni");
+  restored = harness.Key(backspace);
+  assert(restored.raw == "64426" && restored.cursor == 2 && restored.locked == 0);
+  assert(harness.Key(backspace).raw == "6426");
+
+  harness.Type("t9_pinyin", "64426");
+  harness.Lock("ni");
+  harness.Lock("hao");
+  assert(harness.Key('7').raw == "64'4267");
+  assert(harness.Key(backspace).raw == "64'426");
+  assert(harness.Key(backspace).raw == "64'42");
+
+  harness.Type("t9_pinyin", "64426");
+  harness.Lock("ni");
+  harness.Lock("hao");
+  harness.Move(5);
+  assert(harness.Key(backspace).raw == "64'46");
+
+  harness.Type("t9_pinyin", "64426");
+  harness.Lock("ni");
+  harness.Lock("hao");
+  const auto committed = harness.Pick("\u4f60\u597d");
+  assert(committed.raw.empty() && committed.locked == 0);
+  assert(harness.Key(backspace).raw.empty());
+
+  harness.Type("t9_pinyin", "64426");
+  harness.Lock("ni");
+  const auto selected = harness.Pick("\u4f60");
+  assert(selected.text.find("\u4f60") == 0);
+  const auto selected_erased = harness.Key(backspace);
+  assert(selected_erased.raw == selected.raw && selected_erased.locked == selected.locked);
+  assert(selected_erased.text.find("\u4f60") == std::string::npos);
+  assert(harness.Key(backspace).raw == "64'42");
+
+  harness.Type("t9_pinyin", "64426");
+  harness.Lock("ni");
+  harness.Lock("hao");
+  const auto cleared = harness.Read(native_clearRimeCompositionAndSnapshot(env, nullptr));
+  assert(cleared.raw.empty() && cleared.locked == 0);
+  assert(harness.Key(backspace).raw.empty());
+
+  harness.Type("t9_pinyin", "64426");
+  harness.Lock("ni");
+  auto schema = new_utf8_string(env, "pinyin");
+  assert(native_selectRimeSchema(env, nullptr, schema));
+  env->DeleteLocalRef(schema);
+  restored = harness.Read(native_snapshotRimeState(env, nullptr));
+  assert(restored.raw.empty() && restored.locked == 0);
+  assert(harness.Key(backspace).raw.empty());
+
+  harness.Type("t9_pinyin", "64426");
+  harness.Lock("ni");
+  assert(g_rime_api->destroy_session(g_session_id));
+  restored = harness.Read(native_snapshotRimeState(env, nullptr));
+  assert(restored.raw.empty() && restored.locked == 0);
+  assert(harness.Key(backspace).raw.empty());
+}
+
 int main(int argc, char** argv) {
   assert(argc == 4);
   TestProjection();
@@ -248,6 +352,10 @@ int main(int argc, char** argv) {
   assert(harness.Move(10).cursor == 10);
   assert(harness.Key('a').raw == "nihaoshijiae");
   assert(harness.Key(RimeGetKeycodeByName("BackSpace")).raw == "nihaoshijie");
+  harness.Move(8);
+  const auto middle_selected = harness.Pick("\u662f");
+  assert(middle_selected.raw == "nihaoshijie");
+  assert(middle_selected.text == "\u4f60\u597d\u662fjie");
   harness.Type("t9_pinyin", "64426");
   auto locked = harness.Lock("ni");
   assert(locked.locked == 1);
@@ -257,12 +365,17 @@ int main(int argc, char** argv) {
   assert(paged.raw == locked.raw && paged.text == locked.text && paged.boundaries == locked.boundaries);
   auto undone = harness.Key(RimeGetKeycodeByName("BackSpace"));
   assert(undone.raw == locked.raw && undone.locked == 1);
+  undone = harness.Key(RimeGetKeycodeByName("BackSpace"));
+  assert(undone.raw == "64426" && undone.locked == 0 && undone.cursor == 5);
+  assert(harness.Key(RimeGetKeycodeByName("BackSpace")).raw == "6442");
   auto tail = harness.Type("t9_pinyin", "64426");
   auto erased = harness.Key(RimeGetKeycodeByName("BackSpace"));
   assert(erased.raw == "6442" && erased.text == tail.text.substr(0, tail.text.size() - 1));
   harness.Type("t9_pinyin", "6");
   auto expanded = harness.Lock("ni");
   assert(expanded.text == "ni" && expanded.boundaries.size() == 2);
+  assert(harness.Key(RimeGetKeycodeByName("BackSpace")).locked == 0);
+  TestT9PrefixUndo(harness, env);
   native_exitRime(env, nullptr);
   clear_cache(env);
   assert(vm->DestroyJavaVM() == JNI_OK);

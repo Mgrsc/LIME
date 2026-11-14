@@ -295,7 +295,7 @@ object RimeEngine {
         repeat(count) {
             snapshot = Rime.processKeySnapshot(keyCode, 0) ?: return
         }
-        snapshot?.let(::updateCandidatesOrCommitText)
+        snapshot?.let { updateCandidatesOrCommitText(it, cursorOnly = true) }
     }
 
     fun processDelAction(): RimeSnapshot? {
@@ -308,6 +308,7 @@ object RimeEngine {
     private fun updateCandidatesOrCommitText(
         snapshot: RimeSnapshot,
         resetExpandedCandidates: Boolean = true,
+        cursorOnly: Boolean = false,
     ): String? {
         val committedText = snapshot.commitText?.let(::consumeCommit)
         val rawCandidates = snapshot.page.candidates.map { CandidateListItem(it.comment, it.text) }
@@ -355,10 +356,9 @@ object RimeEngine {
         if (resetExpandedCandidates) {
             val next = if (isEnglish) CompositionPresentation.Empty else
                 CompositionPresentation.from(snapshot.composition, presentationRevision)
-            if (rawInput != snapshot.rawInput || currentSchema != snapshot.schemaId ||
-                next.text != compositionPresentation.text || next.boundaries != compositionPresentation.boundaries ||
-                next.selectionStart != compositionPresentation.selectionStart ||
-                next.selectionEnd != compositionPresentation.selectionEnd || previousLockedCount != t9LockedCount
+            if (rawInput != snapshot.rawInput || currentSchema != snapshot.schemaId || previousLockedCount != t9LockedCount ||
+                !cursorOnly && (next.text != compositionPresentation.text || next.boundaries != compositionPresentation.boundaries ||
+                    next.selectionStart != compositionPresentation.selectionStart || next.selectionEnd != compositionPresentation.selectionEnd)
             ) {
                 presentationRevision++
             }

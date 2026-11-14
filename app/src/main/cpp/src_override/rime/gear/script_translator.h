@@ -7,7 +7,7 @@
 #ifndef RIME_SCRIPT_TRANSLATOR_H_
 #define RIME_SCRIPT_TRANSLATOR_H_
 
-#include <chrono>
+#include <cstdint>
 #include <rime/common.h>
 #include <rime/translation.h>
 #include <rime/translator.h>
@@ -24,6 +24,7 @@ class Dictionary;
 class Poet;
 class UserDictionary;
 struct SyllableGraph;
+struct SentenceSearchBudget;
 
 class ScriptTranslator : public Translator,
                          public Memory,
@@ -63,9 +64,8 @@ class ScriptTranslator : public Translator,
   the<Corrector> corrector_;
   the<Poet> poet_;
   vector<an<Phrase>> queue_;
-  connection pending_key_connection_;
-  vector<an<Phrase>> last_commit_phrases_;
-  std::chrono::steady_clock::time_point last_commit_time_{};
+  uint64_t search_revision_ = 0;
+  an<SentenceSearchBudget> search_budget_;
 };
 
 }  // namespace rime

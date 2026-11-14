@@ -10,6 +10,7 @@
 
 #include <cstring>
 #include <rime/common.h>
+#include <rime/dict/lookup_budget.h>
 #include <rime/dict/mapped_file.h>
 #include <rime/dict/vocabulary.h>
 #include <rime/dict/string_table.h>
@@ -208,10 +209,9 @@ class Table : public MappedFile {
   RIME_DLL string GetSyllableById(int syllable_id);
   RIME_DLL TableAccessor QueryWords(int syllable_id);
   RIME_DLL TableAccessor QueryPhrases(const Code& code);
-  RIME_DLL bool Query(const SyllableGraph& syll_graph,
-                      size_t start_pos,
-                      TableQueryResult* result,
-                      bool full_words_only = false);
+  RIME_DLL bool Query(const SyllableGraph& syll_graph, size_t start_pos,
+                      TableQueryResult* result, bool full_words_only = false,
+                      LookupBudget* budget = nullptr);
   RIME_DLL string GetEntryText(const table::Entry& entry);
 
   uint32_t dict_file_checksum() const;

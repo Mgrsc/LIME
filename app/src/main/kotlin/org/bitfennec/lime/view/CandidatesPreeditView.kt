@@ -18,7 +18,6 @@ import android.widget.FrameLayout
 import android.widget.TextView
 import androidx.appcompat.widget.AppCompatTextView
 import androidx.core.graphics.ColorUtils
-import kotlin.math.abs
 import org.bitfennec.lime.application.CustomConstant
 import org.bitfennec.lime.data.theme.Theme
 import org.bitfennec.lime.data.theme.ThemeManager.activeTheme
@@ -29,6 +28,7 @@ import org.bitfennec.lime.inputmethod.EngineState
 import org.bitfennec.lime.inputmethod.CompositionPresentation
 import org.bitfennec.lime.utils.DevicesUtils
 import org.bitfennec.lime.utils.LimeTypefaces
+import org.bitfennec.lime.utils.PreeditCursorDrag
 import org.bitfennec.lime.utils.PreeditCursorUtils
 import org.bitfennec.lime.utils.dp
 
@@ -42,9 +42,10 @@ class CandidatesPreeditView(private val context: Context) {
         visibility = View.GONE
     }
 
-    private val touchSlop = ViewConfiguration.get(context).scaledTouchSlop
-    private var downX = 0f
-    private var isDragging = false
+    private val cursorDrag = PreeditCursorDrag(
+        touchSlop = ViewConfiguration.get(context).scaledTouchSlop.toFloat(),
+        stepDistance = context.dp(CURSOR_DRAG_STEP_DP).toFloat(),
+    )
     private var renderedState = EngineState()
     private var gestureRevision: Long? = null
     private var gestureSessionId: Long? = null
@@ -69,37 +70,37 @@ class CandidatesPreeditView(private val context: Context) {
             when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
                     view.parent?.requestDisallowInterceptTouchEvent(true)
-                    downX = event.x
-                    isDragging = false
-                    lastDispatchedRawCursor = null
                     gestureRevision = renderedState.composition.revision
                     gestureSessionId = renderedState.sessionId
-                    updateCursorFromTouch(textView, event.x)
+                    cursorDrag.start(event.x, renderedState.composition.copy(
+                        rawCursor = lastDispatchedRawCursor ?: renderedState.composition.rawCursor,
+                    ))
                     true
                 }
                 MotionEvent.ACTION_MOVE -> {
-                    if (!isDragging && abs(event.x - downX) >= touchSlop) {
-                        isDragging = true
-                    }
                     view.parent?.requestDisallowInterceptTouchEvent(true)
-                    updateCursorFromTouch(textView, event.x)
+                    if (matchesGesture()) {
+                        cursorDrag.move(event.x, ::dispatchCursor)
+                    }
                     true
                 }
                 MotionEvent.ACTION_UP -> {
-                    if (!isDragging) {
-                        view.performClick()
+                    if (matchesGesture()) {
+                        cursorDrag.move(event.x, ::dispatchCursor)
+                        if (!cursorDrag.isDragging) {
+                            updateCursorFromTouch(textView, event.x)
+                            view.performClick()
+                        }
                     }
-                    lastDispatchedRawCursor = null
                     gestureRevision = null
                     gestureSessionId = null
-                    isDragging = false
+                    cursorDrag.reset()
                     true
                 }
                 MotionEvent.ACTION_CANCEL -> {
-                    lastDispatchedRawCursor = null
                     gestureRevision = null
                     gestureSessionId = null
-                    isDragging = false
+                    cursorDrag.reset()
                     true
                 }
                 else -> false
@@ -136,8 +137,10 @@ class CandidatesPreeditView(private val context: Context) {
     }
 
     fun render(state: EngineState) {
+        val contextChanged = state.sessionId != renderedState.sessionId ||
+            state.composition.revision != renderedState.composition.revision
         renderedState = state
-        if (lastDispatchedRawCursor == state.composition.rawCursor) {
+        if (contextChanged || lastDispatchedRawCursor == state.composition.rawCursor) {
             lastDispatchedRawCursor = null
         }
         val composing = state.composition.text
@@ -148,6 +151,7 @@ class CandidatesPreeditView(private val context: Context) {
             lastDispatchedRawCursor = null
             gestureRevision = null
             gestureSessionId = null
+            cursorDrag.reset()
             return
         }
         val displayCursorPos = state.composition.displayCursor
@@ -265,22 +269,35 @@ class CandidatesPreeditView(private val context: Context) {
     private fun updateCursorFromTouch(textView: TextView, touchX: Float) {
         val layout = textView.layout ?: return
         val state = renderedState
-        if (gestureRevision != state.composition.revision || gestureSessionId != state.sessionId) return
+        if (!matchesGesture()) return
         val rawTarget = PreeditCursorUtils.findNearestRawIndex(
             layout = layout,
             touchX = touchX - textView.totalPaddingLeft + textView.scrollX,
             composition = state.composition,
         ) ?: return
-        if (rawTarget != state.composition.rawCursor && rawTarget != lastDispatchedRawCursor) {
-            val accepted = EnginePipeline.send(EngineAction.MoveCompositionCursor(
-                targetIndex = rawTarget,
-                expectedRevision = state.composition.revision,
-                expectedSessionId = state.sessionId,
-            ))
-            if (accepted) {
-                lastDispatchedRawCursor = rawTarget
-                DevicesUtils.tryVibrate(textView)
-            }
+        dispatchCursor(rawTarget)
+    }
+
+    private fun matchesGesture(): Boolean =
+        gestureRevision == renderedState.composition.revision && gestureSessionId == renderedState.sessionId
+
+    private fun dispatchCursor(rawTarget: Int): Boolean {
+        if (!matchesGesture()) return false
+        val state = renderedState
+        if (rawTarget == (lastDispatchedRawCursor ?: state.composition.rawCursor)) return true
+        val accepted = EnginePipeline.send(EngineAction.MoveCompositionCursor(
+            targetIndex = rawTarget,
+            expectedRevision = state.composition.revision,
+            expectedSessionId = state.sessionId,
+        ))
+        if (accepted) {
+            lastDispatchedRawCursor = rawTarget
+            DevicesUtils.tryVibrate(composingView)
         }
+        return accepted
+    }
+
+    private companion object {
+        const val CURSOR_DRAG_STEP_DP = 12
     }
 }

@@ -568,10 +568,9 @@ TableAccessor Table::QueryPhrases(const Code& code) {
 // log(0.05) ≈ -3.0
 const double kPenaltyForAmbiguousSyllable = -2.995732274;
 
-bool Table::Query(const SyllableGraph& syll_graph,
-                  size_t start_pos,
-                  TableQueryResult* result,
-                  bool full_words_only) {
+bool Table::Query(const SyllableGraph& syll_graph, size_t start_pos,
+                  TableQueryResult* result, bool full_words_only,
+                  LookupBudget* budget) {
   if (!result || !index_ || start_pos >= syll_graph.interpreted_length)
     return false;
   result->clear();
@@ -603,6 +602,8 @@ bool Table::Query(const SyllableGraph& syll_graph,
     for (const auto& spellings : index->second) {
       SyllableId syll_id = spellings.first;
       for (auto props : spellings.second) {
+        if (budget && !budget->Traverse())
+          return !result->empty();
         size_t end_pos = props->end_pos;
 
         double penalty = 0.0;

@@ -37,8 +37,7 @@ class RimePhraseConsolidationInstrumentationTest {
     }
 
     @Test
-    fun testInterCommitPhraseConsolidation() {
-        // Step 1: Input 56645426 ("kongjian") and select "空间"
+    fun testIndependentT9Commits() {
         for (ch in "56645426") {
             Rime.processKeySnapshot(ch.code, 0)
         }
@@ -53,7 +52,6 @@ class RimePhraseConsolidationInstrumentationTest {
         assertNotNull(snap)
         assertTrue("CommitText should contain '空间'", snap!!.commitText?.contains("空间") == true)
 
-        // Step 2: Immediately within 3000ms, input 54546 ("jijin") and select "基金"
         for (ch in "54546") {
             Rime.processKeySnapshot(ch.code, 0)
         }
@@ -68,34 +66,6 @@ class RimePhraseConsolidationInstrumentationTest {
         assertNotNull(snap)
         assertTrue("CommitText should contain '基金'", snap!!.commitText?.contains("基金") == true)
 
-        // Step 3: Query "5664542654546" (full code for kongjianjijin)
-        // Verify "空间基金" was consolidated and is recalled
-        Rime.clearCompositionSnapshot()
-        for (ch in "5664542654546") {
-            Rime.processKeySnapshot(ch.code, 0)
-        }
-        var recallSnap = Rime.snapshotState()
-        assertNotNull(recallSnap)
-        var recallCandidates = recallSnap!!.page.candidates.map { it.text }
-        android.util.Log.i("RimeTest", "Candidates for 5664542654546: $recallCandidates")
-        assertTrue("Consolidated phrase '空间基金' must appear for 5664542654546", recallCandidates.contains("空间基金"))
-
-        // Step 4: Query "5555" (4-initial abbreviation for k-j-j-j)
-        Rime.clearCompositionSnapshot()
-        for (ch in "5555") {
-            Rime.processKeySnapshot(ch.code, 0)
-        }
-        recallSnap = Rime.snapshotState()
-        assertNotNull(recallSnap)
-        recallCandidates = recallSnap!!.page.candidates.map { it.text }
-        android.util.Log.i("RimeTest", "Candidates for 5555: $recallCandidates")
-        assertTrue("Consolidated phrase '空间基金' must appear for 5555", recallCandidates.contains("空间基金"))
-
-        // Cleanup: remove the learned phrase from user dictionary to avoid polluting userdb
-        val phraseIdx = recallSnap.page.candidates.indexOfFirst { it.text == "空间基金" }
-        if (phraseIdx >= 0) {
-            Rime.deleteCandidateOnPageSnapshot(recallSnap.page.pageNo, recallSnap.page.pageNo, phraseIdx)
-        }
         Rime.clearCompositionSnapshot()
     }
 

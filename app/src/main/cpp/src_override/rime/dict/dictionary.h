@@ -9,6 +9,7 @@
 
 #include <rime_api.h>
 #include <rime/common.h>
+#include <rime/dict/lookup_budget.h>
 #include <rime/component.h>
 #include <rime/dict/prism.h>
 #include <rime/dict/table.h>
@@ -31,6 +32,8 @@ class RIME_DLL DictEntryIterator : public DictEntryFilterBinder {
   DictEntryIterator& operator=(const DictEntryIterator& other) = default;
   DictEntryIterator(DictEntryIterator&& other) = default;
   DictEntryIterator& operator=(DictEntryIterator&& other) = default;
+
+  DictEntryIterator Clone() const;
 
   void AddChunk(dictionary::Chunk&& chunk);
   void Sort();
@@ -72,12 +75,10 @@ class Dictionary : public Class<Dictionary, const Ticket&> {
   RIME_DLL bool Load();
 
   RIME_DLL an<DictEntryCollector> Lookup(
-      const SyllableGraph& syllable_graph,
-      size_t start_pos,
-      const hash_set<string>* blacklist = nullptr,
-      bool predict_word = false,
-      double initial_credibility = 0.0,
-      bool full_words_only = false);
+      const SyllableGraph& syllable_graph, size_t start_pos,
+      const hash_set<string>* blacklist = nullptr, bool predict_word = false,
+      double initial_credibility = 0.0, bool full_words_only = false,
+      LookupBudget* budget = nullptr);
   // if predictive is true, do an expand search with limit,
   // otherwise do an exact match.
   // return num of matching keys.

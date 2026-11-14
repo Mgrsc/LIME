@@ -26,6 +26,7 @@
 namespace rime {
 
 struct DfsState {
+  LookupBudget* budget = nullptr;
   size_t depth_limit;
   size_t predict_word_from_depth;
   TickCount present_tick;
@@ -51,6 +52,11 @@ struct DfsState {
   void RecruitEntry(size_t pos,
                     hash_map<string, SyllableId>* syllabary = nullptr);
   bool NextEntry() {
+    if (budget && !budget->ReadEntry()) {
+      key.clear();
+      value.clear();
+      return false;
+    }
     if (!accessor->GetNextRecord(&key, &value)) {
       key.clear();
       value.clear();
@@ -241,6 +247,8 @@ void UserDictionary::DfsLookup(const SyllableGraph& syll_graph,
     if (!TranslateCodeToString(state->code, &prefix))
       continue;
     for (size_t i = 0; i < spelling.second.size(); ++i) {
+      if (state->budget && !state->budget->Traverse())
+        return;
       auto props = spelling.second[i];
       state->is_fuzzy.push_back(state->is_fuzzy.back() ||
                                 props->type == kFuzzySpelling);
@@ -316,15 +324,14 @@ static an<UserDictEntryCollector> collect(
 }
 
 an<UserDictEntryCollector> UserDictionary::Lookup(
-    const SyllableGraph& syll_graph,
-    size_t start_pos,
-    size_t depth_limit,
-    size_t predict_word_from_depth,
-    double initial_credibility) {
+    const SyllableGraph& syll_graph, size_t start_pos, size_t depth_limit,
+    size_t predict_word_from_depth, double initial_credibility,
+    LookupBudget* budget) {
   if (!table_ || !prism_ || !loaded() ||
       start_pos >= syll_graph.interpreted_length)
     return nullptr;
   DfsState state;
+  state.budget = budget;
   state.depth_limit = depth_limit;
   state.predict_word_from_depth = predict_word_from_depth;
   FetchTickCount();

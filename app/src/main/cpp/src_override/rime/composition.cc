@@ -7,11 +7,26 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/range/adaptor/reversed.hpp>
 #include <rime/candidate.h>
+#include <atomic>
 #include <rime/composition.h>
 #include <rime/menu.h>
 #include <rime/gear/translator_commons.h>
 
 namespace rime {
+
+namespace {
+std::atomic<uint64_t> composition_revision{0};
+}
+
+void Composition::Reset(const string& input) {
+  revision_ = ++composition_revision;
+  Segmentation::Reset(input);
+}
+
+void Composition::Reset(size_t num_segments) {
+  revision_ = ++composition_revision;
+  Segmentation::Reset(num_segments);
+}
 
 bool Composition::HasFinishedComposition() const {
   if (empty())

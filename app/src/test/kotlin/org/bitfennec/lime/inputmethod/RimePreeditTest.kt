@@ -105,6 +105,60 @@ class RimePreeditTest {
         assertFalse(RimeEngine.matchesComposition(locked))
     }
 
+    @Test
+    fun cursorOnlyReformattingPreservesGestureIdentity() {
+        val initial = RimeSnapshot(
+            schemaId = "pinyin",
+            rawInput = "nihaoshijie",
+            composition = RimeComposition(
+                length = 11,
+                cursorPos = 11,
+                preedit = "\u4f60\u597dshi jie",
+                displayBoundaries = intArrayOf(0, 2, 3, 4, 5, 6, 7, 8, 9),
+                rawBoundaries = intArrayOf(0, 5, 6, 7, 8, 8, 9, 10, 11),
+                selStart = 2,
+                selEnd = 9,
+            ),
+        )
+        applySnapshot(initial)
+        val revision = RimeEngine.compositionPresentation.revision
+        applySnapshot(initial.copy(composition = initial.composition.copy(
+            cursorPos = 8,
+            preedit = "\u4f60\u597dshijie",
+            displayBoundaries = intArrayOf(0, 2, 3, 4, 5, 6, 7, 8),
+            rawBoundaries = intArrayOf(0, 5, 6, 7, 8, 9, 10, 11),
+            selEnd = 5,
+        )), cursorOnly = true)
+        assertTrue(RimeEngine.matchesComposition(revision))
+        assertEquals(8, RimeEngine.compositionPresentation.rawCursor)
+        assertEquals("\u4f60\u597dshijie", RimeEngine.compositionPresentation.text)
+        applySnapshot(initial, cursorOnly = true)
+        assertTrue(RimeEngine.matchesComposition(revision))
+        applySnapshot(initial.copy(composition = initial.composition.copy(selStart = 0)))
+        assertFalse(RimeEngine.matchesComposition(revision))
+    }
+
+    @Test
+    fun cursorOnlyUpdatesCannotPreserveIdentityAcrossRealInputChanges() {
+        val initial = RimeSnapshot(
+            schemaId = "t9_pinyin",
+            rawInput = "64",
+            composition = RimeComposition(length = 2, cursorPos = 2, preedit = "ni"),
+            t9Metadata = RimeT9Metadata(),
+        )
+        for (changed in listOf(
+            initial.copy(rawInput = "65"),
+            initial.copy(schemaId = "pinyin"),
+            initial.copy(t9Metadata = RimeT9Metadata(lockedCount = 1)),
+            RimeSnapshot(),
+        )) {
+            applySnapshot(initial)
+            val revision = RimeEngine.compositionPresentation.revision
+            applySnapshot(changed, cursorOnly = true)
+            assertFalse(RimeEngine.matchesComposition(revision))
+        }
+    }
+
     private fun applySnapshot(raw: String, preedit: String, comment: String) {
         val snapshot = RimeSnapshot(
             schemaId = "pinyin",
@@ -122,13 +176,14 @@ class RimePreeditTest {
         applySnapshot(snapshot)
     }
 
-    private fun applySnapshot(snapshot: RimeSnapshot, resetExpandedCandidates: Boolean = true) {
+    private fun applySnapshot(snapshot: RimeSnapshot, resetExpandedCandidates: Boolean = true, cursorOnly: Boolean = false) {
         val update = RimeEngine::class.java.getDeclaredMethod(
             "updateCandidatesOrCommitText",
             RimeSnapshot::class.java,
             Boolean::class.javaPrimitiveType,
+            Boolean::class.javaPrimitiveType,
         )
         update.isAccessible = true
-        update.invoke(RimeEngine, snapshot, resetExpandedCandidates)
+        update.invoke(RimeEngine, snapshot, resetExpandedCandidates, cursorOnly)
     }
 }

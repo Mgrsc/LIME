@@ -98,11 +98,9 @@ struct CodeMatch {
   bool is_fuzzy = false;
 };
 
-CodeMatch match_extra_code(const table::Code* extra_code,
-                           size_t depth,
-                           const SyllableGraph& syll_graph,
-                           size_t current_pos,
-                           bool predict_word) {
+CodeMatch match_extra_code(const table::Code* extra_code, size_t depth,
+                           const SyllableGraph& syll_graph, size_t current_pos,
+                           bool predict_word, LookupBudget* budget) {
   const CodeMatch kFailed{false, 0, 0};
   if (!extra_code || depth >= extra_code->size)
     return {true, depth, current_pos};
@@ -121,8 +119,10 @@ CodeMatch match_extra_code(const table::Code* extra_code,
     return kFailed;
   CodeMatch best_match = kFailed;
   for (const SpellingProperties* props : spellings->second) {
+    if (budget && !budget->Traverse())
+      break;
     CodeMatch match = match_extra_code(extra_code, depth + 1, syll_graph,
-                                       props->end_pos, predict_word);
+                                       props->end_pos, predict_word, budget);
     if (!match.success)
       continue;
     match.credibility += props->credibility;
@@ -155,6 +155,12 @@ void DictEntryIterator::Sort() {
   std::partial_sort(chunks.begin() + chunk_index_,
                     chunks.begin() + chunk_index_ + 1, chunks.end(),
                     dictionary::compare_chunk_by_head_element);
+}
+
+DictEntryIterator DictEntryIterator::Clone() const {
+  DictEntryIterator copy(*this);
+  copy.query_result_ = New<dictionary::QueryResult>(*query_result_);
+  return copy;
 }
 
 void DictEntryIterator::AddFilter(DictEntryFilter filter) {
@@ -253,15 +259,13 @@ Dictionary::~Dictionary() {
   // should not close shared table and prism objects
 }
 
-static void lookup_table(Table* table,
-                         DictEntryCollector* collector,
-                         const SyllableGraph& syllable_graph,
-                         size_t start_pos,
-                         bool predict_word,
-                         double initial_credibility,
-                         bool full_words_only) {
+static void lookup_table(Table* table, DictEntryCollector* collector,
+                         const SyllableGraph& syllable_graph, size_t start_pos,
+                         bool predict_word, double initial_credibility,
+                         bool full_words_only, LookupBudget* budget) {
   TableQueryResult result;
-  if (!table->Query(syllable_graph, start_pos, &result, full_words_only)) {
+  if (!table->Query(syllable_graph, start_pos, &result, full_words_only,
+                    budget)) {
     return;
   }
   // A supplemental query needs complete words only. Bound the remaining
@@ -291,12 +295,14 @@ static void lookup_table(Table* table,
       double q = a.quality_len();
       if (a.extra_code()) {
         do {
+          if (budget && !budget->ReadEntry())
+            return;
           if (full_words_only &&
               (a.extra_code()->size < remaining[end_pos].first ||
                a.extra_code()->size > remaining[end_pos].second))
             continue;
           dictionary::CodeMatch match = dictionary::match_extra_code(
-              a.extra_code(), 0, syllable_graph, end_pos, predict_word);
+              a.extra_code(), 0, syllable_graph, end_pos, predict_word, budget);
           if (!match.success ||
               (full_words_only && match.end_pos != syllable_graph.input_length))
             continue;
@@ -313,12 +319,10 @@ static void lookup_table(Table* table,
   }
 }
 
-an<DictEntryCollector> Dictionary::Lookup(const SyllableGraph& syllable_graph,
-                                          size_t start_pos,
-                                          const hash_set<string>* blacklist,
-                                          bool predict_word,
-                                          double initial_credibility,
-                                          bool full_words_only) {
+an<DictEntryCollector> Dictionary::Lookup(
+    const SyllableGraph& syllable_graph, size_t start_pos,
+    const hash_set<string>* blacklist, bool predict_word,
+    double initial_credibility, bool full_words_only, LookupBudget* budget) {
   if (!loaded())
     return nullptr;
   auto collector = New<DictEntryCollector>();
@@ -326,7 +330,7 @@ an<DictEntryCollector> Dictionary::Lookup(const SyllableGraph& syllable_graph,
     if (!table->IsOpen())
       continue;
     lookup_table(table.get(), collector.get(), syllable_graph, start_pos,
-                 predict_word, initial_credibility, full_words_only);
+                 predict_word, initial_credibility, full_words_only, budget);
   }
   if (collector->empty())
     return nullptr;
