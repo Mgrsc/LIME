@@ -19,6 +19,8 @@ import kotlinx.coroutines.launch
 import java.util.ArrayDeque
 import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.atomic.AtomicInteger
+import org.bitfennec.lime.core.CandidateIdentity
+import org.bitfennec.lime.core.CandidateKind
 import org.bitfennec.lime.core.CandidateListItem
 import org.bitfennec.lime.core.Rime
 import org.bitfennec.lime.inputmethod.predict.CandidateStripMode
@@ -45,6 +47,7 @@ data class EngineState(
     val stripMode: CandidateStripMode = CandidateStripMode.EMPTY,
     val currentSchema: String = "",
     val candidatePageNo: Int = 0,
+    val candidateRevision: Long = 0L,
     val hasNextCandidatePage: Boolean = false,
     val charCase: Int = 0,
     val gen: Long = 0L,
@@ -52,6 +55,10 @@ data class EngineState(
     val traceSequence: Long = 0L,
     val engineReady: Boolean = true,
 ) {
+    fun acceptsCandidate(target: CandidateIdentity): Boolean =
+        engineReady && target.sessionId == sessionId && target.revision == candidateRevision &&
+            candidates.getOrNull(target.index)?.identity == target
+
     val showComposition: String get() = composition.text
     val compositionCursorPos: Int get() = composition.rawCursor
 }
@@ -140,9 +147,17 @@ sealed interface EngineAction {
     data class StepCompositionCursor(val direction: Int, val gen: Long = 0L) : EngineAction
     data class CommitThenKey(val keyCode: Int, val gen: Long = 0L) : EngineAction
     data class CommitThenText(val text: String, val moveCursorLeft: Boolean = false, val gen: Long = 0L) : EngineAction
-    data class SelectCandidate(val index: Int, val pageNo: Int? = null, val gen: Long = 0L) : EngineAction
+    data class SelectCandidate(
+        val target: CandidateIdentity,
+        val explicitSelection: Boolean,
+        val gen: Long = 0L,
+    ) : EngineAction {
+        val index: Int get() = target.index
+    }
     data class SelectPrefix(val index: Int, val gen: Long = 0L) : EngineAction
-    data class SelectAssociation(val index: Int, val gen: Long = 0L) : EngineAction
+    data class SelectAssociation(val target: CandidateIdentity, val gen: Long = 0L) : EngineAction {
+        val index: Int get() = target.index
+    }
     data class ApplyAssociation(
         val sessionId: Long,
         val seq: Long = 0L,
@@ -150,12 +165,16 @@ sealed interface EngineAction {
         val predictionSources: List<PredictionSource> = emptyList(),
         val gen: Long = 0L,
     ) : EngineAction
-    data class RemovePredictionCandidate(val index: Int) : EngineAction
-    data class DeleteCandidate(val index: Int, val gen: Long = 0L) : EngineAction
+    data class RemovePredictionCandidate(val target: CandidateIdentity) : EngineAction {
+        val index: Int get() = target.index
+    }
+    data class DeleteCandidate(val target: CandidateIdentity, val gen: Long = 0L) : EngineAction {
+        val index: Int get() = target.index
+    }
     data class SelectSchema(val schema: String, val gen: Long = 0L) : EngineAction
     data class SetImeOption(val option: String, val value: Boolean, val gen: Long = 0L) : EngineAction
     data class SetCharCase(val charCase: Int, val gen: Long = 0L) : EngineAction
-    data class LoadMoreExpandedCandidates(val pageNo: Int, val gen: Long = 0L) : EngineAction
+    data class LoadMoreExpandedCandidates(val pageNo: Int, val expectedRevision: Long, val gen: Long = 0L) : EngineAction
     data class ClearComposition(
         val gen: Long = 0L,
         val modalRequestId: Long? = null,
@@ -180,6 +199,7 @@ sealed interface EngineAction {
 object EnginePipeline {
     private val scope = CoroutineScope(SupervisorJob() + ImeDispatchers.rimeDispatcher)
     private var associationJob: Job? = null
+    private var predictionCandidateRevision = 0L
     @Volatile
     private var predictSequence = 0L
 
@@ -488,10 +508,17 @@ object EnginePipeline {
         send(EngineAction.SetImeOption("emoji", emojiInput))
     }
 
-    suspend fun <T> executeExclusive(block: () -> T): T {
+    @Suppress("UNCHECKED_CAST")
+    suspend fun <T> executeExclusive(block: () -> T): T =
+        enqueueMaintenance(invalidateCurrentSession = true, block) as T
+
+    internal suspend fun <T> readState(block: (EngineState) -> T): T? =
+        enqueueMaintenance(invalidateCurrentSession = false) { block(_stateFlow.value) }
+
+    private suspend fun <T> enqueueMaintenance(invalidateCurrentSession: Boolean, block: () -> T): T? {
         val completion = CompletableDeferred<Any?>()
-        synchronized(enqueueLock) {
-            invalidateSession()
+        val accepted = synchronized(enqueueLock) {
+            if (invalidateCurrentSession) invalidateSession()
             val sessionId = sessionCounter.get()
             val enqueuedAtNanos = InputPipelineTrace.mark()
             val queued = QueuedAction(
@@ -503,8 +530,10 @@ object EnginePipeline {
                 traceSequence = if (enqueuedAtNanos == 0L) 0L else traceSequenceCounter.incrementAndGet(),
                 enqueuedAtNanos = enqueuedAtNanos,
             )
-            check(enqueueQueuedAction(queued)) { "Engine pipeline queue is full" }
+            enqueueQueuedAction(queued)
         }
+        check(accepted || !invalidateCurrentSession) { "Engine pipeline queue is full" }
+        if (!accepted) return null
         @Suppress("UNCHECKED_CAST")
         return completion.await() as T
     }
@@ -595,6 +624,23 @@ object EnginePipeline {
         val completion = queued.completion
         val startedAtNanos = InputPipelineTrace.mark()
         try {
+            val candidateTarget = when (action) {
+                is EngineAction.SelectCandidate -> action.target
+                is EngineAction.SelectAssociation -> action.target
+                is EngineAction.DeleteCandidate -> action.target
+                is EngineAction.RemovePredictionCandidate -> action.target
+                else -> null
+            }
+            val expectedKind = when (action) {
+                is EngineAction.SelectAssociation, is EngineAction.RemovePredictionCandidate -> CandidateKind.PREDICTION
+                else -> CandidateKind.RIME
+            }
+            if (candidateTarget != null &&
+                (candidateTarget.kind != expectedKind || !_stateFlow.value.acceptsCandidate(candidateTarget))
+            ) {
+                publishState(_stateFlow.value)
+                return
+            }
             when (action) {
                 is EngineAction.NormalKey -> {
                     cancelPendingTypeAPredict()
@@ -646,20 +692,14 @@ object EnginePipeline {
                 is EngineAction.CommitThenText -> processCommitThenText(sessionId, action.text, action.moveCursorLeft, action.gen)
                 is EngineAction.SelectCandidate -> {
                     cancelPendingPredictTasks()
-                    if (!RimeEngine.isFinish() || _stateFlow.value.isAssociate) {
-                        val state = _stateFlow.value
-                        val predictionSource = state.predictionSources.getOrNull(action.index)
-                        if (predictionSource != null) {
-                            val commit = state.candidates.getOrNull(action.index)?.text.orEmpty()
-                            RimeEngine.reset()
-                            publishCurrentState(sessionId, gen = action.gen)
-                            if (commit.isNotEmpty()) {
-                                recordDecodedCommit(sessionId, commit)
-                                emitEvent(EngineEvent.CommitText(sessionId, commit))
-                            }
+                    if (!RimeEngine.isFinish()) {
+                        val commit = RimeEngine.selectCandidate(
+                            action.index, explicitSelection = action.explicitSelection,
+                            expectedRevision = action.target.revision,
+                        ) ?: run {
+                            refreshRimeState(sessionId, action.gen)
                             return
                         }
-                        val commit = RimeEngine.selectCandidate(action.index, action.pageNo)
                         emitRimeSnapshot(sessionId, commit)
                         publishCurrentState(sessionId, gen = action.gen)
                         if (!commit.isNullOrEmpty()) {
@@ -703,6 +743,7 @@ object EnginePipeline {
                         RimeEngine.setAssociationCandidates(action.candidates)
                         publishState(EngineState(
                             candidates = action.candidates,
+                            candidateRevision = ++predictionCandidateRevision,
                             predictionSources = action.predictionSources.map { it },
                             composition = CompositionPresentation.Empty,
                             prefixs = emptyList(),
@@ -717,6 +758,7 @@ object EnginePipeline {
                     }
                 }
                 is EngineAction.RemovePredictionCandidate -> {
+                    cancelPendingPredictTasks()
                     val current = _stateFlow.value
                     val source = current.predictionSources.getOrNull(action.index)
                     val candidate = current.candidates.getOrNull(action.index)
@@ -724,28 +766,36 @@ object EnginePipeline {
                         val candidates = current.candidates.toMutableList().apply { removeAt(action.index) }
                         val sources = current.predictionSources.toMutableList().apply { removeAt(action.index) }
                         if (current.isAssociate) RimeEngine.setAssociationCandidates(candidates)
-                        publishState(current.copy(candidates = candidates, predictionSources = sources))
+                        publishState(current.copy(
+                            candidates = candidates, predictionSources = sources,
+                            candidateRevision = ++predictionCandidateRevision,
+                        ))
                     }
                 }
                 is EngineAction.DeleteCandidate -> {
                     cancelPendingPredictTasks()
-                    RimeEngine.deleteCandidate(action.index)
+                    if (RimeEngine.deleteCandidate(action.index, action.target.revision) == null) {
+                        refreshRimeState(sessionId, action.gen)
+                        return
+                    }
                     emitRimeSnapshot(sessionId, null)
                     publishCurrentState(sessionId, gen = action.gen)
                 }
                 is EngineAction.SelectSchema -> {
                     cancelPendingPredictTasks()
-                    RimeEngine.selectSchema(action.schema)
+                    if (!RimeEngine.selectSchema(action.schema)) {
+                        publishCurrentState(sessionId, gen = action.gen, engineReady = false)
+                        return
+                    }
                     val inputPrefs = AppPrefs.getInstance().input
                     applyImeOption("traditionalization", inputPrefs.chineseFanTi.getValue())
                     applyImeOption("emoji", inputPrefs.emojiInput.getValue())
-                    emitRimeSnapshot(sessionId, null)
-                    publishCurrentState(sessionId, gen = action.gen)
+                    refreshRimeState(sessionId, action.gen)
                 }
                 is EngineAction.SetImeOption -> {
+                    cancelPendingPredictTasks()
                     applyImeOption(action.option, action.value)
-                    emitRimeSnapshot(sessionId, null)
-                    publishCurrentState(sessionId, gen = action.gen)
+                    refreshRimeState(sessionId, action.gen)
                 }
                 is EngineAction.SetCharCase -> {
                     publishState(_stateFlow.value.copy(
@@ -756,7 +806,9 @@ object EnginePipeline {
                     ))
                 }
                 is EngineAction.LoadMoreExpandedCandidates -> {
-                    if (action.pageNo != RimeEngine.candidatePageNo) return
+                    if (action.pageNo != RimeEngine.candidatePageNo ||
+                        action.expectedRevision != RimeEngine.candidateRevision
+                    ) return
                     val expandedCandidates = RimeEngine.getNextExpandedCandidates()
                     if (expandedCandidates.isNotEmpty()) {
                         emitRimeSnapshot(sessionId, null)
@@ -811,8 +863,7 @@ object EnginePipeline {
                     val inputPrefs = runCatching { AppPrefs.getInstance().input }.getOrNull()
                     applyImeOption("traditionalization", inputPrefs?.chineseFanTi?.getValue() == true)
                     applyImeOption("emoji", inputPrefs?.emojiInput?.getValue() == true)
-                    emitRimeSnapshot(sessionId, null)
-                    publishCurrentState(sessionId, gen = action.gen, engineReady = true)
+                    refreshRimeState(sessionId, action.gen)
                 }
                 is EngineAction.DismissPredictions -> {
                     cancelPendingTypeAPredict()
@@ -867,7 +918,12 @@ object EnginePipeline {
         val state = _stateFlow.value
         if (!RimeEngine.isFinish() && !state.isAssociate) {
             val decodedCommit = if (!RimeEngine.isEnglishSchema() && RimeEngine.showCandidates.isNotEmpty()) {
-                RimeEngine.selectCandidate(0).orEmpty()
+                RimeEngine.selectCandidate(
+                    0, explicitSelection = false, expectedRevision = RimeEngine.candidateRevision,
+                ) ?: run {
+                    refreshRimeState(sessionId, gen)
+                    return
+                }
             } else {
                 ""
             }
@@ -950,7 +1006,12 @@ object EnginePipeline {
             val composition = if (RimeEngine.isEnglishSchema()) {
                 RimeEngine.rawCompositionText()
             } else if (hasCandidates) {
-                RimeEngine.selectCandidate(0).orEmpty()
+                RimeEngine.selectCandidate(
+                    0, explicitSelection = false, expectedRevision = RimeEngine.candidateRevision,
+                ) ?: run {
+                    refreshRimeState(sessionId, gen)
+                    return
+                }
             } else {
                 RimeEngine.rawCompositionText()
             }
@@ -989,7 +1050,12 @@ object EnginePipeline {
     private suspend fun processCommitThenText(sessionId: Long, text: String, moveCursorLeft: Boolean, gen: Long) {
         if (!RimeEngine.isFinish() && !_stateFlow.value.isAssociate) {
             val decodedCommit = if (!RimeEngine.isEnglishSchema() && RimeEngine.showCandidates.isNotEmpty()) {
-                RimeEngine.selectCandidate(0).orEmpty()
+                RimeEngine.selectCandidate(
+                    0, explicitSelection = false, expectedRevision = RimeEngine.candidateRevision,
+                ) ?: run {
+                    refreshRimeState(sessionId, gen)
+                    return
+                }
             } else {
                 ""
             }
@@ -1003,6 +1069,16 @@ object EnginePipeline {
         if (moveCursorLeft) {
             emitEvent(EngineEvent.SendKeyEvent(sessionId, KeyEvent.KEYCODE_DPAD_LEFT, 300L))
         }
+    }
+
+    private suspend fun refreshRimeState(sessionId: Long, gen: Long) {
+        val commit = RimeEngine.refreshState()
+        if (commit == null) {
+            publishState(EngineState(sessionId = sessionId, gen = gen, engineReady = false))
+            return
+        }
+        emitRimeSnapshot(sessionId, commit)
+        publishCurrentState(sessionId, gen = gen, engineReady = true)
     }
 
     private suspend fun publishCurrentState(
@@ -1036,6 +1112,7 @@ object EnginePipeline {
             stripMode = stripMode,
             currentSchema = currentSchema,
             candidatePageNo = if (passwordField) 0 else RimeEngine.candidatePageNo,
+            candidateRevision = RimeEngine.candidateRevision,
             hasNextCandidatePage = if (passwordField) false else RimeEngine.hasNextCandidatePage,
             gen = gen,
             sessionId = sessionId,
@@ -1067,7 +1144,14 @@ object EnginePipeline {
         RimeEngine.showCandidates.map { CandidateListItem(it.comment, it.text) }
 
     private suspend fun publishState(state: EngineState): Boolean {
-        val snapshot = if (state.engineReady) state else state.copy(stripMode = CandidateStripMode.UNAVAILABLE)
+        val snapshot = state.copy(
+            candidates = if (!state.engineReady) emptyList() else state.candidates.mapIndexed { index, candidate ->
+                val kind = if (state.isAssociate) CandidateKind.PREDICTION else CandidateKind.RIME
+                val identity = CandidateIdentity(state.sessionId, state.candidateRevision, index, kind)
+                if (candidate.identity == identity) candidate else candidate.copy(identity = identity)
+            },
+            stripMode = if (state.engineReady) state.stripMode else CandidateStripMode.UNAVAILABLE,
+        )
         val accepted = synchronized(enqueueLock) {
             if (state.sessionId != sessionCounter.get()) return@synchronized false
             _stateFlow.value = snapshot

@@ -14,6 +14,7 @@
 #include <rime/dict/dictionary.h>
 #include <rime/dict/table.h>
 #include <rime/gear/translator_commons.h>
+#include <rime/gear/lime_learning_selection.h>
 #include <rime/menu.h>
 #include <rime/schema.h>
 #include <rime/service.h>
@@ -43,6 +44,7 @@ extern void rime_require_module_predict();
 
 static RimeApi* g_rime_api = nullptr;
 static RimeSessionId g_session_id = 0;
+static jlong g_candidate_revision = 0;
 static std::string g_active_schema_id;
 static bool g_rime_initialized = false;
 static std::recursive_mutex g_rime_mutex;
@@ -445,6 +447,7 @@ static RimeSessionId get_session_locked() {
         return g_session_id;
     }
     g_session_id = g_rime_api->create_session();
+    ++g_candidate_revision;
     reset_t9_session_locked();
     if (g_session_id == 0) {
         LOGE("Failed to create RIME session");
@@ -557,6 +560,7 @@ static void JNICALL native_exitRime(JNIEnv *env, jclass clazz) {
 // 3. setRimePageSize
 static void JNICALL native_setRimePageSize(JNIEnv *env, jclass clazz, jint size) {
     std::lock_guard<std::recursive_mutex> lock(g_rime_mutex);
+    ++g_candidate_revision;
     if (!g_rime_api || size <= 0) return;
     RimeSessionId sid = get_session_locked();
     if (!sid) return;
@@ -927,7 +931,7 @@ static jobject build_snapshot_locked(JNIEnv* env, jboolean handled) {
         }
     }
     jobject snapshot = env->NewObject(g_cache.snapshotClass, g_cache.snapshotInit,
-        handled, schema, raw, composition, commit_text, page, t9Metadata);
+        handled, schema, raw, composition, commit_text, page, t9Metadata, g_candidate_revision);
     if (!snapshot || env->ExceptionCheck()) {
         if (env->ExceptionCheck()) env->ExceptionClear();
         cleanup();
@@ -953,6 +957,7 @@ static jobject JNICALL native_processRimeKeyAndSnapshot(JNIEnv *env, jclass claz
 #ifndef NDEBUG
     const auto prepared = trace ? Clock::now() : Clock::time_point{};
 #endif
+    ++g_candidate_revision;
     static const int backspace_keycode = RimeGetKeycodeByName("BackSpace");
     Bool handled = False;
     auto session = rime::Service::instance().GetSession(sid);
@@ -980,7 +985,12 @@ static jobject JNICALL native_processRimeKeyAndSnapshot(JNIEnv *env, jclass claz
                 keyCode == backspace_keycode &&
                 context->caret_pos() == context->input().size() &&
                 context->input() == g_t9_preedit_input;
-        handled = g_rime_api->process_key(sid, keyCode, mask);
+        {
+            const bool explicit_selection = keyCode >= '0' && keyCode <= '9' &&
+                    g_active_schema_id != "t9_pinyin" && context && context->HasMenu();
+            lime::ScopedExplicitLearningSelection selection(context, explicit_selection);
+            handled = g_rime_api->process_key(sid, keyCode, mask);
+        }
         bool retained = false;
         if (tail_backspace && handled && g_t9_digit_keys.size() == 26 &&
                 !g_t9_preedit.text.empty() &&
@@ -1040,6 +1050,7 @@ static jobject JNICALL native_clearRimeCompositionAndSnapshot(JNIEnv *env, jclas
     if (!g_rime_api) return nullptr;
     RimeSessionId sid = get_session_locked();
     if (!sid) return nullptr;
+    ++g_candidate_revision;
     g_rime_api->clear_composition(sid);
     clear_t9_input_state_locked();
     return build_snapshot_locked(env, JNI_TRUE);
@@ -1060,6 +1071,7 @@ static void JNICALL native_setRimeOption(JNIEnv *env, jclass clazz, jstring opti
     const char* c_option = env->GetStringUTFChars(option, nullptr);
     if (!c_option) return;
     g_t9_prefix_history.clear();
+    ++g_candidate_revision;
     g_rime_api->set_option(sid, c_option, value == JNI_TRUE);
     env->ReleaseStringUTFChars(option, c_option);
 }
@@ -1099,6 +1111,7 @@ static jboolean JNICALL native_selectRimeSchema(JNIEnv *env, jclass clazz, jstri
     Bool ret = g_rime_api->select_schema(sid, c_schemaId);
     LOGI("select_schema(sid=%lu) => %d", (unsigned long)sid, ret);
     if (ret) {
+        ++g_candidate_revision;
         g_active_schema_id = c_schemaId;
         reset_t9_session_locked();
     }
@@ -1111,7 +1124,9 @@ static jobject JNICALL native_selectRimeCandidateOnPageAndSnapshot(
     jclass clazz,
     jint expected_current_page_no,
     jint target_page_no,
-    jint target_page_index
+    jint target_page_index,
+    jboolean explicit_selection,
+    jlong expected_revision
 ) {
     std::lock_guard<std::recursive_mutex> lock(g_rime_mutex);
     if (!g_rime_api || expected_current_page_no < 0 || target_page_no < 0 || target_page_index < 0) {
@@ -1119,6 +1134,7 @@ static jobject JNICALL native_selectRimeCandidateOnPageAndSnapshot(
     }
     RimeSessionId sid = get_session_locked();
     if (!sid) return nullptr;
+    if (expected_revision != g_candidate_revision) return nullptr;
 
     RIME_STRUCT(RimeContext, context);
     if (!g_rime_api->get_context(sid, &context)) return nullptr;
@@ -1145,9 +1161,16 @@ static jobject JNICALL native_selectRimeCandidateOnPageAndSnapshot(
     g_rime_api->free_context(&target_context);
     if (!index_valid) return nullptr;
 
+    ++g_candidate_revision;
     g_t9_prefix_history.clear();
     clear_t9_preedit_cache_locked();
-    const Bool handled = g_rime_api->select_candidate_on_current_page(sid, static_cast<size_t>(target_page_index));
+    const auto session = rime::Service::instance().GetSession(sid);
+    Bool handled = False;
+    {
+        lime::ScopedExplicitLearningSelection selection(
+            session ? session->context() : nullptr, explicit_selection == JNI_TRUE);
+        handled = g_rime_api->select_candidate_on_current_page(sid, static_cast<size_t>(target_page_index));
+    }
     return build_snapshot_locked(env, handled ? JNI_TRUE : JNI_FALSE);
 }
 
@@ -1156,7 +1179,8 @@ static jobject JNICALL native_deleteRimeCandidateOnPageAndSnapshot(
     jclass clazz,
     jint expected_current_page_no,
     jint target_page_no,
-    jint target_page_index
+    jint target_page_index,
+    jlong expected_revision
 ) {
     std::lock_guard<std::recursive_mutex> lock(g_rime_mutex);
     if (!g_rime_api || expected_current_page_no < 0 || target_page_no < 0 || target_page_index < 0) {
@@ -1164,6 +1188,7 @@ static jobject JNICALL native_deleteRimeCandidateOnPageAndSnapshot(
     }
     RimeSessionId sid = get_session_locked();
     if (!sid) return nullptr;
+    if (expected_revision != g_candidate_revision) return nullptr;
 
     RIME_STRUCT(RimeContext, context);
     if (!g_rime_api->get_context(sid, &context)) return nullptr;
@@ -1190,6 +1215,7 @@ static jobject JNICALL native_deleteRimeCandidateOnPageAndSnapshot(
     g_rime_api->free_context(&target_context);
     if (!index_valid) return nullptr;
 
+    ++g_candidate_revision;
     g_t9_prefix_history.clear();
     clear_t9_preedit_cache_locked();
     const Bool handled = g_rime_api->delete_candidate_on_current_page(
@@ -1235,6 +1261,7 @@ static jobject JNICALL native_selectT9PrefixAndSnapshot(
     if (!g_rime_api || !prefix) return nullptr;
     RimeSessionId sid = get_session_locked();
     if (!sid) return nullptr;
+    ++g_candidate_revision;
     const char* c_prefix = env->GetStringUTFChars(prefix, nullptr);
     if (!c_prefix) return nullptr;
     const std::string selected_prefix(c_prefix);
@@ -1674,12 +1701,14 @@ static jint JNICALL native_getCandidateDeletableType(
     JNIEnv *env,
     jclass clazz,
     jint target_page_no,
-    jint target_page_index
+    jint target_page_index,
+    jlong expected_revision
 ) {
     std::lock_guard<std::recursive_mutex> lock(g_rime_mutex);
     if (!g_rime_api || target_page_no < 0 || target_page_index < 0) return 0;
     RimeSessionId sid = get_session_locked();
     if (!sid) return 0;
+    if (expected_revision != g_candidate_revision) return 0;
 
     auto session = rime::Service::instance().GetSession(sid);
     if (!session) return 0;
@@ -1737,8 +1766,8 @@ static const JNINativeMethod g_methods[] = {
     {"getRimeOption",         "(Ljava/lang/String;)Z",                                            (void*)native_getRimeOption},
     {"getCurrentRimeSchema",  "()Ljava/lang/String;",                                             (void*)native_getCurrentRimeSchema},
     {"selectRimeSchema",      "(Ljava/lang/String;)Z",                                            (void*)native_selectRimeSchema},
-    {"selectRimeCandidateOnPageAndSnapshot", "(III)Lorg/bitfennec/lime/core/RimeSnapshot;",          (void*)native_selectRimeCandidateOnPageAndSnapshot},
-    {"deleteRimeCandidateOnPageAndSnapshot", "(III)Lorg/bitfennec/lime/core/RimeSnapshot;",          (void*)native_deleteRimeCandidateOnPageAndSnapshot},
+    {"selectRimeCandidateOnPageAndSnapshot", "(IIIZJ)Lorg/bitfennec/lime/core/RimeSnapshot;",         (void*)native_selectRimeCandidateOnPageAndSnapshot},
+    {"deleteRimeCandidateOnPageAndSnapshot", "(IIIJ)Lorg/bitfennec/lime/core/RimeSnapshot;",          (void*)native_deleteRimeCandidateOnPageAndSnapshot},
     {"moveRimeCandidatePageAndSnapshot", "(II)Lorg/bitfennec/lime/core/RimeSnapshot;",              (void*)native_moveRimeCandidatePageAndSnapshot},
     {"snapshotRimeState",     "()Lorg/bitfennec/lime/core/RimeSnapshot;",                         (void*)native_snapshotRimeState},
     {"selectT9PrefixAndSnapshot", "(Ljava/lang/String;)Lorg/bitfennec/lime/core/RimeSnapshot;", (void*)native_selectT9PrefixAndSnapshot},
@@ -1749,7 +1778,7 @@ static const JNINativeMethod g_methods[] = {
     {"importUserDict",        "(Ljava/lang/String;Ljava/lang/String;)I",                          (void*)native_importUserDict},
     {"getUserDictList",       "()Ljava/util/List;",                                               (void*)native_getUserDictList},
     {"checkWordsInSystemDict", "(Ljava/lang/String;[Ljava/lang/String;[Ljava/lang/String;)[Z",     (void*)native_checkWordsInSystemDict},
-    {"getCandidateDeletableType", "(II)I",                                                        (void*)native_getCandidateDeletableType},
+    {"getCandidateDeletableType", "(IIJ)I",                                                        (void*)native_getCandidateDeletableType},
 };
 
 static jclass find_global_class(JNIEnv* env, const std::string& class_name) {
@@ -1789,7 +1818,7 @@ static void init_cache(JNIEnv* env) {
     g_cache.snapshotClass = find_global_class(env, g_package_prefix + "/RimeSnapshot");
     std::string snapshotSig = "(ZLjava/lang/String;Ljava/lang/String;L" + g_package_prefix +
         "/RimeComposition;Ljava/lang/String;L" + g_package_prefix + "/RimeCandidatePage;L" +
-        g_package_prefix + "/RimeT9Metadata;)V";
+        g_package_prefix + "/RimeT9Metadata;J)V";
     g_cache.snapshotInit = find_method(env, g_cache.snapshotClass, "<init>", snapshotSig.c_str());
 
     g_cache.stringClass = find_global_class(env, "java/lang/String");

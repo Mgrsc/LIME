@@ -15,6 +15,7 @@ import org.junit.Before
 import org.junit.Test
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.setMain
 import java.lang.reflect.Field
@@ -25,12 +26,65 @@ class HandwritingSessionManagementTest {
     private lateinit var service: ImeService
 
     @Before
-    fun setUp() {
+    fun setUp() = runBlocking {
+        checkNotNull(EnginePipeline.readState { Unit })
         Dispatchers.setMain(Dispatchers.Unconfined)
         AppPrefs.init(InMemorySharedPreferences())
         service = ImeService()
         service.inputConnectionOverride = createMockInputConnection(commitSuccess = true)
         DecodingInfo.reset()
+    }
+
+    @Test
+    fun testHighlightedFinalizationUsesCandidateSelectionWithoutLearning() = runBlocking {
+        val records = java.util.concurrent.CopyOnWriteArrayList<String>()
+        org.bitfennec.lime.inputmethod.InputPipelineTrace.setTestSink(records::add)
+        try {
+            val candidate = CandidateListItem("", "highlighted",
+                org.bitfennec.lime.core.CandidateIdentity(EnginePipeline.currentSessionId, 10L, 2))
+            DecodingInfo.chooseDecodingCandidate(2, candidate, explicitSelection = false)
+            checkNotNull(EnginePipeline.readState { Unit })
+            assertTrue(records.any { it.contains("\"action\":\"select_candidate\"") })
+            assertFalse(records.any { it.contains("\"action\":\"space_key\"") })
+        } finally {
+            org.bitfennec.lime.inputmethod.InputPipelineTrace.setTestSink(null)
+        }
+    }
+
+    @Test
+    fun testMissingHighlightedTargetDoesNotConfirmAnotherCandidate() = runBlocking {
+        val records = java.util.concurrent.CopyOnWriteArrayList<String>()
+        org.bitfennec.lime.inputmethod.InputPipelineTrace.setTestSink(records::add)
+        try {
+            DecodingInfo.chooseDecodingCandidate(2, null, explicitSelection = false)
+            checkNotNull(EnginePipeline.readState { Unit })
+            assertFalse(records.any { it.contains("\"action\":\"space_key\"") ||
+                it.contains("\"action\":\"select_candidate\"") })
+        } finally {
+            org.bitfennec.lime.inputmethod.InputPipelineTrace.setTestSink(null)
+        }
+    }
+
+    @Test
+    fun testKeyboardConfirmationUsesPublishedExternalCandidate() {
+        val candidate = CandidateListItem("", "calculator result")
+        DecodingInfo.cacheCandidates(arrayOf(candidate))
+        val selected = DecodingInfo.chooseDecodingCandidate(
+            0, DecodingInfo.getCandidate(0), explicitSelection = false,
+        )
+        assertEquals(candidate.text, selected.text)
+        assertFalse(DecodingInfo.hasExternalCandidateSource)
+    }
+
+    @Test
+    fun testStaleExternalClickDoesNotSelectReplacement() {
+        val previous = CandidateListItem("", "previous result")
+        val replacement = CandidateListItem("", "replacement result")
+        DecodingInfo.cacheCandidates(arrayOf(replacement))
+        val selected = DecodingInfo.chooseDecodingCandidate(0, previous, explicitSelection = true)
+        assertEquals("", selected.text)
+        assertEquals(replacement, DecodingInfo.getCandidate(0))
+        assertTrue(DecodingInfo.hasExternalCandidateSource)
     }
 
     private fun createMockInputConnection(commitSuccess: Boolean = true): android.view.inputmethod.InputConnection {
@@ -48,10 +102,11 @@ class HandwritingSessionManagementTest {
     }
 
     @After
-    fun tearDown() {
+    fun tearDown() = runBlocking {
         if (::service.isInitialized) {
             service.cancelModalSession(ImeService.ModalInputMode.HANDWRITING)
         }
+        checkNotNull(EnginePipeline.readState { Unit })
         DecodingInfo.reset()
         org.bitfennec.lime.core.runtime.AiModuleManager.invalidateCache()
         Dispatchers.resetMain()

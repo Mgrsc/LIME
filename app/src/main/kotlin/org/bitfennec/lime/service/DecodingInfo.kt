@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import org.bitfennec.lime.core.CandidateKind
 import org.bitfennec.lime.core.CandidateListItem
 import org.bitfennec.lime.inputmethod.EngineAction
 import org.bitfennec.lime.inputmethod.EnginePipeline
@@ -41,7 +42,6 @@ object DecodingInfo {
     var isAssociate = false
     private var hasExternalCandidates = false
     private var externalModalSessionId: Long? = null
-    private var activeCandidatePageNo: Int? = null
     private var actionGeneration = 0L
     private var requestedMoreState: EngineState? = null
 
@@ -57,9 +57,6 @@ object DecodingInfo {
                 if (state.sessionId != EnginePipeline.currentSessionId) return@collect
                 if (hasExternalCandidates) return@collect
                 isAssociate = state.isAssociate
-                if (activeCandidatePageNo != state.candidatePageNo) {
-                    activeCandidatePageNo = state.candidatePageNo
-                }
                 emitCandidates(candidatesFromEngineState(state))
             }
         }
@@ -73,7 +70,6 @@ object DecodingInfo {
         isAssociate = false
         hasExternalCandidates = false
         externalModalSessionId = null
-        activeCandidatePageNo = null
         requestedMoreState = null
         emitCandidates(emptyList())
         if (invalidateSession) EnginePipeline.invalidateSession()
@@ -132,12 +128,6 @@ object DecodingInfo {
             return if (state.sessionId == EnginePipeline.currentSessionId) state.showComposition else ""
         }
 
-    val candidatePageNo: Int
-        get() = EnginePipeline.stateFlow.value.candidatePageNo
-
-    val hasNextCandidatePage: Boolean
-        get() = EnginePipeline.stateFlow.value.hasNextCandidatePage
-
     fun requestMoreExpandedCandidates() {
         val state = EnginePipeline.stateFlow.value
         if (!hasExternalCandidates && !state.isAssociate && state.hasNextCandidatePage &&
@@ -146,6 +136,7 @@ object DecodingInfo {
             if (EnginePipeline.send(
                     EngineAction.LoadMoreExpandedCandidates(
                         state.candidatePageNo,
+                        state.candidateRevision,
                         nextActionGeneration(),
                     )
                 )
@@ -155,48 +146,56 @@ object DecodingInfo {
         }
     }
 
-    fun chooseDecodingCandidate(candId: Int): CandidateSelection {
-        var candidate = ""
+    fun chooseDecodingCandidate(
+        candId: Int,
+        displayedCandidate: CandidateListItem?,
+        explicitSelection: Boolean,
+    ): CandidateSelection {
+        val candidate = displayedCandidate ?: return CandidateSelection("")
         if (hasExternalCandidates) {
-            candidate = _candidatesFlow.value.getOrNull(candId)?.text.orEmpty()
+            if (_candidatesFlow.value.getOrNull(candId) != candidate) return CandidateSelection("")
             val modalSessionId = externalModalSessionId
             clearExternalCandidates()
-            return CandidateSelection(candidate, modalSessionId)
-        } else if (!isEngineFinish || isAssociate) {
-            if (candId >= 0) {
-                if (isAssociate) {
-                    EnginePipeline.send(EngineAction.SelectAssociation(candId, gen = nextActionGeneration()))
-                } else {
-                    val pageNo = EnginePipeline.stateFlow.value.candidatePageNo
-                    EnginePipeline.send(EngineAction.SelectCandidate(candId, pageNo, nextActionGeneration()))
-                }
-            }
-        } else {
-            candidate = if (candId in 0 until candidateSize) _candidatesFlow.value[candId].text else ""
-            reset()
+            return CandidateSelection(candidate.text, modalSessionId)
         }
-        return CandidateSelection(candidate)
+        val target = candidate.identity ?: return CandidateSelection("")
+        if (target.sessionId != EnginePipeline.currentSessionId) return CandidateSelection("")
+        if (target.kind == CandidateKind.PREDICTION) {
+            EnginePipeline.send(EngineAction.SelectAssociation(target, gen = nextActionGeneration()))
+        } else {
+            EnginePipeline.send(EngineAction.SelectCandidate(
+                target, explicitSelection = explicitSelection, gen = nextActionGeneration(),
+            ))
+        }
+        return CandidateSelection("")
     }
 
-    fun canRemoveUserPrediction(candId: Int): Boolean {
-        return when (EnginePipeline.stateFlow.value.predictionSources.getOrNull(candId)) {
+    fun canRemoveUserPrediction(candidate: CandidateListItem): Boolean {
+        val target = candidate.identity ?: return false
+        val state = EnginePipeline.stateFlow.value
+        if (!state.acceptsCandidate(target)) return false
+        return when (state.predictionSources.getOrNull(target.index)) {
             org.bitfennec.lime.inputmethod.predict.PredictionSource.USER_1GRAM,
             org.bitfennec.lime.inputmethod.predict.PredictionSource.USER_2GRAM -> true
             else -> false
         }
     }
 
-    fun removeUserPrediction(candId: Int): Boolean {
-        if (!canRemoveUserPrediction(candId)) return false
-        return EnginePipeline.send(EngineAction.RemovePredictionCandidate(candId))
+    fun removeUserPrediction(candidate: CandidateListItem): Boolean {
+        if (!canRemoveUserPrediction(candidate)) return false
+        val target = candidate.identity ?: return false
+        return EnginePipeline.send(EngineAction.RemovePredictionCandidate(target))
     }
 
-    fun deleteCandidate(candId: Int): Boolean {
-        return EnginePipeline.send(EngineAction.DeleteCandidate(candId, gen = nextActionGeneration()))
+    fun deleteCandidate(candidate: CandidateListItem): Boolean {
+        val target = candidate.identity ?: return false
+        return EnginePipeline.send(EngineAction.DeleteCandidate(target, gen = nextActionGeneration()))
     }
 
-    fun getCandidateDeletableType(candId: Int): Int {
-        return RimeEngine.getCandidateDeletableType(candId)
+    fun getCandidateDeletableType(candidate: CandidateListItem): Int {
+        val target = candidate.identity ?: return org.bitfennec.lime.core.Rime.DELETABLE_NONE
+        if (!EnginePipeline.stateFlow.value.acceptsCandidate(target)) return org.bitfennec.lime.core.Rime.DELETABLE_NONE
+        return RimeEngine.getCandidateDeletableType(target.index, target.revision)
     }
 
     fun nextActionGeneration(): Long = ++actionGeneration

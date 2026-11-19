@@ -88,10 +88,14 @@ class Rime(fullCheck: Boolean) {
             expectedCurrentPageNo: Int,
             targetPageNo: Int,
             targetPageIndex: Int,
+            explicitSelection: Boolean,
+            expectedRevision: Long,
         ): RimeSnapshot? = selectRimeCandidateOnPageAndSnapshot(
             expectedCurrentPageNo,
             targetPageNo,
             targetPageIndex,
+            explicitSelection,
+            expectedRevision,
         )
 
         @JvmStatic
@@ -99,10 +103,12 @@ class Rime(fullCheck: Boolean) {
             expectedCurrentPageNo: Int,
             targetPageNo: Int,
             targetPageIndex: Int,
+            expectedRevision: Long,
         ): RimeSnapshot? = deleteRimeCandidateOnPageAndSnapshot(
             expectedCurrentPageNo,
             targetPageNo,
             targetPageIndex,
+            expectedRevision,
         )
 
         @JvmStatic
@@ -162,6 +168,8 @@ class Rime(fullCheck: Boolean) {
             expectedCurrentPageNo: Int,
             targetPageNo: Int,
             targetPageIndex: Int,
+            explicitSelection: Boolean,
+            expectedRevision: Long,
         ): RimeSnapshot?
 
         @JvmStatic
@@ -169,12 +177,14 @@ class Rime(fullCheck: Boolean) {
             expectedCurrentPageNo: Int,
             targetPageNo: Int,
             targetPageIndex: Int,
+            expectedRevision: Long,
         ): RimeSnapshot?
 
         @JvmStatic
         external fun getCandidateDeletableType(
             targetPageNo: Int,
             targetPageIndex: Int,
+            expectedRevision: Long,
         ): Int
 
         @JvmStatic

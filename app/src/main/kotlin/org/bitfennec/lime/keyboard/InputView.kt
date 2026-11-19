@@ -1342,12 +1342,17 @@ class InputView(context: Context, val service: ImeService) : RelativeLayout(cont
         }
     }
 
-    fun chooseAndUpdate(candId: Int = mSkbCandidatesBarView.getActiveCandNo()) {
+    fun chooseAndUpdate(
+        candId: Int = mSkbCandidatesBarView.getActiveCandNo(),
+        candidate: CandidateListItem? = DecodingInfo.getCandidate(candId),
+        explicitSelection: Boolean = false,
+    ) {
         if (InputModeSwitcher.isNumberSkb) {
+            if (candidate != DecodingInfo.getCandidate(candId)) return
             handleNumberCandidateChoice(candId)
             return
         }
-        val selection = DecodingInfo.chooseDecodingCandidate(candId)
+        val selection = DecodingInfo.chooseDecodingCandidate(candId, candidate, explicitSelection)
         if (selection.text.isNotEmpty()) {
             if (!isUndoing) {
                 textBeforeCursors.clear()
@@ -1404,17 +1409,17 @@ class InputView(context: Context, val service: ImeService) : RelativeLayout(cont
     }
 
     inner class ChoiceNotifier internal constructor() : CandidateViewListener {
-        override fun onClickChoice(choiceId: Int) {
+        override fun onClickChoice(choiceId: Int, candidate: CandidateListItem) {
             DevicesUtils.tryPlayKeyDown()
             DevicesUtils.tryVibrate(KeyboardManager.instance.currentContainer)
-            chooseAndUpdate(choiceId)
+            chooseAndUpdate(choiceId, candidate, explicitSelection = true)
         }
 
-        override fun onLongClickChoice(choiceId: Int) {
-            if (DecodingInfo.canRemoveUserPrediction(choiceId)) {
-                DecodingInfo.removeUserPrediction(choiceId)
+        override fun onLongClickChoice(choiceId: Int, candidate: CandidateListItem) {
+            if (DecodingInfo.canRemoveUserPrediction(candidate)) {
+                DecodingInfo.removeUserPrediction(candidate)
             } else {
-                DecodingInfo.deleteCandidate(choiceId)
+                DecodingInfo.deleteCandidate(candidate)
             }
         }
 

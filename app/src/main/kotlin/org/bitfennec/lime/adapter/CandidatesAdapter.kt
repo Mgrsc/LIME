@@ -35,15 +35,15 @@ class CandidatesAdapter(context: Context?) :
     RecyclerView.Adapter<CandidatesAdapter.SymbolHolder>() {
     private val inflater: LayoutInflater = LayoutInflater.from(context)
     private val candidateText = CandidateText(inflater.context.resources)
-    private var mOnItemClickListener: OnRecyclerItemClickListener? = null
-    private var mOnItemLongClickListener: OnRecyclerItemClickListener? = null
+    private var mOnItemClickListener: ((View, Int, CandidateListItem) -> Unit)? = null
+    private var mOnItemLongClickListener: ((View, Int, CandidateListItem) -> Unit)? = null
     private var mCandidatesList: MutableList<CandidateListItem> = ArrayList()
 
-    fun setOnItemClickListener(onItemClickListener: OnRecyclerItemClickListener?) {
+    fun setOnItemClickListener(onItemClickListener: ((View, Int, CandidateListItem) -> Unit)?) {
         mOnItemClickListener = onItemClickListener
     }
 
-    fun setOnItemLongClickListener(listener: OnRecyclerItemClickListener?) {
+    fun setOnItemLongClickListener(listener: ((View, Int, CandidateListItem) -> Unit)?) {
         mOnItemLongClickListener = listener
     }
 
@@ -53,11 +53,11 @@ class CandidatesAdapter(context: Context?) :
         view.setOnClickListener { v ->
             val pos = holder.bindingAdapterPosition
             if (pos != RecyclerView.NO_POSITION) {
-                val item = mCandidatesList.getOrNull(pos)
+                val item = holder.boundCandidate
                 if (InputModeSwitcher.isNumberSkb && item?.comment == COMMENT_ERROR) {
                     return@setOnClickListener
                 }
-                mOnItemClickListener?.onItemClick(this@CandidatesAdapter, v, pos)
+                item?.let { mOnItemClickListener?.invoke(v, holder.boundPosition, it) }
             }
         }
         view.setOnLongClickListener { v ->
@@ -65,11 +65,11 @@ class CandidatesAdapter(context: Context?) :
             if (pos == RecyclerView.NO_POSITION || mOnItemLongClickListener == null) {
                 false
             } else {
-                val item = mCandidatesList.getOrNull(pos)
+                val item = holder.boundCandidate
                 if (InputModeSwitcher.isNumberSkb && item?.comment == COMMENT_ERROR) {
                     return@setOnLongClickListener false
                 }
-                mOnItemLongClickListener?.onItemClick(this@CandidatesAdapter, v, pos)
+                item?.let { mOnItemLongClickListener?.invoke(v, holder.boundPosition, it) }
                 true
             }
         }
@@ -79,6 +79,8 @@ class CandidatesAdapter(context: Context?) :
     override fun onBindViewHolder(holder: SymbolHolder, position: Int) {
         if (position !in mCandidatesList.indices) return
         val cand = mCandidatesList[position]
+        holder.boundCandidate = cand
+        holder.boundPosition = position
 
         val currentTextColor = activeTheme.keyTextColor
         val isError = InputModeSwitcher.isNumberSkb && cand.comment == COMMENT_ERROR
@@ -175,6 +177,8 @@ class CandidatesAdapter(context: Context?) :
     }
 
     inner class SymbolHolder(view: View) : RecyclerView.ViewHolder(view) {
+        var boundCandidate: CandidateListItem? = null
+        var boundPosition: Int = RecyclerView.NO_POSITION
         val pinyinView: TextView = view.findViewById(R.id.tv_candidates_item_pinyin)
         val textView: EmojiTextView = view.findViewById(R.id.gv_candidates_item)
         private val cardBg = GradientDrawable().apply {

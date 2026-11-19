@@ -17,8 +17,8 @@ import androidx.core.graphics.drawable.toDrawable
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import org.bitfennec.lime.R
+import org.bitfennec.lime.core.CandidateListItem
 import org.bitfennec.lime.core.Rime
 import org.bitfennec.lime.data.theme.ThemeManager
 import org.bitfennec.lime.inputmethod.EnginePipeline
@@ -28,52 +28,41 @@ import org.bitfennec.lime.utils.dp
 
 internal object PredictionDeletePopup {
 
-    suspend fun resolveCandidateDeleteTextRes(
-        position: Int,
-        expectedSessionId: Long,
-        expectedGen: Long,
-    ): Int? = withContext(Dispatchers.Default) {
-        val state = EnginePipeline.stateFlow.value
-        if (state.sessionId != expectedSessionId || state.gen != expectedGen) return@withContext null
-        when {
-            state.stripMode == CandidateStripMode.PREDICT && DecodingInfo.canRemoveUserPrediction(position) ->
-                R.string.delete_prediction
-            state.stripMode == CandidateStripMode.DECODING -> when (DecodingInfo.getCandidateDeletableType(position)) {
-                Rime.DELETABLE_CUSTOM_WORD -> R.string.delete_candidate
-                Rime.DELETABLE_USER_TUNED -> R.string.delete_candidate_freq
+    suspend fun resolveCandidateDeleteTextRes(candidate: CandidateListItem): Int? =
+        EnginePipeline.readState { state ->
+            val target = candidate.identity
+            if (target == null || !state.acceptsCandidate(target)) return@readState null
+            when {
+                state.stripMode == CandidateStripMode.PREDICT && DecodingInfo.canRemoveUserPrediction(candidate) ->
+                    R.string.delete_prediction
+                state.stripMode == CandidateStripMode.DECODING -> when (DecodingInfo.getCandidateDeletableType(candidate)) {
+                    Rime.DELETABLE_CUSTOM_WORD -> R.string.delete_candidate
+                    Rime.DELETABLE_USER_TUNED -> R.string.delete_candidate_freq
+                    else -> null
+                }
                 else -> null
             }
-            else -> null
         }
-    }
 
     fun showIfDeletable(
         anchor: View,
-        position: Int,
+        candidate: CandidateListItem,
         activePopupRef: () -> PopupWindow?,
         onPopupCreated: (PopupWindow?) -> Unit,
         onDelete: () -> Unit,
         isRequestValid: () -> Boolean = { true },
     ) {
-        val sessionId = EnginePipeline.currentSessionId
-        val gen = EnginePipeline.stateFlow.value.gen
+        val target = candidate.identity ?: return
         CoroutineScope(Dispatchers.Main.immediate).launch {
-            val textRes = resolveCandidateDeleteTextRes(position, sessionId, gen) ?: return@launch
+            val textRes = resolveCandidateDeleteTextRes(candidate) ?: return@launch
             if (!anchor.isAttachedToWindow || !anchor.isShown || anchor.windowVisibility != View.VISIBLE) return@launch
-            if (!isRequestValid()) return@launch
-            val currentState = EnginePipeline.stateFlow.value
-            if (currentState.sessionId != sessionId || currentState.gen != gen) return@launch
+            if (!isRequestValid() || !EnginePipeline.stateFlow.value.acceptsCandidate(target)) return@launch
             activePopupRef()?.dismiss()
             val popup = show(anchor, textRes) {
-                val finalState = EnginePipeline.stateFlow.value
-                if (finalState.sessionId == sessionId && finalState.gen == gen) {
-                    onDelete()
-                }
+                if (EnginePipeline.stateFlow.value.acceptsCandidate(target)) onDelete()
             }
             popup.setOnDismissListener {
-                if (activePopupRef() === popup) {
-                    onPopupCreated(null)
-                }
+                if (activePopupRef() === popup) onPopupCreated(null)
             }
             if (anchor.isAttachedToWindow && anchor.isShown && anchor.windowVisibility == View.VISIBLE && isRequestValid()) {
                 onPopupCreated(popup)

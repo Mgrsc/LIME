@@ -5902,7 +5902,6 @@ PLorg/bitfennec/lime/candidate/FloatCandidateBar$$ExternalSyntheticLambda3;-><in
 PLorg/bitfennec/lime/candidate/FloatCandidateBar$$ExternalSyntheticLambda4;-><init>(Lorg/bitfennec/lime/candidate/FloatCandidateBar;)V
 PLorg/bitfennec/lime/candidate/FloatCandidateBar$$ExternalSyntheticLambda5;-><init>(Lorg/bitfennec/lime/candidate/FloatCandidateBar;)V
 PLorg/bitfennec/lime/candidate/FloatCandidateBar$initCandidateView$7;-><init>(Lorg/bitfennec/lime/candidate/FloatCandidateBar;)V
-PLorg/bitfennec/lime/core/CandidateListItem;-><init>(Ljava/lang/String;Ljava/lang/String;)V
 PLorg/bitfennec/lime/core/CandidateListItem;->equals(Ljava/lang/Object;)Z
 PLorg/bitfennec/lime/core/CandidateListItem;->getComment()Ljava/lang/String;
 PLorg/bitfennec/lime/core/CandidateListItem;->getText()Ljava/lang/String;
@@ -5932,7 +5931,6 @@ PLorg/bitfennec/lime/core/Rime;->access$moveRimeCandidatePageAndSnapshot(II)Lorg
 PLorg/bitfennec/lime/core/Rime;->access$nativeSetUserDictWritesEnabled(Z)V
 PLorg/bitfennec/lime/core/Rime;->access$prewarmOpencc(Ljava/lang/String;)V
 PLorg/bitfennec/lime/core/Rime;->access$processRimeKeyAndSnapshot(II)Lorg/bitfennec/lime/core/RimeSnapshot;
-PLorg/bitfennec/lime/core/Rime;->access$selectRimeCandidateOnPageAndSnapshot(III)Lorg/bitfennec/lime/core/RimeSnapshot;
 PLorg/bitfennec/lime/core/Rime;->access$setInstance$cp(Lorg/bitfennec/lime/core/Rime;)V
 PLorg/bitfennec/lime/core/Rime;->access$setStarted$cp(Z)V
 PLorg/bitfennec/lime/core/Rime;->access$snapshotRimeState()Lorg/bitfennec/lime/core/RimeSnapshot;
@@ -5949,8 +5947,6 @@ PLorg/bitfennec/lime/core/Rime$Companion;->nativeSetUserDictWritesEnabled(Z)V
 PLorg/bitfennec/lime/core/Rime$Companion;->prewarmOpencc(Ljava/lang/String;)V
 PLorg/bitfennec/lime/core/Rime$Companion;->processKeySnapshot(II)Lorg/bitfennec/lime/core/RimeSnapshot;
 PLorg/bitfennec/lime/core/Rime$Companion;->processRimeKeyAndSnapshot(II)Lorg/bitfennec/lime/core/RimeSnapshot;
-PLorg/bitfennec/lime/core/Rime$Companion;->selectCandidateOnPageSnapshot(III)Lorg/bitfennec/lime/core/RimeSnapshot;
-PLorg/bitfennec/lime/core/Rime$Companion;->selectRimeCandidateOnPageAndSnapshot(III)Lorg/bitfennec/lime/core/RimeSnapshot;
 PLorg/bitfennec/lime/core/Rime$Companion;->selectRimeSchema(Ljava/lang/String;)Z
 PLorg/bitfennec/lime/core/Rime$Companion;->setRimeOption(Ljava/lang/String;Z)V
 PLorg/bitfennec/lime/core/Rime$Companion;->setRimePageSize(I)V
@@ -5972,7 +5968,6 @@ PLorg/bitfennec/lime/core/RimePageCandidate;-><init>(ILjava/lang/String;Ljava/la
 PLorg/bitfennec/lime/core/RimePageCandidate;->getComment()Ljava/lang/String;
 PLorg/bitfennec/lime/core/RimePageCandidate;->getPageIndex()I
 PLorg/bitfennec/lime/core/RimePageCandidate;->getText()Ljava/lang/String;
-PLorg/bitfennec/lime/core/RimeSnapshot;-><init>(ZLjava/lang/String;Ljava/lang/String;Lorg/bitfennec/lime/core/RimeComposition;Ljava/lang/String;Lorg/bitfennec/lime/core/RimeCandidatePage;Lorg/bitfennec/lime/core/RimeT9Metadata;)V
 PLorg/bitfennec/lime/core/RimeSnapshot;->getCommitText()Ljava/lang/String;
 PLorg/bitfennec/lime/core/RimeSnapshot;->getComposition()Lorg/bitfennec/lime/core/RimeComposition;
 PLorg/bitfennec/lime/core/RimeSnapshot;->getPage()Lorg/bitfennec/lime/core/RimeCandidatePage;
@@ -6320,7 +6315,6 @@ PLorg/bitfennec/lime/inputmethod/EngineAction$ApplyEditorPolicy;-><init>(Ljava/l
 PLorg/bitfennec/lime/inputmethod/EngineAction$ApplyEditorPolicy;->getClearComposition()Z
 PLorg/bitfennec/lime/inputmethod/EngineAction$ApplyEditorPolicy;->getGen()J
 PLorg/bitfennec/lime/inputmethod/EngineAction$ApplyEditorPolicy;->getSchema()Ljava/lang/String;
-PLorg/bitfennec/lime/inputmethod/EngineAction$LoadMoreExpandedCandidates;-><init>(IJ)V
 PLorg/bitfennec/lime/inputmethod/EngineAction$LoadMoreExpandedCandidates;->getGen()J
 PLorg/bitfennec/lime/inputmethod/EngineAction$LoadMoreExpandedCandidates;->getPageNo()I
 PLorg/bitfennec/lime/inputmethod/EngineAction$NormalKey;-><init>(Landroid/view/KeyEvent;J)V
@@ -6328,10 +6322,8 @@ PLorg/bitfennec/lime/inputmethod/EngineAction$NormalKey;->getEvent()Landroid/vie
 PLorg/bitfennec/lime/inputmethod/EngineAction$NormalKey;->getGen()J
 PLorg/bitfennec/lime/inputmethod/EngineAction$Reset;-><init>(J)V
 PLorg/bitfennec/lime/inputmethod/EngineAction$Reset;->getGen()J
-PLorg/bitfennec/lime/inputmethod/EngineAction$SelectCandidate;-><init>(ILjava/lang/Integer;J)V
 PLorg/bitfennec/lime/inputmethod/EngineAction$SelectCandidate;->getGen()J
 PLorg/bitfennec/lime/inputmethod/EngineAction$SelectCandidate;->getIndex()I
-PLorg/bitfennec/lime/inputmethod/EngineAction$SelectCandidate;->getPageNo()Ljava/lang/Integer;
 PLorg/bitfennec/lime/inputmethod/EngineAction$SetCharCase;-><init>(IJ)V
 PLorg/bitfennec/lime/inputmethod/EngineAction$SetCharCase;-><init>(IJILkotlin/jvm/internal/DefaultConstructorMarker;)V
 PLorg/bitfennec/lime/inputmethod/EngineAction$SetCharCase;->getCharCase()I
@@ -6402,10 +6394,6 @@ PLorg/bitfennec/lime/inputmethod/EnginePipeline$processNormalKeysBatch$1;-><init
 PLorg/bitfennec/lime/inputmethod/EnginePipeline$publishCurrentState$1;-><init>(Lorg/bitfennec/lime/inputmethod/EnginePipeline;Lkotlin/coroutines/Continuation;)V
 PLorg/bitfennec/lime/inputmethod/EnginePipeline$publishState$1;-><init>(Lorg/bitfennec/lime/inputmethod/EnginePipeline;Lkotlin/coroutines/Continuation;)V
 Lorg/bitfennec/lime/inputmethod/EngineState;
-PLorg/bitfennec/lime/inputmethod/EngineState;-><init>(Ljava/util/List;Ljava/util/List;Ljava/lang/String;ILjava/util/List;IZZLorg/bitfennec/lime/inputmethod/predict/CandidateStripMode;Ljava/lang/String;IZIJJJZ)V
-PLorg/bitfennec/lime/inputmethod/EngineState;-><init>(Ljava/util/List;Ljava/util/List;Ljava/lang/String;ILjava/util/List;IZZLorg/bitfennec/lime/inputmethod/predict/CandidateStripMode;Ljava/lang/String;IZIJJJZILkotlin/jvm/internal/DefaultConstructorMarker;)V
-PLorg/bitfennec/lime/inputmethod/EngineState;->copy$default(Lorg/bitfennec/lime/inputmethod/EngineState;Ljava/util/List;Ljava/util/List;Ljava/lang/String;ILjava/util/List;IZZLorg/bitfennec/lime/inputmethod/predict/CandidateStripMode;Ljava/lang/String;IZIJJJZILjava/lang/Object;)Lorg/bitfennec/lime/inputmethod/EngineState;
-PLorg/bitfennec/lime/inputmethod/EngineState;->copy(Ljava/util/List;Ljava/util/List;Ljava/lang/String;ILjava/util/List;IZZLorg/bitfennec/lime/inputmethod/predict/CandidateStripMode;Ljava/lang/String;IZIJJJZ)Lorg/bitfennec/lime/inputmethod/EngineState;
 PLorg/bitfennec/lime/inputmethod/EngineState;->equals(Ljava/lang/Object;)Z
 PLorg/bitfennec/lime/inputmethod/EngineState;->getCandidatePageNo()I
 PLorg/bitfennec/lime/inputmethod/EngineState;->getCandidates()Ljava/util/List;
@@ -6454,12 +6442,10 @@ PLorg/bitfennec/lime/inputmethod/RimeEngine;->editorCompositionText()Ljava/lang/
 PLorg/bitfennec/lime/inputmethod/RimeEngine;->ensureStarted()Z
 PLorg/bitfennec/lime/inputmethod/RimeEngine;->getCandidatePageNo()I
 PLorg/bitfennec/lime/inputmethod/RimeEngine;->getCompositionCursorPos()I
-PLorg/bitfennec/lime/inputmethod/RimeEngine;->getCurrentComposition(Ljava/util/List;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
 PLorg/bitfennec/lime/inputmethod/RimeEngine;->getCurrentRimeSchema()Ljava/lang/String;
 PLorg/bitfennec/lime/inputmethod/RimeEngine;->getHasNextCandidatePage()Z
 PLorg/bitfennec/lime/inputmethod/RimeEngine;->getNextExpandedCandidates()Ljava/util/List;
 PLorg/bitfennec/lime/inputmethod/RimeEngine;->getPrefixs()[Ljava/lang/String;
-PLorg/bitfennec/lime/inputmethod/RimeEngine;->getRawPreedit()Ljava/lang/String;
 PLorg/bitfennec/lime/inputmethod/RimeEngine;->getShowCandidates()Ljava/util/List;
 PLorg/bitfennec/lime/inputmethod/RimeEngine;->getShowComposition()Ljava/lang/String;
 PLorg/bitfennec/lime/inputmethod/RimeEngine;->getT9LockedCount()I
@@ -6467,13 +6453,10 @@ PLorg/bitfennec/lime/inputmethod/RimeEngine;->isEnglishSchema()Z
 PLorg/bitfennec/lime/inputmethod/RimeEngine;->isFinish()Z
 PLorg/bitfennec/lime/inputmethod/RimeEngine;->onNormalKey(Landroid/view/KeyEvent;)Ljava/lang/String;
 PLorg/bitfennec/lime/inputmethod/RimeEngine;->reset()V
-PLorg/bitfennec/lime/inputmethod/RimeEngine;->selectCandidate(ILjava/lang/Integer;)Ljava/lang/String;
 PLorg/bitfennec/lime/inputmethod/RimeEngine;->selectSchema(Ljava/lang/String;)Z
 PLorg/bitfennec/lime/inputmethod/RimeEngine;->setImeOption(Ljava/lang/String;Z)V
 PLorg/bitfennec/lime/inputmethod/RimeEngine;->setUserDictWritesEnabled(Z)V
-PLorg/bitfennec/lime/inputmethod/RimeEngine;->updateCandidatesOrCommitText$default(Lorg/bitfennec/lime/inputmethod/RimeEngine;Lorg/bitfennec/lime/core/RimeSnapshot;ZILjava/lang/Object;)Ljava/lang/String;
 PLorg/bitfennec/lime/inputmethod/RimeEngine;->updateCandidatesOrCommitText$formatCandidateText(ZLorg/bitfennec/lime/core/RimeSnapshot;Ljava/lang/String;)Ljava/lang/String;
-PLorg/bitfennec/lime/inputmethod/RimeEngine;->updateCandidatesOrCommitText(Lorg/bitfennec/lime/core/RimeSnapshot;Z)Ljava/lang/String;
 PLorg/bitfennec/lime/inputmethod/RimeEngine$CandidateReference;-><init>(ILjava/lang/Integer;)V
 PLorg/bitfennec/lime/inputmethod/RimeEngine$CandidateReference;->getIndex()Ljava/lang/Integer;
 PLorg/bitfennec/lime/inputmethod/RimeEngine$CandidateReference;->getPageNo()I
@@ -6581,7 +6564,6 @@ PLorg/bitfennec/lime/keyboard/InputView;-><clinit>()V
 PLorg/bitfennec/lime/keyboard/InputView;-><init>(Landroid/content/Context;Lorg/bitfennec/lime/service/ImeService;)V
 PLorg/bitfennec/lime/keyboard/InputView;->_init_$lambda$0(Lorg/bitfennec/lime/keyboard/InputView;Landroid/view/View;IIIIIIII)V
 PLorg/bitfennec/lime/keyboard/InputView;->calculateFloatingPaddingBounds(IIII)Lorg/bitfennec/lime/keyboard/InputView$FloatingPaddingBounds;
-PLorg/bitfennec/lime/keyboard/InputView;->chooseAndUpdate(I)V
 PLorg/bitfennec/lime/keyboard/InputView;->clampFloatingPadding(II)V
 PLorg/bitfennec/lime/keyboard/InputView;->clearInlineSuggestions$default(Lorg/bitfennec/lime/keyboard/InputView;Ljava/lang/Long;ILjava/lang/Object;)V
 PLorg/bitfennec/lime/keyboard/InputView;->clearInlineSuggestions(Ljava/lang/Long;)V
@@ -6631,7 +6613,6 @@ PLorg/bitfennec/lime/keyboard/InputView$$ExternalSyntheticLambda5;-><init>(Lorg/
 PLorg/bitfennec/lime/keyboard/InputView$$ExternalSyntheticLambda5;->invoke()Ljava/lang/Object;
 PLorg/bitfennec/lime/keyboard/InputView$$ExternalSyntheticLambda6;-><init>(Lorg/bitfennec/lime/keyboard/InputView;Landroid/content/Context;)V
 PLorg/bitfennec/lime/keyboard/InputView$ChoiceNotifier;-><init>(Lorg/bitfennec/lime/keyboard/InputView;)V
-PLorg/bitfennec/lime/keyboard/InputView$ChoiceNotifier;->onClickChoice(I)V
 PLorg/bitfennec/lime/keyboard/InputView$Companion;-><init>()V
 PLorg/bitfennec/lime/keyboard/InputView$Companion;-><init>(Lkotlin/jvm/internal/DefaultConstructorMarker;)V
 PLorg/bitfennec/lime/keyboard/InputView$FloatingPaddingBounds;-><init>(IIII)V
@@ -7086,10 +7067,7 @@ SPLorg/bitfennec/lime/service/ClipboardHelper;->init()V
 PLorg/bitfennec/lime/service/DecodingInfo;-><clinit>()V
 PLorg/bitfennec/lime/service/DecodingInfo;-><init>()V
 PLorg/bitfennec/lime/service/DecodingInfo;->access$emitCandidates(Lorg/bitfennec/lime/service/DecodingInfo;Ljava/util/List;)V
-PLorg/bitfennec/lime/service/DecodingInfo;->access$getActiveCandidatePageNo$p()Ljava/lang/Integer;
 PLorg/bitfennec/lime/service/DecodingInfo;->access$getHasExternalCandidates$p()Z
-PLorg/bitfennec/lime/service/DecodingInfo;->access$setActiveCandidatePageNo$p(Ljava/lang/Integer;)V
-PLorg/bitfennec/lime/service/DecodingInfo;->chooseDecodingCandidate(I)Lorg/bitfennec/lime/service/CandidateSelection;
 PLorg/bitfennec/lime/service/DecodingInfo;->emitCandidates(Ljava/util/List;)V
 PLorg/bitfennec/lime/service/DecodingInfo;->getCandidateSize()I
 PLorg/bitfennec/lime/service/DecodingInfo;->getCandidates()Ljava/util/List;

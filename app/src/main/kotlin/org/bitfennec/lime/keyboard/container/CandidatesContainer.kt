@@ -1,5 +1,6 @@
 package org.bitfennec.lime.keyboard.container
 
+import org.bitfennec.lime.core.CandidateListItem
 import android.annotation.SuppressLint
 import android.content.Context
 import android.os.Bundle
@@ -49,8 +50,6 @@ class CandidatesContainer(context: Context, inputView: InputView) : BaseContaine
     private lateinit var mRVSymbolsView: RecyclerView
     private lateinit var mCandidatesAdapter: CandidatesAdapter
     private var mRVLeftPrefix = inflate(getContext(), R.layout.view_rv_prefix, null) as RecyclerView
-    private var lastLoadedCandidatePageNo = Int.MIN_VALUE
-    private var requestedNextCandidatePageNo: Int? = null
     private val mLlAddSymbol: LinearLayout = LinearLayout(context).apply {
         layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
             setMargins(dp(10), dp(10), dp(10), dp(10))
@@ -89,13 +88,13 @@ class CandidatesContainer(context: Context, inputView: InputView) : BaseContaine
             setPadding(context.dp(4), context.dp(4), context.dp(4), context.dp(4))
         }
         mCandidatesAdapter = CandidatesAdapter(context)
-        mCandidatesAdapter.setOnItemClickListener { _: RecyclerView.Adapter<*>?, _: View?, position: Int ->
+        mCandidatesAdapter.setOnItemClickListener { _, position, candidate ->
             DevicesUtils.tryPlayKeyDown()
             DevicesUtils.tryVibrate(this)
-            inputView.chooseAndUpdate(position)
+            inputView.chooseAndUpdate(position, candidate, explicitSelection = true)
         }
-        mCandidatesAdapter.setOnItemLongClickListener { _: RecyclerView.Adapter<*>?, view: View?, position: Int ->
-            view?.let { showDeleteCandidateMenu(it, position) }
+        mCandidatesAdapter.setOnItemLongClickListener { view, _, candidate ->
+            showDeleteCandidateMenu(view, candidate)
         }
         mRVSymbolsView.adapter = mCandidatesAdapter
 
@@ -142,9 +141,6 @@ class CandidatesContainer(context: Context, inputView: InputView) : BaseContaine
 
     private fun requestMoreCandidates() {
         if (!isAttachedToWindow || !isShown || windowVisibility != VISIBLE) return
-        val pageNo = DecodingInfo.candidatePageNo
-        if (!DecodingInfo.hasNextCandidatePage || requestedNextCandidatePageNo == pageNo) return
-        requestedNextCandidatePageNo = pageNo
         DecodingInfo.requestMoreExpandedCandidates()
     }
 
@@ -167,8 +163,6 @@ class CandidatesContainer(context: Context, inputView: InputView) : BaseContaine
             predictionDeletePopup = null
             pendingScrollToTopOnOpen = true
             lastFirstCandidateText = null
-            lastLoadedCandidatePageNo = Int.MIN_VALUE
-            requestedNextCandidatePageNo = null
             if (::mRVSymbolsView.isInitialized) {
                 mRVSymbolsView.stopScroll()
                 mRVSymbolsView.scrollToPosition(0)
@@ -212,8 +206,6 @@ class CandidatesContainer(context: Context, inputView: InputView) : BaseContaine
         predictionDeletePopup = null
         pendingScrollToTopOnOpen = true
         lastFirstCandidateText = null
-        lastLoadedCandidatePageNo = Int.MIN_VALUE
-        requestedNextCandidatePageNo = null
         if (::mRVSymbolsView.isInitialized) {
             mRVSymbolsView.stopScroll()
             mRVSymbolsView.scrollToPosition(0)
@@ -232,11 +224,6 @@ class CandidatesContainer(context: Context, inputView: InputView) : BaseContaine
             mCandidatesAdapter.setCandidates(emptyList())
         } else {
             val candidates = DecodingInfo.candidates
-            val pageNo = DecodingInfo.candidatePageNo
-            if (pageNo != lastLoadedCandidatePageNo) {
-                lastLoadedCandidatePageNo = pageNo
-                requestedNextCandidatePageNo = null
-            }
             val currentFirst = candidates.firstOrNull()?.text
             val shouldResetScroll = shouldResetCandidateScroll(
                 pendingScrollToTopOnOpen = pendingScrollToTopOnOpen,
@@ -302,19 +289,19 @@ class CandidatesContainer(context: Context, inputView: InputView) : BaseContaine
         mRVLeftPrefix.adapter = adapter
     }
 
-    private fun showDeleteCandidateMenu(anchor: View, position: Int) {
+    private fun showDeleteCandidateMenu(anchor: View, candidate: CandidateListItem) {
         val requestId = ++deleteMenuRequestId
         PredictionDeletePopup.showIfDeletable(
             anchor = anchor,
-            position = position,
+            candidate = candidate,
             activePopupRef = { predictionDeletePopup },
             onPopupCreated = { predictionDeletePopup = it },
             onDelete = {
                 predictionDeletePopup = null
-                if (DecodingInfo.canRemoveUserPrediction(position)) {
-                    DecodingInfo.removeUserPrediction(position)
+                if (DecodingInfo.canRemoveUserPrediction(candidate)) {
+                    DecodingInfo.removeUserPrediction(candidate)
                 } else {
-                    DecodingInfo.deleteCandidate(position)
+                    DecodingInfo.deleteCandidate(candidate)
                 }
             },
             isRequestValid = {

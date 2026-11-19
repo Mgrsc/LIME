@@ -1,17 +1,100 @@
 package org.bitfennec.lime.inputmethod
 
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
+import org.bitfennec.lime.core.CandidateIdentity
+import org.bitfennec.lime.core.CandidateKind
 import org.bitfennec.lime.core.CandidateListItem
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 
 class EnginePipelineConcurrencyTest {
+
+    @Test
+    fun testCandidateReadFailsClosedWhenQueueIsFull() = runBlocking {
+        EnginePipeline.beginSession()
+        val started = CompletableDeferred<Unit>()
+        val release = CountDownLatch(1)
+        var enqueuedCount = 0
+        val maximumQueueAttempts = 1024
+        val blocker = async(Dispatchers.Default) {
+            EnginePipeline.readState {
+                started.complete(Unit)
+                check(release.await(5, TimeUnit.SECONDS))
+            }
+        }
+        try {
+            withTimeout(1_000) { started.await() }
+            for (attempt in 0 until maximumQueueAttempts) {
+                val accepted = EnginePipeline.send(EngineAction.Maintenance {})
+                if (!accepted) break
+                enqueuedCount++
+            }
+            assertTrue(enqueuedCount in 1 until maximumQueueAttempts)
+            assertNull(EnginePipeline.readState { error("Rejected query was executed") })
+        } finally {
+            release.countDown()
+            blocker.await()
+            withTimeout(1_000) {
+                while (EnginePipeline.readState { true } != true) kotlinx.coroutines.yield()
+            }
+        }
+    }
+
+    @Test
+    fun testCandidateReadPreservesEditorSessionAndState() = runBlocking {
+        val sessionId = EnginePipeline.beginSession()
+        val before = EnginePipeline.stateFlow.value
+
+        val observed = EnginePipeline.readState { it }
+
+        assertEquals(before, observed)
+        assertEquals(sessionId, EnginePipeline.currentSessionId)
+        assertEquals(before, EnginePipeline.stateFlow.value)
+    }
+
+    @Test
+    fun testStaleCandidateActionsDoNotCommitOrCallRime() = runBlocking {
+        val oldSession = EnginePipeline.beginSession()
+        val target = CandidateIdentity(oldSession, 10L, 0)
+        val sessionId = EnginePipeline.invalidateSession()
+        val events = mutableListOf<EngineEvent>()
+        val states = mutableListOf<EngineState>()
+        val job = launch {
+            EnginePipeline.updates.collect { update ->
+                if (update is SessionUpdate.Event && update.sessionId == sessionId) {
+                    events += update.event
+                }
+                if (update is SessionUpdate.State && update.sessionId == sessionId) {
+                    states += update.state
+                }
+            }
+        }
+        kotlinx.coroutines.yield()
+
+        EnginePipeline.send(EngineAction.SelectCandidate(target, explicitSelection = true))
+        EnginePipeline.send(EngineAction.DeleteCandidate(target))
+        val predictionTarget = target.copy(kind = CandidateKind.PREDICTION)
+        EnginePipeline.send(EngineAction.SelectAssociation(predictionTarget))
+        EnginePipeline.send(EngineAction.RemovePredictionCandidate(predictionTarget))
+        EnginePipeline.readState { Unit }
+        kotlinx.coroutines.yield()
+        job.cancel()
+
+        assertTrue(events.isEmpty())
+        assertEquals(4, states.size)
+        assertEquals(sessionId, EnginePipeline.stateFlow.value.sessionId)
+    }
 
     @Test
     fun testSnapshotsUseQueueSequenceWhenActionGenerationIsDefault() = runBlocking {
@@ -173,7 +256,7 @@ class EnginePipelineConcurrencyTest {
         }
         kotlinx.coroutines.yield()
 
-        EnginePipeline.send(EngineAction.DeleteCandidate(index = 0, gen = 1L))
+        EnginePipeline.send(EngineAction.DeleteCandidate(CandidateIdentity(sid, 1L, 0), gen = 1L))
         delay(100)
         job.cancel()
 

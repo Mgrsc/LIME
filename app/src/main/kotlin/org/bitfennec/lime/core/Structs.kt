@@ -12,6 +12,16 @@ data class SchemaItem(
 data class CandidateListItem(
     var comment: String,
     var text: String,
+    val identity: CandidateIdentity? = null,
+)
+
+enum class CandidateKind { RIME, PREDICTION }
+
+data class CandidateIdentity(
+    val sessionId: Long,
+    val revision: Long,
+    val index: Int,
+    val kind: CandidateKind = CandidateKind.RIME,
 )
 
 @Keep
@@ -60,4 +70,5 @@ data class RimeSnapshot(
     val commitText: String? = null,
     val page: RimeCandidatePage = RimeCandidatePage(),
     val t9Metadata: RimeT9Metadata? = null,
+    val candidateRevision: Long = 0L,
 )

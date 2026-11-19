@@ -48,7 +48,7 @@ class RimePhraseConsolidationInstrumentationTest {
         val kongJianIndex = snap.page.candidates.indexOfFirst { it.text == "空间" }
         assertTrue("Candidate '空间' should appear for 56645426 (got $kongJianCandidates)", kongJianIndex >= 0)
 
-        snap = Rime.selectCandidateOnPageSnapshot(snap.page.pageNo, snap.page.pageNo, kongJianIndex)
+        snap = Rime.selectCandidateOnPageSnapshot(snap.page.pageNo, snap.page.pageNo, kongJianIndex, explicitSelection = true, expectedRevision = snap.candidateRevision)
         assertNotNull(snap)
         assertTrue("CommitText should contain '空间'", snap!!.commitText?.contains("空间") == true)
 
@@ -62,7 +62,7 @@ class RimePhraseConsolidationInstrumentationTest {
         val jiJinIndex = snap.page.candidates.indexOfFirst { it.text == "基金" }
         assertTrue("Candidate '基金' should appear for 54546 (got $jiJinCandidates)", jiJinIndex >= 0)
 
-        snap = Rime.selectCandidateOnPageSnapshot(snap.page.pageNo, snap.page.pageNo, jiJinIndex)
+        snap = Rime.selectCandidateOnPageSnapshot(snap.page.pageNo, snap.page.pageNo, jiJinIndex, explicitSelection = true, expectedRevision = snap.candidateRevision)
         assertNotNull(snap)
         assertTrue("CommitText should contain '基金'", snap!!.commitText?.contains("基金") == true)
 
@@ -144,7 +144,7 @@ class RimePhraseConsolidationInstrumentationTest {
         if (initialSnap != null) {
             val idx = initialSnap.page.candidates.indexOfFirst { it.text == "嗯呒" }
             if (idx >= 0) {
-                Rime.deleteCandidateOnPageSnapshot(initialSnap.page.pageNo, initialSnap.page.pageNo, idx)
+                Rime.deleteCandidateOnPageSnapshot(initialSnap.page.pageNo, initialSnap.page.pageNo, idx, initialSnap.candidateRevision)
             }
         }
         Rime.clearCompositionSnapshot()

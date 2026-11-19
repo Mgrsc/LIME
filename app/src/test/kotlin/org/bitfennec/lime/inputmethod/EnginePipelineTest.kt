@@ -3,6 +3,8 @@ package org.bitfennec.lime.inputmethod
 import kotlinx.coroutines.runBlocking
 import org.bitfennec.lime.application.CustomConstant
 import org.bitfennec.lime.core.CandidateListItem
+import org.bitfennec.lime.core.CandidateIdentity
+import org.bitfennec.lime.core.CandidateKind
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
@@ -10,6 +12,58 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class EnginePipelineTest {
+
+    @Test
+    fun testCandidateIdentityRejectsSamePositionAfterInputChanges() {
+        val oldTarget = CandidateIdentity(7L, 10L, 0)
+        val currentTarget = CandidateIdentity(7L, 11L, 0)
+        val state = EngineState(
+            candidates = listOf(CandidateListItem("", "candidate", currentTarget)),
+            candidateRevision = 11L,
+            sessionId = 7L,
+        )
+
+        assertFalse(state.acceptsCandidate(oldTarget))
+        assertTrue(state.acceptsCandidate(currentTarget))
+        assertFalse(state.acceptsCandidate(currentTarget.copy(sessionId = 8L)))
+        assertFalse(state.acceptsCandidate(currentTarget.copy(index = 1)))
+        assertFalse(state.copy(engineReady = false).acceptsCandidate(currentTarget))
+    }
+
+    @Test
+    fun testExpandedPagesRetainExistingCandidateIdentity() {
+        val first = CandidateIdentity(7L, 10L, 0)
+        val second = CandidateIdentity(7L, 10L, 1)
+        val state = EngineState(
+            candidates = listOf(CandidateListItem("", "first", first)),
+            candidateRevision = 10L,
+            sessionId = 7L,
+        )
+        val expanded = state.copy(
+            candidates = state.candidates + CandidateListItem("", "second", second),
+            candidatePageNo = 1,
+        )
+
+        assertTrue(expanded.acceptsCandidate(first))
+        assertTrue(expanded.acceptsCandidate(second))
+        assertFalse(expanded.copy(candidateRevision = 11L).acceptsCandidate(first))
+    }
+
+    @Test
+    fun testPredictionDeletionInvalidatesRemainingCandidatePositions() {
+        val target = CandidateIdentity(7L, 1L, 1, CandidateKind.PREDICTION)
+        val replacement = CandidateIdentity(7L, 2L, 0, CandidateKind.PREDICTION)
+        val state = EngineState(
+            candidates = listOf(CandidateListItem("", "prediction", replacement)),
+            candidateRevision = 2L,
+            sessionId = 7L,
+            isAssociate = true,
+        )
+
+        assertFalse(state.acceptsCandidate(target))
+        assertTrue(state.acceptsCandidate(replacement))
+        assertFalse(state.acceptsCandidate(replacement.copy(kind = CandidateKind.RIME)))
+    }
 
     @Test
     fun testEngineStateEqualityAndImmutability() {

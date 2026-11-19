@@ -1,5 +1,6 @@
 package org.bitfennec.lime.candidate
 
+import org.bitfennec.lime.core.CandidateListItem
 import android.annotation.SuppressLint
 import android.content.Context
 import android.view.KeyEvent
@@ -164,7 +165,7 @@ class CandidateView(context: Context, private val service: ImeService) : Relativ
                 true
             }
             keyCode != KeyEvent.KEYCODE_0 && label.isDigitsOnly() && label.isNotEmpty() -> {
-                chooseAndUpdate(label.toInt() - 1)
+                chooseAndUpdate(label.toInt() - 1, explicitSelection = true)
                 true
             }
             keyCode in KeyEvent.KEYCODE_A..KeyEvent.KEYCODE_Z ||
@@ -188,8 +189,12 @@ class CandidateView(context: Context, private val service: ImeService) : Relativ
         DecodingInfo.reset(invalidateSession = false, resetEngine = resetEngine)
     }
 
-    fun chooseAndUpdate(candId: Int = mSkbCandidatesBarView.getActiveCandNo()) {
-        val selection = DecodingInfo.chooseDecodingCandidate(candId)
+    fun chooseAndUpdate(
+        candId: Int = mSkbCandidatesBarView.getActiveCandNo(),
+        candidate: CandidateListItem? = DecodingInfo.getCandidate(candId),
+        explicitSelection: Boolean = false,
+    ) {
+        val selection = DecodingInfo.chooseDecodingCandidate(candId, candidate, explicitSelection)
         if (selection.text.isNotEmpty()) {
             val modalSessionId = selection.modalSessionId
             if (modalSessionId != null) {
@@ -201,17 +206,17 @@ class CandidateView(context: Context, private val service: ImeService) : Relativ
     }
 
     inner class ChoiceNotifier internal constructor() : CandidateViewListener {
-        override fun onClickChoice(choiceId: Int) {
+        override fun onClickChoice(choiceId: Int, candidate: CandidateListItem) {
             DevicesUtils.tryPlayKeyDown()
             DevicesUtils.tryVibrate(KeyboardManager.instance.currentContainer)
-            chooseAndUpdate(choiceId)
+            chooseAndUpdate(choiceId, candidate, explicitSelection = true)
         }
 
-        override fun onLongClickChoice(choiceId: Int) {
-            if (DecodingInfo.canRemoveUserPrediction(choiceId)) {
-                DecodingInfo.removeUserPrediction(choiceId)
+        override fun onLongClickChoice(choiceId: Int, candidate: CandidateListItem) {
+            if (DecodingInfo.canRemoveUserPrediction(candidate)) {
+                DecodingInfo.removeUserPrediction(candidate)
             } else {
-                DecodingInfo.deleteCandidate(choiceId)
+                DecodingInfo.deleteCandidate(candidate)
             }
         }
 

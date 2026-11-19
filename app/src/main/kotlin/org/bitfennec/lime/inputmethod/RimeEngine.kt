@@ -1,6 +1,7 @@
 package org.bitfennec.lime.inputmethod
 
 import android.view.KeyEvent
+import androidx.annotation.VisibleForTesting
 import org.bitfennec.lime.application.CustomConstant
 import org.bitfennec.lime.utils.KeyEventUtils
 import org.bitfennec.lime.core.CandidateListItem
@@ -20,6 +21,8 @@ object RimeEngine {
     var compositionPresentation = CompositionPresentation.Empty
         private set
     private var presentationRevision = 0L
+    var candidateRevision = 0L
+        private set
     val showComposition: String get() = compositionPresentation.text
     val compositionCursorPos: Int get() = rawCompositionCursorPos
     private var candidateReferences: List<CandidateReference> = emptyList()
@@ -37,6 +40,8 @@ object RimeEngine {
     private var kpLeftKeyCode = 0
     private var kpRightKeyCode = 0
     private var englishStartedWithCapsLock = false
+    @set:VisibleForTesting(otherwise = VisibleForTesting.NONE)
+    internal var refreshSnapshotProvider: () -> RimeSnapshot? = { Rime.snapshotState() }
 
     fun ensureStarted(): Boolean {
         return try {
@@ -57,9 +62,13 @@ object RimeEngine {
         return Rime.selectRimeSchema(mod).also { selected ->
             if (selected) {
                 currentSchema = mod
-                Rime.snapshotState()?.let(::updateCandidatesOrCommitText)
             }
         }
+    }
+
+    fun refreshState(): String? {
+        val snapshot = refreshSnapshotProvider() ?: return null
+        return updateCandidatesOrCommitText(snapshot).orEmpty()
     }
 
     fun getCurrentRimeSchema(): String {
@@ -100,8 +109,12 @@ object RimeEngine {
         return processDelAction()?.let(::updateCandidatesOrCommitText)
     }
 
-    fun selectCandidate(index: Int, expectedPageNo: Int? = null): String? {
-        if (expectedPageNo != null && expectedPageNo != currentCandidatePageNo) return null
+    fun selectCandidate(
+        index: Int,
+        explicitSelection: Boolean,
+        expectedRevision: Long,
+    ): String? {
+        if (expectedRevision != candidateRevision) return null
         val reference = expandedCandidateReferences.getOrNull(index)
             ?: candidateReferences.getOrNull(index)
             ?: return null
@@ -113,14 +126,17 @@ object RimeEngine {
             return literal
         }
         val snapshot = Rime.selectCandidateOnPageSnapshot(
-            expectedPageNo ?: currentCandidatePageNo,
+            currentCandidatePageNo,
             reference.pageNo,
             candidateIndex,
+            explicitSelection,
+            expectedRevision,
         ) ?: return null
-        return updateCandidatesOrCommitText(snapshot)
+        return updateCandidatesOrCommitText(snapshot).orEmpty()
     }
 
-    fun deleteCandidate(index: Int): String? {
+    fun deleteCandidate(index: Int, expectedRevision: Long): String? {
+        if (expectedRevision != candidateRevision) return null
         val reference = expandedCandidateReferences.getOrNull(index)
             ?: candidateReferences.getOrNull(index)
             ?: return null
@@ -130,20 +146,22 @@ object RimeEngine {
                 currentCandidatePageNo,
                 reference.pageNo,
                 candidateIndex,
+                expectedRevision,
             )
         } catch (_: UnsatisfiedLinkError) {
             null
         } ?: return null
-        return updateCandidatesOrCommitText(snapshot)
+        return updateCandidatesOrCommitText(snapshot).orEmpty()
     }
 
-    fun getCandidateDeletableType(index: Int): Int {
+    fun getCandidateDeletableType(index: Int, expectedRevision: Long): Int {
+        if (expectedRevision != candidateRevision) return Rime.DELETABLE_NONE
         val reference = expandedCandidateReferences.getOrNull(index)
             ?: candidateReferences.getOrNull(index)
             ?: return Rime.DELETABLE_NONE
         val candidateIndex = reference.index ?: return Rime.DELETABLE_NONE
         return try {
-            Rime.getCandidateDeletableType(reference.pageNo, candidateIndex)
+            Rime.getCandidateDeletableType(reference.pageNo, candidateIndex, expectedRevision)
         } catch (_: UnsatisfiedLinkError) {
             Rime.DELETABLE_NONE
         }
@@ -155,12 +173,8 @@ object RimeEngine {
         updateCandidatesOrCommitText(snapshot, resetExpandedCandidates = false)
         expandedCandidates = expandedCandidates + showCandidates
         expandedCandidateReferences = expandedCandidateReferences + candidateReferences
-        if (isEnglishSchema()) {
-            // Must stay synchronized with expandedCandidates so republished state preserves the literal at slot 0
-            // and does not regress to the latest page's candidates.
-            showCandidates = expandedCandidates
-            candidateReferences = expandedCandidateReferences
-        }
+        showCandidates = expandedCandidates
+        candidateReferences = expandedCandidateReferences
         return expandedCandidates
     }
 
@@ -310,6 +324,7 @@ object RimeEngine {
         resetExpandedCandidates: Boolean = true,
         cursorOnly: Boolean = false,
     ): String? {
+        candidateRevision = snapshot.candidateRevision
         val committedText = snapshot.commitText?.let(::consumeCommit)
         val rawCandidates = snapshot.page.candidates.map { CandidateListItem(it.comment, it.text) }
         val compositionText = snapshot.composition.preedit.orEmpty()

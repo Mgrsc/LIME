@@ -10,6 +10,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--librime-build", type=Path, required=True)
     parser.add_argument("--kotlin-stdlib", type=Path, required=True)
+    parser.add_argument("--actor-classpath")
     args = parser.parse_args()
     root = Path(__file__).resolve().parents[1]
     build = args.librime_build.resolve()
@@ -42,10 +43,16 @@ def main():
             "-L" + str(java / "lib/server"), "-Wl,-rpath," + str(java / "lib/server"),
             "-ljvm", "-lglog", "-o", str(binary),
         ], check=True)
-        subprocess.run([
+        classpath = str(classes) + ":" + str(args.kotlin_stdlib.resolve())
+        if args.actor_classpath:
+            classpath += ":" + args.actor_classpath
+        command = [
             str(binary), str(root / "app/src/main/assets/rime"), str(directory / "user"),
-            str(classes) + ":" + str(args.kotlin_stdlib.resolve()),
-        ], check=True)
+            classpath,
+        ]
+        if args.actor_classpath:
+            command.append("actor")
+        subprocess.run(command, check=True)
 
 
 if __name__ == "__main__":

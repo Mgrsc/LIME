@@ -316,13 +316,13 @@ class CandidatesBar(context: Context?, attrs: AttributeSet?) : RelativeLayout(co
                     CustomLinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false)
             }
             mCandidatesAdapter = CandidatesBarAdapter(context)
-            mCandidatesAdapter.setOnItemClickListener { _: RecyclerView.Adapter<*>?, _: View?, position: Int ->
+            mCandidatesAdapter.setOnItemClickListener { _, position, candidate ->
                 if (::mCvListener.isInitialized) {
-                    mCvListener.onClickChoice(position)
+                    mCvListener.onClickChoice(position, candidate)
                 }
             }
-            mCandidatesAdapter.setOnItemLongClickListener { _: RecyclerView.Adapter<*>?, view: View?, position: Int ->
-                if (view != null) showDeleteCandidateMenu(view, position)
+            mCandidatesAdapter.setOnItemLongClickListener { view, position, candidate ->
+                showDeleteCandidateMenu(view, position, candidate)
             }
             mRVCandidates.setAdapter(mCandidatesAdapter)
             mRVCandidates.addOnScrollListener(object : OnScrollListener() {
@@ -430,16 +430,16 @@ class CandidatesBar(context: Context?, attrs: AttributeSet?) : RelativeLayout(co
         mPreeditView.updateTheme(activeTheme)
     }
 
-    private fun showDeleteCandidateMenu(anchor: View, position: Int) {
+    private fun showDeleteCandidateMenu(anchor: View, position: Int, candidate: CandidateListItem) {
         PredictionDeletePopup.showIfDeletable(
             anchor = anchor,
-            position = position,
+            candidate = candidate,
             activePopupRef = { predictionDeletePopup },
             onPopupCreated = { predictionDeletePopup = it },
             onDelete = {
                 predictionDeletePopup = null
                 if (::mCvListener.isInitialized) {
-                    mCvListener.onLongClickChoice(position)
+                    mCvListener.onLongClickChoice(position, candidate)
                 }
             },
         )
@@ -833,9 +833,6 @@ class CandidatesBar(context: Context?, attrs: AttributeSet?) : RelativeLayout(co
         }
     }
 
-    /**
-     * Obtains highlighted candidate.
-     */
     fun getActiveCandNo():Int {
         return if(activeCandNo > 0) activeCandNo -1 else 0
     }

@@ -36,8 +36,8 @@ class CandidatesBarAdapter(context: Context?) :
     private val selectionPayload = Any()
     private val inflater: LayoutInflater = LayoutInflater.from(context)
     private val candidateText = CandidateText(inflater.context.resources)
-    private var mOnItemClickListener: OnRecyclerItemClickListener? = null
-    private var mOnItemLongClickListener: OnRecyclerItemClickListener? = null
+    private var mOnItemClickListener: ((View, Int, CandidateListItem) -> Unit)? = null
+    private var mOnItemLongClickListener: ((View, Int, CandidateListItem) -> Unit)? = null
     private var mActiveCandNo: Int = 0
     private var mCandidatesList: List<CandidateListItem> = emptyList()
     var previewTheme: Theme? = null
@@ -50,11 +50,11 @@ class CandidatesBarAdapter(context: Context?) :
             if (itemCount > 0) notifyItemRangeInserted(0, itemCount)
         }
 
-    fun setOnItemClickListener(onItemClickListener: OnRecyclerItemClickListener?) {
+    fun setOnItemClickListener(onItemClickListener: ((View, Int, CandidateListItem) -> Unit)?) {
         mOnItemClickListener = onItemClickListener
     }
 
-    fun setOnItemLongClickListener(listener: OnRecyclerItemClickListener?) {
+    fun setOnItemLongClickListener(listener: ((View, Int, CandidateListItem) -> Unit)?) {
         mOnItemLongClickListener = listener
     }
 
@@ -64,11 +64,11 @@ class CandidatesBarAdapter(context: Context?) :
         view.setOnClickListener { v ->
             val pos = holder.bindingAdapterPosition
             if (pos != RecyclerView.NO_POSITION) {
-                val item = (previewCandidates ?: mCandidatesList).getOrNull(pos)
+                val item = holder.boundCandidate
                 if (InputModeSwitcher.isNumberSkb && item?.comment == COMMENT_ERROR) {
                     return@setOnClickListener
                 }
-                mOnItemClickListener?.onItemClick(this@CandidatesBarAdapter, v, pos)
+                item?.let { mOnItemClickListener?.invoke(v, holder.boundPosition, it) }
             }
         }
         view.setOnLongClickListener { v ->
@@ -76,11 +76,11 @@ class CandidatesBarAdapter(context: Context?) :
             if (pos == RecyclerView.NO_POSITION || mOnItemLongClickListener == null) {
                 false
             } else {
-                val item = (previewCandidates ?: mCandidatesList).getOrNull(pos)
+                val item = holder.boundCandidate
                 if (InputModeSwitcher.isNumberSkb && item?.comment == COMMENT_ERROR) {
                     return@setOnLongClickListener false
                 }
-                mOnItemLongClickListener?.onItemClick(this@CandidatesBarAdapter, v, pos)
+                item?.let { mOnItemLongClickListener?.invoke(v, holder.boundPosition, it) }
                 true
             }
         }
@@ -91,6 +91,8 @@ class CandidatesBarAdapter(context: Context?) :
         val list = previewCandidates ?: mCandidatesList
         if (list.isEmpty() || position >= list.size) return
         val cand = list[position]
+        holder.boundCandidate = cand
+        holder.boundPosition = position
         val candidateTextSize = ImeEnvironment.candidateTextSizeSp
         bindSelection(holder, position)
 
@@ -235,6 +237,8 @@ class CandidatesBarAdapter(context: Context?) :
     }
 
     inner class SymbolHolder(private val itemRoot: View) : RecyclerView.ViewHolder(itemRoot) {
+        var boundCandidate: CandidateListItem? = null
+        var boundPosition: Int = RecyclerView.NO_POSITION
         val pinyinView: TextView = itemRoot.findViewById(R.id.tv_candidate_bar_pinyin)
         val textView: EmojiTextView = itemRoot.findViewById(R.id.gv_candidates_bar_item)
         private val baseBg = GradientDrawable().apply {
