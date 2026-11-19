@@ -54,6 +54,8 @@ struct DictEntry {
   double quality_len = 0.0;
   // Query-path metadata only; never serialized to the table or user database.
   bool is_fuzzy = false;
+  bool has_abbreviated_selection = false;
+  mutable bool is_abbreviated = false;
   int commit_count = 0;
   int remaining_code_length = 0;
   int matching_code_size = 0;

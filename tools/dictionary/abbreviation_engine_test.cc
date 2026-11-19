@@ -1,16 +1,20 @@
 #include <algorithm>
 #include <filesystem>
 #include <iostream>
+#include <tuple>
 #include <rime_api.h>
 #include <rime/context.h>
 #include <rime/config.h>
 #include <rime/algo/syllabifier.h>
 #include <rime/candidate.h>
 #include <rime/dict/dictionary.h>
+#include <rime/dict/user_dictionary.h>
 #include <rime/engine.h>
+#include <rime/gear/lime_learning_selection.h>
 #include <rime/gear/lime_user_dict_writes.h>
 #include <rime/gear/script_translator.h>
 #include <rime/gear/sentence_search.h>
+#include <rime/gear/translator_commons.h>
 #include <rime/schema.h>
 #include <rime/ticket.h>
 #include <rime/menu.h>
@@ -29,6 +33,112 @@ class BudgetTranslator : public ScriptTranslator {
 void Require(bool condition, const char* message) {
   if (!condition)
     throw std::runtime_error(message);
+}
+
+void TestAbbreviatedSelectionMetadata() {
+  UserDbValue legacy("c=3 d=2 t=7");
+  Require(!legacy.has_abbreviated_selection, "Legacy entry acquired abbreviation scope");
+  legacy.has_abbreviated_selection = true;
+  UserDbValue restored(legacy.Pack());
+  Require(restored.commits == 3 && restored.dee == 2 && restored.tick == 7 &&
+              restored.has_abbreviated_selection,
+          "Abbreviation scope did not survive native serialization");
+  Require(restored.Unpack("c=1 d=0 t=1") && !restored.has_abbreviated_selection,
+          "Missing abbreviation scope retained a previous value");
+
+  auto* component = UserDb::Require("userdb");
+  Require(component != nullptr, "Native user database component is unavailable");
+  an<Db> db(component->Create("abbreviation_scope_test"));
+  UserDictionary dictionary("abbreviation_scope_test", db);
+  Require(dictionary.Load(), "Native user dictionary did not load");
+  DictEntry entry;
+  entry.text = "scope";
+  entry.custom_code = "test ";
+  entry.has_abbreviated_selection = true;
+  const string key = "test \tscope";
+  string value;
+  Require(dictionary.NewTransaction() && dictionary.UpdateEntry(entry, 1),
+          "Scoped learning transaction failed");
+  Require(dictionary.RevertRecentTransaction() && !db->Fetch(key, &value),
+          "Undo retained abbreviation scope");
+  Require(dictionary.UpdateEntry(entry, 1) && db->Fetch(key, &value) &&
+              UserDbValue(value).has_abbreviated_selection,
+          "Scoped selection was not saved");
+  Require(dictionary.UpdateEntry(entry, -1) && db->Fetch(key, &value) &&
+              !UserDbValue(value).has_abbreviated_selection,
+          "Deletion retained abbreviation scope");
+  entry.has_abbreviated_selection = false;
+  Require(dictionary.UpdateEntry(entry, 1) && db->Fetch(key, &value) &&
+              !UserDbValue(value).has_abbreviated_selection,
+          "Full-spelling relearning revived abbreviation scope");
+
+  UserDbImporter importer(db.get());
+  Require(importer.Put(key, "c=4 d=2 t=7 a=1") && db->Fetch(key, &value) &&
+              UserDbValue(value).has_abbreviated_selection,
+          "Native import dropped abbreviation scope");
+  Require(importer.Put(key, "c=-5 d=2 t=7 a=1") && db->Fetch(key, &value) &&
+              !UserDbValue(value).has_abbreviated_selection,
+          "Native import retained deleted abbreviation scope");
+  Require(importer.Put(key, "c=6 d=2 t=7 a=1"), "Native import did not revive entry");
+  UserDbMerger merger(db.get());
+  Require(merger.Put(key, "c=7 d=2 t=7") && db->Fetch(key, &value) &&
+              UserDbValue(value).has_abbreviated_selection,
+          "Native merge dropped abbreviation scope");
+  Require(merger.Put(key, "c=-8 d=2 t=7 a=1") && db->Fetch(key, &value) &&
+              !UserDbValue(value).has_abbreviated_selection,
+          "Native merge retained deleted abbreviation scope");
+}
+
+void TestFilteredUserEntries(bool weight_ordered, size_t remaining) {
+  the<Engine> engine(Engine::Create());
+  auto* schema = new Schema("pinyin");
+  schema->config()->SetBool("translator/weight_ordered", weight_ordered);
+  schema->config()->SetString("translator/user_dict",
+      "filtered_user_" + std::to_string(weight_ordered) + "_" +
+          std::to_string(remaining));
+  engine->ApplySchema(schema);
+  auto* context = engine->context();
+  for (const string option : {"ascii_mode", "emoji", "traditionalization"})
+    context->set_option(option, false);
+  BudgetTranslator translator(engine.get());
+  Syllabary syllabary;
+  Require(translator.dictionary()->primary_table()->GetSyllabary(&syllabary),
+          "Filtered user fixture has no syllabary");
+  map<string, SyllableId> ids;
+  SyllableId id = 0;
+  for (const auto& syllable : syllabary)
+    ids.emplace(syllable, id++);
+  const vector<string> texts = {
+      u8"\u559c\u7231\u4f60", u8"\u559c\u7231\u59ae"};
+  for (size_t index = 0; index < remaining; ++index) {
+    DictEntry entry;
+    entry.text = texts[index];
+    entry.has_abbreviated_selection = true;
+    for (const string syllable : {"xi", "ai", "ni"})
+      entry.code.push_back(ids.at(syllable));
+    Require(translator.user_dict()->UpdateEntry(entry, 5 - index),
+            "Cannot seed abbreviated user entry");
+  }
+  DictEntry full;
+  full.text = u8"\u5148";
+  full.code.push_back(ids.at("xian"));
+  Require(translator.user_dict()->UpdateEntry(full, 100),
+          "Cannot seed full-spelling user entry");
+  context->set_input("xian");
+  Segment segment(0, 4);
+  segment.tags.insert("abc");
+  auto translation = translator.Query("xian", segment);
+  set<string> found;
+  for (size_t index = 0; translation && !translation->exhausted() && index < 1024;
+       ++index, translation->Next()) {
+    auto phrase = As<Phrase>(Candidate::GetGenuineCandidate(translation->Peek()));
+    if (phrase && phrase->entry().commit_count > 0 &&
+        std::find(texts.begin(), texts.begin() + remaining, phrase->text()) !=
+            texts.begin() + remaining)
+      found.insert(phrase->text());
+  }
+  Require(found.size() == remaining,
+          "Filtered abbreviation stream lost a personalized user entry");
 }
 
 void TestDefaultSentenceLimit() {
@@ -87,6 +197,106 @@ void TestConfiguredSentenceLimits(int max_sentences, double cutoff, bool enabled
   }
 }
 
+void TestSystemHomophoneSurvivesLearnedEntry() {
+  the<Engine> engine(Engine::Create());
+  engine->ApplySchema(new Schema("pinyin"));
+  auto* context = engine->context();
+  context->set_option("ascii_mode", false);
+  context->set_option("emoji", false);
+  context->set_option("traditionalization", false);
+  auto learn = [&](const string& input, const string& text) {
+    context->set_input(input);
+    auto menu = context->composition().back().menu;
+    for (size_t index = 0; menu && index < 256; ++index) {
+      auto candidate = menu->GetCandidateAt(index);
+      if (!candidate)
+        break;
+      if (candidate->text() == text) {
+        lime::ScopedExplicitLearningSelection selection(context, true);
+        Require(context->Select(index), "Homophone fixture selection failed");
+        Require(context->input().empty(), "Homophone fixture did not commit");
+        return;
+      }
+    }
+    throw std::runtime_error("Homophone fixture candidate was not found");
+  };
+  learn("rou", u8"\u63c9");
+  learn("jiawode", u8"\u52a0\u6211\u7684");
+  BudgetTranslator translator(engine.get());
+  Require(translator.user_dict()->UpdateTickCount(10000),
+          "Homophone fixture could not advance the user dictionary");
+  context->set_input("jia'wo'de'r");
+  Require(context->GetSelectedCandidate() &&
+              context->GetSelectedCandidate()->text() ==
+                  u8"\u52a0\u6211\u7684\u4eba",
+          "Learned homophone excluded the higher-scoring system entry");
+}
+
+void TestDefaultConfirmationPreservesComponentWeights(int max_word_length) {
+  the<Engine> engine(Engine::Create());
+  auto* schema = new Schema("pinyin");
+  schema->config()->SetInt("translator/max_word_length", max_word_length);
+  engine->ApplySchema(schema);
+  BudgetTranslator translator(engine.get());
+  CommitEntry entry(&translator);
+  vector<an<Phrase>> components;
+  for (const string input : {"nande", "nandao"}) {
+    Segment segment(0, input.size());
+    segment.tags.insert("abc");
+    auto translation = translator.Query(input, segment);
+    Require(translation && !translation->exhausted(),
+            "Component learning fixture has no translation");
+    auto phrase = As<Phrase>(Candidate::GetGenuineCandidate(translation->Peek()));
+    Require(phrase != nullptr, "Component learning fixture has no phrase");
+    components.push_back(phrase);
+    entry.AppendPhrase(phrase);
+  }
+  entry.commit_count = 0;
+  Require(entry.elements.size() > 1 && entry.Length() > 2,
+          "Component learning fixture must exceed the configured length limit");
+  auto* user_dict = translator.user_dict();
+  vector<string> codes;
+  bool has_multi_syllable_component = false;
+  for (const auto* element : entry.elements) {
+    vector<string> syllables;
+    Require(translator.dictionary()->Decode(element->code, &syllables),
+            "Component learning fixture could not decode its component");
+    string code;
+    for (const auto& syllable : syllables)
+      code += syllable + " ";
+    Require(!code.empty(), "Component learning fixture has an empty code");
+    code.pop_back();
+    codes.push_back(std::move(code));
+    has_multi_syllable_component |= element->code.size() > 1;
+    Require(user_dict->UpdateEntry(*element, 1),
+            "Component learning fixture could not seed a preference");
+  }
+  Require(has_multi_syllable_component,
+          "Component learning fixture does not exercise element updates");
+  auto preferences = [&]() {
+    vector<std::tuple<string, int, double>> result;
+    for (const auto& code : codes) {
+      UserDictEntryIterator entries;
+      Require(user_dict->LookupWords(&entries, code, false) > 0,
+              "Component learning fixture lost its seeded preference");
+      for (; !entries.exhausted(); entries.Next()) {
+        auto element = entries.Peek();
+        result.emplace_back(element->text, element->commit_count, element->weight);
+      }
+    }
+    return result;
+  };
+  const auto before = preferences();
+  for (int repeat = 0; repeat < 5; ++repeat)
+    Require(translator.SaveCommitEntry(entry), "Default commit entry was not handled");
+  Require(preferences() == before,
+          "Default confirmation changed existing component preferences");
+  entry.commit_count = 1;
+  Require(translator.SaveCommitEntry(entry), "Explicit commit entry was not handled");
+  Require(preferences() != before,
+          "Explicit sentence selection did not update existing components");
+}
+
 int main(int argc, char** argv) {
   if (argc != 3)
     return 2;
@@ -106,6 +316,10 @@ int main(int argc, char** argv) {
   traits.log_dir = user.c_str();
   api->setup(&traits);
   api->initialize(&traits);
+  for (const bool weight_ordered : {false, true}) {
+    TestFilteredUserEntries(weight_ordered, 1);
+    TestFilteredUserEntries(weight_ordered, 2);
+  }
   TestDefaultSentenceLimit();
   TestConfiguredSentenceLimits(0, 1.0, true);
   TestConfiguredSentenceLimits(1, 1.0, true);
@@ -113,6 +327,8 @@ int main(int argc, char** argv) {
   TestConfiguredSentenceLimits(8, 0.0, true);
   TestConfiguredSentenceLimits(8, 0.1, true);
   TestConfiguredSentenceLimits(3, 1.0, false);
+  TestDefaultConfirmationPreservesComponentWeights(0);
+  TestDefaultConfirmationPreservesComponentWeights(2);
   {
     the<Engine> engine(Engine::Create());
     auto* schema = new Schema("pinyin");
@@ -252,6 +468,8 @@ int main(int argc, char** argv) {
     }
     Require(found_target, "Long abbreviation target was pruned from the menu");
   }
+  TestSystemHomophoneSurvivesLearnedEntry();
+  TestAbbreviatedSelectionMetadata();
   api->finalize();
   std::cout << "PASS native composition budget and exhaustion scenarios\n";
 }

@@ -1,16 +1,20 @@
 #include <rime_api.h>
 #include <rime/candidate.h>
 #include <rime/context.h>
+#include <rime/gear/lime_learning_selection.h>
 #include <rime/gear/lime_user_dict_writes.h>
+#include <rime/gear/translator_commons.h>
 #include <rime/key_event.h>
 #include <rime/menu.h>
 #include <rime/service.h>
 #include <filesystem>
+#include <iomanip>
 #include <iostream>
 #include <sstream>
 #include <string>
 
 int main(int argc, char** argv) {
+  std::cout << std::setprecision(17);
   if (argc != 3 && argc != 4) return 2;
   const bool persistent = argc == 4 && std::string(argv[3]) == "persistent";
   if (argc == 4 && !persistent) return 2;
@@ -56,13 +60,18 @@ int main(int argc, char** argv) {
                 << '\t' << context.menu.page_no
                 << '\t' << context.menu.highlighted_candidate_index;
       auto internal = rime::Service::instance().GetSession(session);
+      if (!internal->context()->get_property(lime::kExplicitLearningSelection).empty())
+        return false;
       if (internal->context()->HasMenu()) {
         auto menu = internal->context()->composition().back().menu;
         for (int index = 0; index < context.menu.num_candidates; ++index) {
           auto candidate = menu->GetCandidateAt(context.menu.page_no * context.menu.page_size + index);
+          auto phrase = rime::As<rime::Phrase>(rime::Candidate::GetGenuineCandidate(candidate));
           std::cout << '\t' << candidate->text() << '|' << candidate->comment()
                     << '|' << candidate->type() << '|' << candidate->start()
-                    << '|' << candidate->end();
+                    << '|' << candidate->end() << '|'
+                    << (phrase ? phrase->entry().commit_count : 0) << '|'
+                    << (phrase ? phrase->entry().weight : 0);
         }
       }
       const auto mapped = internal->context()->composition().GetPreedit(
@@ -92,7 +101,12 @@ int main(int argc, char** argv) {
         api->clear_composition(session);
       } else if (operation == "writes=off" || operation == "writes=on") {
         lime::set_user_dict_writes_enabled(operation == "writes=on");
-      } else if (operation.rfind("pick=", 0) == 0) {
+      } else if (operation == "accept") {
+        if (!api->select_candidate(session, 0)) return 6;
+      } else if (operation.rfind("caret=", 0) == 0) {
+        api->set_caret_pos(session, std::stoul(operation.substr(6)));
+      } else if (operation.rfind("pick=", 0) == 0 ||
+                 operation.rfind("drop=", 0) == 0) {
         auto internal = rime::Service::instance().GetSession(session);
         if (!internal->context()->HasMenu()) return 5;
         auto menu = internal->context()->composition().back().menu;
@@ -102,7 +116,12 @@ int main(int argc, char** argv) {
           auto candidate = menu->GetCandidateAt(candidate_index);
           if (!candidate) break;
           if (candidate->text() == operation.substr(5)) {
-            found = api->select_candidate(session, candidate_index);
+            if (operation.rfind("drop=", 0) == 0) {
+              found = api->delete_candidate(session, candidate_index);
+            } else {
+              lime::ScopedExplicitLearningSelection selection(internal->context(), true);
+              found = api->select_candidate(session, candidate_index);
+            }
             break;
           }
         }

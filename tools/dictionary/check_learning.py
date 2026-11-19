@@ -24,12 +24,20 @@ def parse_rows(output):
                        if item.startswith("commit=")), "")
         rows.append({"input": fields[1], "phase": fields[2],
                      "candidates": candidates, "types": [item[2] for item in entries],
+                     "commit_counts": [int(item[5]) for item in entries],
+                     "weights": [float(item[6]) for item in entries],
                      "commit": commit})
     return rows
 
 
 def typed(rows, input_text):
     return [row for row in rows if row["input"] == input_text and row["phase"] == "typed"]
+
+
+def user_preferences(row):
+    return {text: (count, weight) for text, kind, count, weight in zip(
+        row["candidates"], row["types"], row["commit_counts"], row["weights"])
+        if kind == "user_phrase"}
 
 
 def require_first(rows, input_text, expected):
@@ -143,8 +151,23 @@ def main():
         assert not [row for row in rows if row["commit"]], rows
         require_first(rows[-1:], "xinxing", "\u65b0\u578b")
 
+        rows = run("default_suffix_does_not_create_phrase", [learn("xin", LEARNED_CHARACTER),
+            query("wgsx", "pick=" + SLEEP_PREFIX + ",space"), query("wgsx")])
+        require_no_user_phrase(rows[-1:], "wgsx", WRONG_PHRASE)
+
+        rows = run("default_prefix_does_not_create_phrase", [
+            query("xinxing", "caret=3,accept,pick=\u9192"), query("xinxing")])
+        require_no_user_phrase(rows[-1:], "xinxing", "\u65b0\u9192")
+
+        rows = run("reopened_selection_does_not_create_phrase", [
+            query("xinxing", "pick=" + LEARNED_CHARACTER +
+                  ",BackSpace,caret=3,accept,pick=\u9192"), query("xinxing")])
+        require_no_user_phrase(rows[-1:], "xinxing", "\u65b0\u9192")
+        require_no_user_phrase(rows[-1:], "xinxing", CUSTOM_PHRASE)
+
         rows = run("retained_typo_and_correction", [learn("xin", LEARNED_CHARACTER),
-            query("wgsx", "pick=" + SLEEP_PREFIX + ",space"), query("wgsx", "pick=" + WAKE_PHRASE),
+            query("wgsx", "pick=" + SLEEP_PREFIX + ",pick=" + LEARNED_CHARACTER),
+            query("wgsx", "pick=" + WAKE_PHRASE),
             query("wgsx")])
         require_first(rows[-1:], "wgsx", WAKE_PHRASE)
         assert WRONG_PHRASE in rows[-1]["candidates"], rows[-1]
@@ -152,6 +175,127 @@ def main():
         rows = run("schema_switch", [learn("wgs", SLEEP_PREFIX),
             query("hello", "clear", "english"), learn("xin", LEARNED_CHARACTER), query("wgsx")])
         require_first(rows, "wgsx", WAKE_PHRASE)
+
+        wrong_gender = "\u7537\u7684\u96be\u9053"
+        correct_gender = "\u7537\u7684\u5973\u7684"
+        for confirmation in ("space", "accept", "exclam"):
+            rows = run("default_confirmation_" + confirmation, [
+                *[query("nandenandao", confirmation) for _ in range(5)], query("ndnd")])
+            require_no_user_phrase(rows[-1:], "ndnd", wrong_gender)
+            require_first(rows[-1:], "ndnd", correct_gender)
+
+            user = work / ("corrected_preference_" + confirmation)
+            rows = run("corrected_preference_" + confirmation, [
+                learn("nandenandao", wrong_gender), learn("ndnd", correct_gender),
+                query("ndnd", "clear"),
+                *[query("nandenandao", confirmation) for _ in range(5)],
+                query("ndnd", "clear")], user)
+            before, after = typed(rows, "ndnd")[-2:]
+            require_first([before, after], "ndnd", correct_gender)
+            for row in (before, after):
+                assert all(text in row["candidates"] for text in
+                           (wrong_gender, correct_gender)), row
+            assert user_preferences(before) == user_preferences(after), (before, after)
+            rows = run("corrected_preference_restart_" + confirmation,
+                       [query("ndnd", "clear")], user)
+            require_first(rows, "ndnd", correct_gender)
+            restarted = typed(rows, "ndnd")[-1]
+            assert user_preferences(after) == user_preferences(restarted), (after, restarted)
+
+        user = work / "explicit_first"
+        for short_input, full_input, phrase in (
+            ("zdjd", "zhendejiade", "\u771f\u7684\u5047\u7684"),
+            ("ndnd", "nidenaodai", "\u4f60\u7684\u8111\u888b"),
+            ("ggsx", "ganggangshangxian", "\u521a\u521a\u4e0a\u7ebf"),
+            ("zdjd", "zhudejiudian", "\u4f4f\u7684\u9152\u5e97"),
+        ):
+            scope_user = work / ("abbreviated_" + full_input)
+            rows = run("abbreviated_selection_" + full_input, [
+                learn(short_input, phrase), query(short_input, "clear"),
+                query(full_input, "clear")], scope_user)
+            require_first(typed(rows, short_input)[-1:], short_input, phrase)
+            require_first(typed(rows, full_input), full_input, phrase)
+            rows = run("abbreviated_restart_" + full_input,
+                       [query(short_input, "clear")], scope_user)
+            require_first(rows, short_input, phrase)
+
+        rows = run("abbreviated_correction_overrides_full_spelling_history", [
+            *[learn("zhendejuede", "\u771f\u7684\u89c9\u5f97") for _ in range(10)],
+            learn("zdjd", "\u771f\u7684\u5047\u7684"), query("zdjd", "clear")])
+        require_first(typed(rows, "zdjd")[-1:], "zdjd", "\u771f\u7684\u5047\u7684")
+
+        short_phrase = "\u4f60\u7684\u8111\u888b"
+        rows = run("abbreviated_scope_delete_and_relearn", [
+            learn("ndnd", short_phrase), query("ndnd", "clear"),
+            query("nidenaodai", "drop=" + short_phrase + ",clear"),
+            learn("nidenaodai", short_phrase), query("ndnd", "clear"),
+            learn("ndnd", short_phrase), query("ndnd", "clear")])
+        scoped_queries = typed(rows, "ndnd")
+        require_first(scoped_queries[1:2], "ndnd", short_phrase)
+        require_first(scoped_queries[2:3], "ndnd", correct_gender)
+        require_first(scoped_queries[-1:], "ndnd", short_phrase)
+
+        rows = run("abbreviated_scope_undo", [learn("ndnd", short_phrase, ",BackSpace"),
+            query("ndnd", "clear")])
+        require_first(typed(rows, "ndnd")[-1:], "ndnd", correct_gender)
+        rows = run("abbreviated_scope_writes_disabled", [
+            query("ndnd", "writes=off,pick=" + short_phrase), query("ndnd", "clear")])
+        require_first(typed(rows, "ndnd")[-1:], "ndnd", correct_gender)
+
+        home_phrase = "\u6211\u521a\u56de\u5bb6"
+        rows = run("mixed_spelling_keeps_full_spelling_correction", [
+            learn("woganghuijia", home_phrase), query("woganghj", "clear")])
+        require_first(typed(rows, "woganghj"), "woganghj", home_phrase)
+        mixed_phrase = "\u5c31\u4e0d\u548c\u6211\u73a9\u4e86"
+        rows = run("mixed_spelling_segmented_correction", [
+            query("jiubuhewowl", "pick=\u5c31\u4e0d,pick=\u548c,pick=\u6211\u73a9\u4e86"),
+            query("jiubuhewowl", "clear")])
+        require_first(typed(rows, "jiubuhewowl")[-1:], "jiubuhewowl", mixed_phrase)
+
+        rows = run("explicit_first_candidate", [learn("nandenandao", wrong_gender),
+            query("nandenandao", "clear"), query("ndnd")], user)
+        require_first(typed(rows, "nandenandao")[-1:], "nandenandao", wrong_gender)
+        require_first(rows[-1:], "ndnd", correct_gender)
+        assert wrong_gender in rows[-1]["candidates"], rows[-1]
+        rows = run("explicit_first_restart", [query("ndnd")], user)
+        require_first(rows, "ndnd", correct_gender)
+
+        rows = run("default_confirmations_keep_explicit_count", [
+            learn("rou", "\u63c9"), *[query("rou", "accept") for _ in range(20)],
+            query("rou")])
+        last = rows[-1]
+        require_first(rows[-1:], "rou", "\u63c9")
+        assert last["commit_counts"][0] == 1, last
+
+        rows = run("default_components_do_not_create_preferences", [
+            query("jiawodertaiduole", "accept"), query("jiawoder")])
+        assert all(kind != "user_phrase" for row in typed(rows, "jiawoder")
+                   for kind in row["types"]), rows
+
+        rows = run("deleted_preference_stays_deleted_on_default_confirmation", [
+            learn("nandenandao", wrong_gender),
+            query("nandenandao", "drop=" + wrong_gender + ",clear"),
+            query("nandenandao", "accept"), query("ndnd")])
+        require_no_user_phrase(rows[-1:], "ndnd", wrong_gender)
+        require_first(rows[-1:], "ndnd", "\u7537\u7684\u5973\u7684")
+
+        rows = run("deleted_preference_can_be_relearned", [
+            learn("nandenandao", wrong_gender),
+            query("nandenandao", "drop=" + wrong_gender + ",clear"),
+            learn("nandenandao", wrong_gender), query("nandenandao", "clear"),
+            query("ndnd")])
+        require_first(typed(rows, "nandenandao")[-1:], "nandenandao", wrong_gender)
+        require_first(rows[-1:], "ndnd", correct_gender)
+
+        for schema, input_text, phrase in (("double_pinyin_flypy", "vsgo", "\u4e2d\u56fd"),
+                                           ("t9_pinyin", "64426", "\u4f60\u597d")):
+            rows = run(schema + "_default_then_explicit", [
+                query(input_text, "accept", schema), query(input_text, "clear", schema),
+                query(input_text, "pick=" + phrase, schema), query(input_text, "none", schema)])
+            require_no_user_phrase(rows[2:3], input_text, phrase)
+            require_first(rows[-1:], input_text, phrase)
+            assert rows[-1]["types"][0] == "user_phrase", rows[-1]
+            assert rows[-1]["commit_counts"][0] == 1, rows[-1]
 
     if args.output:
         args.output.parent.mkdir(parents=True, exist_ok=True)

@@ -454,6 +454,8 @@ bool UserDictionary::UpdateEntry(const DictEntry& entry,
     if (v.tick > tick_) {
       v.tick = tick_;  // fix abnormal timestamp
     }
+  } else if (commits == 0) {
+    return true;
   } else if (!new_entry_prefix.empty()) {
     key.insert(0, new_entry_prefix);
   }
@@ -461,6 +463,8 @@ bool UserDictionary::UpdateEntry(const DictEntry& entry,
     if (v.commits < 0)
       v.commits = -v.commits;  // revive a deleted item
     v.commits += commits;
+    v.has_abbreviated_selection =
+        v.has_abbreviated_selection || entry.has_abbreviated_selection;
     UpdateTickCount(1);
     v.dee = algo::formula_d(commits, (double)tick_, v.dee, (double)v.tick);
   } else if (commits == 0) {
@@ -468,6 +472,7 @@ bool UserDictionary::UpdateEntry(const DictEntry& entry,
     v.dee = algo::formula_d(k, (double)tick_, v.dee, (double)v.tick);
   } else if (commits < 0) {  // mark as deleted
     v.commits = (std::min)(-1, -v.commits);
+    v.has_abbreviated_selection = false;
     v.dee = algo::formula_d(0.0, (double)tick_, v.dee, (double)v.tick);
   }
   v.tick = tick_;
@@ -568,6 +573,7 @@ an<DictEntry> UserDictionary::CreateDictEntry(const string& key,
   e = New<DictEntry>();
   e->text = key.substr(separator_pos + 1);
   e->commit_count = v.commits;
+  e->has_abbreviated_selection = v.has_abbreviated_selection;
   // TODO: argument s not defined...
   double weight = algo::formula_p(0, (double)v.commits / present_tick,
                                   (double)present_tick, v.dee);

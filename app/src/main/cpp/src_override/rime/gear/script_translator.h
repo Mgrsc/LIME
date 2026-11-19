@@ -63,7 +63,8 @@ class ScriptTranslator : public Translator,
   bool enable_word_completion_ = false;
   the<Corrector> corrector_;
   the<Poet> poet_;
-  vector<an<Phrase>> queue_;
+  boost::signals2::scoped_connection selection_connection_;
+  vector<pair<an<Phrase>, bool>> queue_;
   uint64_t search_revision_ = 0;
   an<SentenceSearchBudget> search_budget_;
 };
