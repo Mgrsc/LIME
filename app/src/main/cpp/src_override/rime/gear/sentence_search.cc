@@ -1,5 +1,7 @@
+#include <algorithm>
 #include <cmath>
 #include <queue>
+#include <tuple>
 #include <rime/gear/grammar.h>
 #include <rime/gear/sentence_search.h>
 
@@ -55,6 +57,24 @@ double SentenceScoreToQuality(double score) {
   const double word_base_score =
       Grammar::Evaluate({}, {}, 0.0, false, nullptr);
   return std::exp(score - word_base_score);
+}
+
+bool MergeSentenceEntry(DictEntryList& entries, const an<DictEntry>& entry) {
+  if (!entry || !entry->IsExactMatch())
+    return false;
+  const auto duplicate = std::find_if(
+      entries.begin(), entries.end(), [&](const auto& other) {
+        return entry->text == other->text && entry->code == other->code;
+      });
+  if (duplicate == entries.end()) {
+    entries.push_back(entry);
+    return true;
+  }
+  if (std::make_tuple(!entry->is_fuzzy, entry->weight, entry->quality_len) >
+      std::make_tuple(!(*duplicate)->is_fuzzy, (*duplicate)->weight,
+                      (*duplicate)->quality_len))
+    *duplicate = entry;
+  return false;
 }
 
 void LimitSentenceCandidates(deque<an<Sentence>>& sentences,

@@ -17,6 +17,7 @@ struct SentenceSearchBudget {
 
 double SentenceWordScore(const DictEntry& entry);
 double SentenceScoreToQuality(double score);
+bool MergeSentenceEntry(DictEntryList& entries, const an<DictEntry>& entry);
 
 void LimitSentenceCandidates(deque<an<Sentence>>& sentences,
                              size_t max_sentences, double cutoff_threshold,

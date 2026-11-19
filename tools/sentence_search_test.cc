@@ -30,6 +30,34 @@ struct Expected {
   double score;
 };
 
+void TestSentenceEntryMerge() {
+  DictEntryList choices;
+  auto learned = Entry("learned", {1}, -6.0);
+  learned->commit_count = 9;
+  auto system = Entry("system", {2}, -4.0);
+  Require(MergeSentenceEntry(choices, learned) &&
+              MergeSentenceEntry(choices, system) && choices.size() == 2,
+          "Different source readings did not retain independent entries");
+  auto stronger = Entry("learned", {1}, -3.0);
+  Require(!MergeSentenceEntry(choices, stronger) && choices.size() == 2 &&
+              choices.front() == stronger,
+          "Duplicate graph entries lost the stronger score or consumed capacity");
+  Require(!MergeSentenceEntry(choices, learned) && choices.front() == stronger,
+          "A weaker duplicate replaced the retained entry");
+  auto alternative_reading = Entry("learned", {3}, -5.0);
+  Require(MergeSentenceEntry(choices, alternative_reading) && choices.size() == 3,
+          "Different readings of the same text were incorrectly deduplicated");
+  auto fuzzy = Entry("learned", {1}, 0.0);
+  fuzzy->is_fuzzy = true;
+  Require(!MergeSentenceEntry(choices, fuzzy) && choices.front() == stronger,
+          "A fuzzy duplicate replaced a normal spelling");
+  auto completion = Entry("completion", {1, 2}, 0.0);
+  completion->matching_code_size = 1;
+  Require(!MergeSentenceEntry(choices, completion) &&
+              !MergeSentenceEntry(choices, nullptr) && choices.size() == 3,
+          "Invalid or predictive entries entered the sentence graph");
+}
+
 void Enumerate(const WordGraph& graph, size_t position, size_t end,
                Expected prefix, map<pair<string, Code>, double>& results) {
   if (position == end) {
@@ -340,6 +368,7 @@ void TestRandomGraphs() {
 }
 
 int main() {
+  TestSentenceEntryMerge();
   TestCompleteWordAndSharedPrefix();
   TestDuplicateAndReadingIdentity();
   TestBudgetsAndInvalidEdges();

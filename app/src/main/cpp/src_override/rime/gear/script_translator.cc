@@ -1175,16 +1175,12 @@ void ScriptTranslation::MakeAbbreviationSentences(Dictionary* dict,
         set<Code> readings;
         size_t retained = 0;
         auto retain = [&](const an<DictEntry>& entry) {
-          if (retained >= capacity || !budget_->graph_entries_remaining ||
-              std::any_of(choices.begin(), choices.end(),
-                          [&](const auto& other) {
-                            return entry->text == other->text &&
-                                   entry->code == other->code;
-                          }))
+          if (retained >= capacity || !budget_->graph_entries_remaining)
             return;
-          choices.push_back(entry);
-          --budget_->graph_entries_remaining;
-          ++retained;
+          if (MergeSentenceEntry(choices, entry)) {
+            --budget_->graph_entries_remaining;
+            ++retained;
+          }
         };
         for (const auto& entry : scanned) {
           if (readings.insert(entry->code).second)
@@ -1235,10 +1231,12 @@ void ScriptTranslation::EnrollEntries(
   if (query_result) {
     for (auto& y : *query_result) {
       DictEntryList& homophones = entries_by_end_pos[y.first];
-      while (homophones.size() < translator_->max_homophones() &&
+      int enrolled = 0;
+      while (enrolled < translator_->max_homophones() &&
              !y.second.exhausted()) {
-        homophones.push_back(y.second.Peek());
-        if (!y.second.Next())
+        if (MergeSentenceEntry(homophones, y.second.Peek()))
+          ++enrolled;
+        if (enrolled >= translator_->max_homophones() || !y.second.Next())
           break;
       }
     }
