@@ -11,6 +11,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.9.7] - 2026-11-19
+
+### Added
+- **Budgeted Abbreviation Search & Preedit Cursor Drag**: Added budgeted abbreviation sentence search across user and system dictionaries, T9 locked prefix undo on tail backspace, and horizontal preedit cursor drag with touch-slop alignment.
+- **Explicit Learning & Abbreviation Scope**: Restricted user dictionary learning to explicit candidate selections (and segmented compounds where every segment was explicitly selected), with per-entry abbreviation scope (`a=1`) persisted across native userdb serialization, import, and merge.
+
+### Changed
+- **Candidate Identity & State Synchronization**: Bound candidate items to monotonic session and revision identities across JNI, `RimeEngine`, `EnginePipeline`, `DecodingInfo`, and candidate views/adapters; serialized candidate deletable queries and refreshed authoritative engine state on rejected confirmations.
+
+### Fixed
+- **Preedit Boundary & Cursor Mapping**: Preserved syllable boundaries and UTF-16 cursor projection across full Pinyin, double Pinyin, and T9 preedit edits and paging.
+- **Sentence Graph Deduplication**: Deduplicated sentence graph entries by text and full reading while preserving `max_homophones` capacity across user and system entries.
+- **Settings Home Navigation**: Guarded settings home entry clicks against stale views, non-resumed lifecycles, and saved fragment state.
+
+---
+
 ## [0.9.6] - 2026-11-07
 
 ### Fixed
