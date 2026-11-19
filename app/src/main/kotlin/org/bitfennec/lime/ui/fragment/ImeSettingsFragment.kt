@@ -6,8 +6,10 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
+import androidx.annotation.IdRes
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
+import androidx.lifecycle.Lifecycle
 import androidx.navigation.fragment.findNavController
 import org.bitfennec.lime.R
 import org.bitfennec.lime.utils.InputMethodUtil
@@ -50,10 +52,10 @@ class ImeSettingsFragment : Fragment() {
             )
             btnSetup.visibility = View.VISIBLE
             btnSetup.setOnClickListener {
-                findNavController().navigate(R.id.action_settingsFragment_to_setupActivity)
+                navigateFromSettings(root, R.id.action_settingsFragment_to_setupActivity)
             }
             heroCard.setOnClickListener {
-                findNavController().navigate(R.id.action_settingsFragment_to_setupActivity)
+                navigateFromSettings(root, R.id.action_settingsFragment_to_setupActivity)
             }
         } else {
             tvStatus.text = getString(R.string.settings_status_enabled)
@@ -70,30 +72,39 @@ class ImeSettingsFragment : Fragment() {
     }
 
     private fun setupNavigationItems(root: View) {
-        val navController = findNavController()
-
         root.findViewById<View>(R.id.item_input_settings)?.setOnClickListener {
-            navController.navigate(R.id.action_settingsFragment_to_inputSettingsFragment)
+            navigateFromSettings(root, R.id.action_settingsFragment_to_inputSettingsFragment)
         }
         root.findViewById<View>(R.id.item_voice_settings)?.setOnClickListener {
-            navController.navigate(R.id.action_settingsFragment_to_voiceSettingsFragment)
+            navigateFromSettings(root, R.id.action_settingsFragment_to_voiceSettingsFragment)
         }
         root.findViewById<View>(R.id.item_handwriting_settings)?.setOnClickListener {
-            navController.navigate(R.id.action_settingsFragment_to_handwritingSettingsFragment)
+            navigateFromSettings(root, R.id.action_settingsFragment_to_handwritingSettingsFragment)
         }
 
         root.findViewById<View>(R.id.item_theme_settings)?.setOnClickListener {
-            navController.navigate(R.id.action_settingsFragment_to_themeSettingsFragment)
+            navigateFromSettings(root, R.id.action_settingsFragment_to_themeSettingsFragment)
         }
         root.findViewById<View>(R.id.item_clipboard_settings)?.setOnClickListener {
-            navController.navigate(R.id.action_settingsFragment_to_clipboardSettingsFragment)
+            navigateFromSettings(root, R.id.action_settingsFragment_to_clipboardSettingsFragment)
         }
 
         root.findViewById<View>(R.id.item_data_settings)?.setOnClickListener {
-            navController.navigate(R.id.action_settingsFragment_to_otherSettingsFragment)
+            navigateFromSettings(root, R.id.action_settingsFragment_to_otherSettingsFragment)
         }
         root.findViewById<View>(R.id.item_about_settings)?.setOnClickListener {
-            navController.navigate(R.id.action_settingsFragment_to_aboutFragment)
+            navigateFromSettings(root, R.id.action_settingsFragment_to_aboutFragment)
         }
+    }
+
+    private fun navigateFromSettings(root: View, @IdRes actionId: Int) {
+        if (view !== root) return
+        if (viewLifecycleOwner.lifecycle.currentState != Lifecycle.State.RESUMED) return
+        if (parentFragmentManager.isStateSaved) return
+
+        val navController = findNavController()
+        if (navController.currentDestination?.id != R.id.settingsFragment) return
+
+        navController.navigate(actionId)
     }
 }
